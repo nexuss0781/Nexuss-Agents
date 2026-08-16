@@ -107,7 +107,7 @@ export default function Home() {
   const projects = bootstrap?.projects ?? [];
   const threads = bootstrap?.threads ?? [];
   const activeThread = threads.find(thread => thread.id === activeThreadId) ?? null;
-  const messagesQuery = trpc.playground.threads.messages.useQuery({ id: activeThreadId ?? -1 }, { enabled: Boolean(activeThreadId && isAuthenticated) });
+  const messagesQuery = trpc.playground.threads.messages.useQuery({ id: activeThreadId ?? -1 }, { enabled: Boolean(activeThread && isAuthenticated) });
   const persistedMessages = (messagesQuery.data as ChatMessage[] | undefined) ?? [];
   const displayMessages = useMemo(() => [...persistedMessages, ...optimisticMessages], [persistedMessages, optimisticMessages]);
   const activeProject = activeThread?.project ?? null;
@@ -134,7 +134,7 @@ export default function Home() {
   });
   const renameThread = trpc.playground.threads.rename.useMutation({ onSuccess: async () => { setThreadDialog({ open: false }); await refresh(); }, onError: () => toast.error("Unable to rename that thread.") });
   const deleteThread = trpc.playground.threads.delete.useMutation({
-    onSuccess: async () => { setActiveThreadId(null); await refresh(); },
+    onSuccess: async () => { await refresh(); setActiveThreadId(null); },
     onError: () => toast.error("Unable to delete that thread."),
   });
   const setThreadProject = trpc.playground.threads.setProject.useMutation({ onSuccess: refresh, onError: () => toast.error("Unable to update the project.") });
