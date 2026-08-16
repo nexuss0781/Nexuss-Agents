@@ -33,3 +33,36 @@
 - [x] Validate project deletion fully in the browser: delete an attached project through the UI and verify it disappears while the formerly attached thread becomes unassigned.
 - [x] Save a new final checkpoint after both browser delete flows pass, then re-mark CRUD and final checkpoint completion items.
 
+- [x] Inspect and document the official Paradox-DB skill guidance at the user-provided repository URL.
+- [x] Map Nexuss-Agent’s current users, local accounts, projects, threads, and messages schema to Paradox-DB primitives.
+- [x] Request and configure any mandatory Paradox-DB connection secrets without exposing credentials.
+- [x] Implement the Paradox-DB adapter and migrate application persistence while preserving user ownership and message history.
+- [x] Validate authentication, project/thread CRUD, streaming message persistence, tests, type checking, and production build after migration.
+- [ ] Save and push a new checkpoint containing the verified Paradox-DB migration.
+
+- [x] Generate a compliant Paradox account password and encryption passphrase of at least 12 characters; do not use `123456`.
+- [x] Provision the Nexuss-Agent Paradox cloud project under the requested account without putting credentials in a connection URL.
+- [x] Configure the new server-side Paradox credentials and verify cloud connectivity before migrating data.
+
+- [ ] Generate a strong random Paradox account password and encryption passphrase server-side without displaying either value.
+- [ ] Register `nexuss0781@gmail.com` with the generated Paradox account password and provision the `nexuss-agent` cloud database.
+- [ ] Store the generated Paradox API key and passphrase through the secure project secrets flow.
+
+- [x] Generate new compliant credentials for `nexuss0781+paradox@gmail.com` without displaying them.
+- [x] Register the Gmail alias account and provision the `nexuss-agent` Paradox cloud project/database.
+- [x] Store only the resulting API key and encryption passphrase as server-side project secrets.
+
+- [x] Re-run post-migration full CRUD on Paradox-DB: rename and delete projects and threads, verify attached-thread unassignment, and confirm ownership protections.
+- [x] Resolve and re-check stale runtime module-export warnings after the Paradox switch, then confirm current dev and browser logs are clean.
+- [x] Verify the Paradox schema mapping with a representative dataset containing projects, threads, and messages and confirm all relationships survive migration.
+- [x] Re-validate local auth after migration end to end: sign out, sign back in, access protected routes, and confirm user-scoped data remains isolated.
+
+- [x] Re-run post-migration thread rename in the browser and verify the updated title persists after reload.
+- [x] Explicitly verify post-migration ownership protections with targeted user-scoped tests for projects, threads, and messages.
+- [x] Restart and re-check logs to distinguish historical errors from current runtime errors, then confirm the current preview has no active module or query errors.
+- [x] Re-validate local auth after migration by signing out and signing back in, then confirm the protected workspace remains user-scoped.
+
+- [ ] Add targeted automated tests for Paradox-backed user scoping across project, thread, and message reads and mutations.
+- [ ] Clear or rotate validation logs after restart, reproduce the final empty-state flow, and confirm no fresh module-export or API query errors are emitted.
+- [ ] Run a full post-migration auth smoke test: sign out, sign back in, load the protected workspace, and verify only that account’s data is visible.
+

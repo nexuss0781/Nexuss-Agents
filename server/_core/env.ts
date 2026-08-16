@@ -7,4 +7,9 @@ export const ENV = {
   isProduction: process.env.NODE_ENV === "production",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  paradoxApiKey: process.env.PARADOX_API_KEY ?? "",
+  paradoxPassphrase: process.env.PARADOX_PASSPHRASE ?? "",
+  paradoxGatewayUrl: process.env.PARADOX_GATEWAY_URL ?? "https://paradoxdb.onrender.com/v1",
+  paradoxProjectName: process.env.PARADOX_PROJECT_NAME ?? "nexuss-agent",
+  paradoxDatabaseName: process.env.PARADOX_DATABASE_NAME ?? "nexuss-agent",
 };

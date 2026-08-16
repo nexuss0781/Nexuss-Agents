@@ -1,142 +1,186 @@
-import { and, desc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
-import {
-  InsertUser,
-  localAccounts,
-  projects,
-  Project,
-  threadMessages,
-  threads,
-  Thread,
-  User,
-  users,
-} from "../drizzle/schema";
-import { ENV } from "./_core/env";
 import { nanoid } from "nanoid";
+import type { InsertUser, LocalAccount, Project, Thread, ThreadMessage, User } from "../drizzle/schema";
+import { getParadoxDb } from "./paradox";
+import { ENV } from "./_core/env";
 
-let _db: ReturnType<typeof drizzle> | null = null;
+type Row = Record<string, unknown>;
 
-export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      _db = drizzle(process.env.DATABASE_URL);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-    }
-  }
-  return _db;
+const asDate = (value: unknown) => new Date(Number(value));
+const now = () => Date.now();
+
+function mapUser(row: Row): User {
+  return {
+    id: Number(row.id),
+    openId: String(row.openId),
+    name: row.name == null ? null : String(row.name),
+    email: row.email == null ? null : String(row.email),
+    loginMethod: row.loginMethod == null ? null : String(row.loginMethod),
+    role: (row.role === "admin" ? "admin" : "user") as User["role"],
+    createdAt: asDate(row.createdAt),
+    updatedAt: asDate(row.updatedAt),
+    lastSignedIn: asDate(row.lastSignedIn),
+  };
 }
 
-async function requireDb() {
-  const db = await getDb();
-  if (!db) throw new Error("Database is unavailable");
-  return db;
+function mapProject(row: Row): Project {
+  return {
+    id: Number(row.id),
+    userId: Number(row.userId),
+    name: String(row.name),
+    description: row.description == null ? null : String(row.description),
+    color: String(row.color),
+    createdAt: asDate(row.createdAt),
+    updatedAt: asDate(row.updatedAt),
+  };
+}
+
+function mapThread(row: Row): Thread {
+  return {
+    id: Number(row.id),
+    userId: Number(row.userId),
+    projectId: row.projectId == null ? null : Number(row.projectId),
+    title: String(row.title),
+    createdAt: asDate(row.createdAt),
+    updatedAt: asDate(row.updatedAt),
+  };
+}
+
+function mapMessage(row: Row): ThreadMessage {
+  return {
+    id: Number(row.id),
+    threadId: Number(row.threadId),
+    userId: Number(row.userId),
+    role: (row.role === "assistant" ? "assistant" : "user") as ThreadMessage["role"],
+    content: String(row.content),
+    createdAt: asDate(row.createdAt),
+  };
+}
+
+export async function getDb() {
+  return getParadoxDb();
+}
+
+async function db() {
+  return getParadoxDb();
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) throw new Error("User openId is required for upsert");
-  const db = await getDb();
-  if (!db) return;
-
-  const values: InsertUser = { openId: user.openId, lastSignedIn: user.lastSignedIn ?? new Date() };
-  const updateSet: Record<string, unknown> = { lastSignedIn: values.lastSignedIn };
-  for (const field of ["name", "email", "loginMethod"] as const) {
-    if (user[field] !== undefined) {
-      values[field] = user[field] ?? null;
-      updateSet[field] = user[field] ?? null;
-    }
+  const connection = await db();
+  const timestamp = (user.lastSignedIn ?? new Date()).getTime();
+  const existing = connection.execute("SELECT id FROM users WHERE openId = ? LIMIT 1", [user.openId]).rows[0] as Row | undefined;
+  if (existing) {
+    connection.execute(
+      "UPDATE users SET name = ?, email = ?, loginMethod = ?, role = ?, updatedAt = ?, lastSignedIn = ? WHERE openId = ?",
+      [user.name ?? null, user.email ?? null, user.loginMethod ?? null, user.role ?? (user.openId === ENV.ownerOpenId ? "admin" : "user"), timestamp, timestamp, user.openId],
+    );
+    return;
   }
-  values.role = user.role ?? (user.openId === ENV.ownerOpenId ? "admin" : "user");
-  updateSet.role = values.role;
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+  connection.execute(
+    "INSERT INTO users (openId, name, email, loginMethod, role, createdAt, updatedAt, lastSignedIn) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    [user.openId, user.name ?? null, user.email ?? null, user.loginMethod ?? null, user.role ?? (user.openId === ENV.ownerOpenId ? "admin" : "user"), timestamp, timestamp, timestamp],
+  );
 }
 
 export async function getUserByOpenId(openId: string) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-  return result[0];
+  const connection = await db();
+  const row = connection.execute("SELECT * FROM users WHERE openId = ? LIMIT 1", [openId]).rows[0] as Row | undefined;
+  return row ? mapUser(row) : undefined;
 }
 
 export async function getUserById(id: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
-  return result[0];
+  const connection = await db();
+  const row = connection.execute("SELECT * FROM users WHERE id = ? LIMIT 1", [id]).rows[0] as Row | undefined;
+  return row ? mapUser(row) : undefined;
 }
 
-export async function getLocalAccountByEmail(email: string) {
-  const db = await requireDb();
-  const result = await db
-    .select({ account: localAccounts, user: users })
-    .from(localAccounts)
-    .innerJoin(users, eq(localAccounts.userId, users.id))
-    .where(eq(localAccounts.email, email.trim().toLowerCase()))
-    .limit(1);
-  return result[0];
+export async function getLocalAccountByEmail(email: string): Promise<{ account: LocalAccount; user: User } | undefined> {
+  const connection = await db();
+  const row = connection.execute(
+    "SELECT a.*, u.openId, u.name, u.email AS userEmail, u.loginMethod, u.role, u.createdAt AS userCreatedAt, u.updatedAt AS userUpdatedAt, u.lastSignedIn FROM localAccounts a JOIN users u ON u.id = a.userId WHERE a.email = ? LIMIT 1",
+    [email.trim().toLowerCase()],
+  ).rows[0] as Row | undefined;
+  if (!row) return undefined;
+  const account: LocalAccount = {
+    id: Number(row.id), userId: Number(row.userId), email: String(row.email), passwordHash: String(row.passwordHash),
+    createdAt: asDate(row.createdAt), updatedAt: asDate(row.updatedAt),
+  };
+  const user: User = {
+    id: Number(row.userId), openId: String(row.openId), name: row.name == null ? null : String(row.name),
+    email: row.userEmail == null ? null : String(row.userEmail), loginMethod: row.loginMethod == null ? null : String(row.loginMethod),
+    role: (row.role === "admin" ? "admin" : "user") as User["role"], createdAt: asDate(row.userCreatedAt), updatedAt: asDate(row.userUpdatedAt), lastSignedIn: asDate(row.lastSignedIn),
+  };
+  return { account, user };
 }
 
 export async function createLocalUser(input: { name: string; email: string; passwordHash: string }): Promise<User> {
-  const db = await requireDb();
+  const connection = await db();
   const email = input.email.trim().toLowerCase();
   const existing = await getLocalAccountByEmail(email);
   if (existing) throw new Error("An account already exists for this email address");
-
-  return db.transaction(async tx => {
-    const now = new Date();
-    const inserted = await tx.insert(users).values({
-      openId: `local_${nanoid(21)}`,
-      name: input.name.trim(),
-      email,
-      loginMethod: "password",
-      role: "user",
-      lastSignedIn: now,
-    });
-    const userId = Number(inserted[0].insertId);
-    await tx.insert(localAccounts).values({ userId, email, passwordHash: input.passwordHash });
-    const user = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
-    return user[0]!;
-  });
+  const timestamp = now();
+  connection.execute("BEGIN");
+  try {
+    const result = connection.execute(
+      "INSERT INTO users (openId, name, email, loginMethod, role, createdAt, updatedAt, lastSignedIn) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [`local_${nanoid(21)}`, input.name.trim(), email, "password", "user", timestamp, timestamp, timestamp],
+    );
+    const userId = Number(result.lastInsertRowid);
+    connection.execute("INSERT INTO localAccounts (userId, email, passwordHash, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)", [userId, email, input.passwordHash, timestamp, timestamp]);
+    connection.execute("COMMIT");
+    const user = await getUserById(userId);
+    if (!user) throw new Error("Created user could not be reloaded");
+    return user;
+  } catch (error) {
+    connection.execute("ROLLBACK");
+    throw error;
+  }
 }
 
 export async function touchLastSignedIn(userId: number) {
-  const db = await getDb();
-  if (!db) return;
-  await db.update(users).set({ lastSignedIn: new Date() }).where(eq(users.id, userId));
+  const connection = await db();
+  const timestamp = now();
+  connection.execute("UPDATE users SET lastSignedIn = ?, updatedAt = ? WHERE id = ?", [timestamp, timestamp, userId]);
 }
 
 export async function listProjects(userId: number): Promise<Project[]> {
-  const db = await requireDb();
-  return db.select().from(projects).where(eq(projects.userId, userId)).orderBy(desc(projects.updatedAt));
+  const connection = await db();
+  return connection.execute("SELECT * FROM projects WHERE userId = ? ORDER BY updatedAt DESC", [userId]).rows.map(row => mapProject(row as Row));
 }
 
 export async function getProjectForUser(projectId: number, userId: number) {
-  const db = await requireDb();
-  const result = await db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.userId, userId))).limit(1);
-  return result[0];
+  const connection = await db();
+  const row = connection.execute("SELECT * FROM projects WHERE id = ? AND userId = ? LIMIT 1", [projectId, userId]).rows[0] as Row | undefined;
+  return row ? mapProject(row) : undefined;
 }
 
 export async function createProject(input: { userId: number; name: string; description?: string | null; color: string }) {
-  const db = await requireDb();
-  const result = await db.insert(projects).values(input);
-  const inserted = await db.select().from(projects).where(eq(projects.id, Number(result[0].insertId))).limit(1);
-  return inserted[0]!;
+  const connection = await db();
+  const timestamp = now();
+  const result = connection.execute("INSERT INTO projects (userId, name, description, color, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)", [input.userId, input.name, input.description ?? null, input.color, timestamp, timestamp]);
+  const row = connection.execute("SELECT * FROM projects WHERE id = ? LIMIT 1", [Number(result.lastInsertRowid)]).rows[0] as Row;
+  return mapProject(row);
 }
 
 export async function updateProject(input: { id: number; userId: number; name?: string; description?: string | null; color?: string }) {
-  const db = await requireDb();
-  const updates = { ...input, updatedAt: new Date() };
-  delete (updates as Partial<typeof input>).id;
-  delete (updates as Partial<typeof input>).userId;
-  await db.update(projects).set(updates).where(and(eq(projects.id, input.id), eq(projects.userId, input.userId)));
+  const connection = await db();
+  const fields: string[] = [];
+  const params: unknown[] = [];
+  if (input.name !== undefined) { fields.push("name = ?"); params.push(input.name); }
+  if (input.description !== undefined) { fields.push("description = ?"); params.push(input.description); }
+  if (input.color !== undefined) { fields.push("color = ?"); params.push(input.color); }
+  if (fields.length) {
+    fields.push("updatedAt = ?"); params.push(now(), input.id, input.userId);
+    connection.execute(`UPDATE projects SET ${fields.join(", ")} WHERE id = ? AND userId = ?`, params);
+  }
   return getProjectForUser(input.id, input.userId);
 }
 
 export async function deleteProject(id: number, userId: number) {
-  const db = await requireDb();
-  await db.update(threads).set({ projectId: null, updatedAt: new Date() }).where(and(eq(threads.projectId, id), eq(threads.userId, userId)));
-  await db.delete(projects).where(and(eq(projects.id, id), eq(projects.userId, userId)));
+  const connection = await db();
+  const timestamp = now();
+  connection.execute("UPDATE threads SET projectId = NULL, updatedAt = ? WHERE projectId = ? AND userId = ?", [timestamp, id, userId]);
+  connection.execute("DELETE FROM projects WHERE id = ? AND userId = ?", [id, userId]);
 }
 
 export type ThreadSummary = Thread & {
@@ -145,57 +189,62 @@ export type ThreadSummary = Thread & {
 };
 
 export async function listThreads(userId: number): Promise<ThreadSummary[]> {
-  const db = await requireDb();
-  const userThreads = await db.select().from(threads).where(eq(threads.userId, userId)).orderBy(desc(threads.updatedAt));
-  return Promise.all(userThreads.map(async thread => {
-    const [project, latest] = await Promise.all([
-      thread.projectId ? getProjectForUser(thread.projectId, userId) : Promise.resolve(undefined),
-      db.select().from(threadMessages).where(and(eq(threadMessages.threadId, thread.id), eq(threadMessages.userId, userId))).orderBy(desc(threadMessages.createdAt)).limit(1),
-    ]);
+  const connection = await db();
+  const rows = connection.execute("SELECT * FROM threads WHERE userId = ? ORDER BY updatedAt DESC", [userId]).rows;
+  return rows.map(row => {
+    const thread = mapThread(row as Row);
+    const projectRow = thread.projectId == null ? undefined : connection.execute("SELECT * FROM projects WHERE id = ? AND userId = ? LIMIT 1", [thread.projectId, userId]).rows[0] as Row | undefined;
+    const latest = connection.execute("SELECT * FROM threadMessages WHERE threadId = ? AND userId = ? ORDER BY createdAt DESC, id DESC LIMIT 1", [thread.id, userId]).rows[0] as Row | undefined;
     return {
       ...thread,
-      project: project ? { id: project.id, name: project.name, color: project.color } : null,
-      latestMessage: latest[0] ? { content: latest[0].content, role: latest[0].role, createdAt: latest[0].createdAt } : null,
+      project: projectRow ? { id: Number(projectRow.id), name: String(projectRow.name), color: String(projectRow.color) } : null,
+      latestMessage: latest ? { content: String(latest.content), role: (latest.role === "assistant" ? "assistant" : "user"), createdAt: asDate(latest.createdAt) } : null,
     };
-  }));
+  });
 }
 
 export async function getThreadForUser(id: number, userId: number) {
-  const db = await requireDb();
-  const result = await db.select().from(threads).where(and(eq(threads.id, id), eq(threads.userId, userId))).limit(1);
-  return result[0];
+  const connection = await db();
+  const row = connection.execute("SELECT * FROM threads WHERE id = ? AND userId = ? LIMIT 1", [id, userId]).rows[0] as Row | undefined;
+  return row ? mapThread(row) : undefined;
 }
 
 export async function createThread(userId: number, title = "New conversation") {
-  const db = await requireDb();
-  const result = await db.insert(threads).values({ userId, title });
-  return getThreadForUser(Number(result[0].insertId), userId);
+  const connection = await db();
+  const timestamp = now();
+  const result = connection.execute("INSERT INTO threads (userId, title, createdAt, updatedAt) VALUES (?, ?, ?, ?)", [userId, title, timestamp, timestamp]);
+  return getThreadForUser(Number(result.lastInsertRowid), userId);
 }
 
 export async function updateThread(input: { id: number; userId: number; title?: string; projectId?: number | null }) {
-  const db = await requireDb();
-  const updates = { ...input, updatedAt: new Date() };
-  delete (updates as Partial<typeof input>).id;
-  delete (updates as Partial<typeof input>).userId;
-  await db.update(threads).set(updates).where(and(eq(threads.id, input.id), eq(threads.userId, input.userId)));
+  const connection = await db();
+  const fields: string[] = [];
+  const params: unknown[] = [];
+  if (input.title !== undefined) { fields.push("title = ?"); params.push(input.title); }
+  if (input.projectId !== undefined) { fields.push("projectId = ?"); params.push(input.projectId); }
+  if (fields.length) {
+    fields.push("updatedAt = ?"); params.push(now(), input.id, input.userId);
+    connection.execute(`UPDATE threads SET ${fields.join(", ")} WHERE id = ? AND userId = ?`, params);
+  }
   return getThreadForUser(input.id, input.userId);
 }
 
 export async function deleteThread(id: number, userId: number) {
-  const db = await requireDb();
-  await db.delete(threadMessages).where(and(eq(threadMessages.threadId, id), eq(threadMessages.userId, userId)));
-  await db.delete(threads).where(and(eq(threads.id, id), eq(threads.userId, userId)));
+  const connection = await db();
+  connection.execute("DELETE FROM threadMessages WHERE threadId = ? AND userId = ?", [id, userId]);
+  connection.execute("DELETE FROM threads WHERE id = ? AND userId = ?", [id, userId]);
 }
 
 export async function listThreadMessages(threadId: number, userId: number) {
-  const db = await requireDb();
-  return db.select().from(threadMessages).where(and(eq(threadMessages.threadId, threadId), eq(threadMessages.userId, userId))).orderBy(threadMessages.createdAt);
+  const connection = await db();
+  return connection.execute("SELECT * FROM threadMessages WHERE threadId = ? AND userId = ? ORDER BY createdAt ASC, id ASC", [threadId, userId]).rows.map(row => mapMessage(row as Row));
 }
 
 export async function createThreadMessage(input: { threadId: number; userId: number; role: "user" | "assistant"; content: string }) {
-  const db = await requireDb();
-  const result = await db.insert(threadMessages).values(input);
-  await db.update(threads).set({ updatedAt: new Date() }).where(and(eq(threads.id, input.threadId), eq(threads.userId, input.userId)));
-  const inserted = await db.select().from(threadMessages).where(eq(threadMessages.id, Number(result[0].insertId))).limit(1);
-  return inserted[0]!;
+  const connection = await db();
+  const timestamp = now();
+  const result = connection.execute("INSERT INTO threadMessages (threadId, userId, role, content, createdAt) VALUES (?, ?, ?, ?, ?)", [input.threadId, input.userId, input.role, input.content, timestamp]);
+  connection.execute("UPDATE threads SET updatedAt = ? WHERE id = ? AND userId = ?", [timestamp, input.threadId, input.userId]);
+  const row = connection.execute("SELECT * FROM threadMessages WHERE id = ? LIMIT 1", [Number(result.lastInsertRowid)]).rows[0] as Row;
+  return mapMessage(row);
 }

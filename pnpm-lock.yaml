@@ -141,7 +141,7 @@ importers:
         version: 17.2.3
       drizzle-orm:
         specifier: ^0.44.5
-        version: 0.44.6(mysql2@3.15.1)
+        version: 0.44.6(mysql2@3.15.1)(sql.js@1.14.2)
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.2.1)
@@ -175,6 +175,9 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      parad:
+        specifier: ^2.2.2
+        version: 2.2.2
       react:
         specifier: ^19.2.1
         version: 19.2.1
@@ -3701,6 +3704,11 @@ packages:
   package-manager-detector@1.5.0:
     resolution: {integrity: sha512-uBj69dVlYe/+wxj8JOpr97XfsxH/eumMt6HqjNTmJDf/6NO9s+0uxeOneIz3AsPt2m6y9PqzDzd3ATcU17MNfw==}
 
+  parad@2.2.2:
+    resolution: {integrity: sha512-QVDcZsoRd42xMOy4wlxVWu8sSFVOPAifQatdfPH9a8JAIjVcHhK/Wm1VvB7PdgPSOoVEF7/365dWz0uTTut3HQ==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   parse-entities@4.0.2:
     resolution: {integrity: sha512-GG2AQYWoLgL877gQIKeRPGO1xF9+eG1ujIb5soS5gPvLQ1y2o8FL90w2QWNdf9I361Mpp7726c+lj3U0qK1uGw==}
 
@@ -4025,6 +4033,9 @@ packages:
 
   space-separated-tokens@2.0.2:
     resolution: {integrity: sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q==}
+
+  sql.js@1.14.2:
+    resolution: {integrity: sha512-3ZGPovObMFrdw79zrUHbfdE/DLIsy8jdNdssmMSQuRAymedU6q84asPt0kgiqrdMYlPegDItiIMfmIXzZnYFcw==}
 
   sqlstring@2.3.3:
     resolution: {integrity: sha512-qC9iz2FlN7DQl3+wjwn3802RTyjCx7sDvfQEXchwa6CWOx07/WVfh91gBmQ9fahw8snwGEWU3xGzOt4tFyHLxg==}
@@ -7239,9 +7250,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.44.6(mysql2@3.15.1):
+  drizzle-orm@0.44.6(mysql2@3.15.1)(sql.js@1.14.2):
     optionalDependencies:
       mysql2: 3.15.1
+      sql.js: 1.14.2
 
   dunder-proto@1.0.1:
     dependencies:
@@ -8338,6 +8350,10 @@ snapshots:
 
   package-manager-detector@1.5.0: {}
 
+  parad@2.2.2:
+    dependencies:
+      sql.js: 1.14.2
+
   parse-entities@4.0.2:
     dependencies:
       '@types/unist': 2.0.11
@@ -8772,6 +8788,8 @@ snapshots:
   source-map@0.6.1: {}
 
   space-separated-tokens@2.0.2: {}
+
+  sql.js@1.14.2: {}
 
   sqlstring@2.3.3: {}
 
