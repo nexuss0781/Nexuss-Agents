@@ -1,5 +1,27 @@
 {
   "version": "7",
   "dialect": "mysql",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1786817053479,
+      "tag": "0000_tough_phantom_reporter",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1786817297977,
+      "tag": "0001_regular_tag",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1786863976746,
+      "tag": "0002_smart_magdalene",
+      "breakpoints": true
+    }
+  ]
 }

@@ -420,6 +420,35 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   return (await response.json()) as InvokeResult;
 }
 
+/**
+ * Opens a server-side chat completion stream. The caller is responsible for
+ * consuming the response body and converting provider frames into client SSE.
+ */
+export async function invokeLLMStream(params: InvokeParams): Promise<Response> {
+  assertApiKey();
+  const {
+    messages, tools, toolChoice, tool_choice, outputSchema, output_schema,
+    responseFormat, response_format, model, thinking, reasoning, maxTokens, max_tokens,
+  } = params;
+  const payload: Record<string, unknown> = { messages: messages.map(normalizeMessage), stream: true };
+  if (model) payload.model = model;
+  if (tools && tools.length > 0) payload.tools = tools;
+  const normalizedToolChoice = normalizeToolChoice(toolChoice || tool_choice, tools);
+  if (normalizedToolChoice) payload.tool_choice = normalizedToolChoice;
+  const resolvedMaxTokens = max_tokens ?? maxTokens;
+  if (typeof resolvedMaxTokens === "number") payload.max_tokens = resolvedMaxTokens;
+  if (thinking) payload.thinking = thinking;
+  if (reasoning) payload.reasoning = reasoning;
+  const normalizedResponseFormat = normalizeResponseFormat({ responseFormat, response_format, outputSchema, output_schema });
+  if (normalizedResponseFormat) payload.response_format = normalizedResponseFormat;
+
+  return fetchWithBackoff(resolveApiUrl(), {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${ENV.forgeApiKey}` },
+    body: JSON.stringify(payload),
+  });
+}
+
 export type ModelInfo = {
   id: string;
   object: string;
