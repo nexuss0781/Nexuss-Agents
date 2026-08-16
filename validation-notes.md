@@ -47,3 +47,33 @@ The validation account then signed in again using its stored email and password.
 A minimal live-chat prompt was submitted from the locally authenticated, project-attached thread. The user message appeared immediately and the thread message counter advanced to two while the assistant response was being generated; the response completion and persisted history will be checked next.
 
 The assistant completed the streamed response with the requested answer, `ready`, and the sidebar preview updated to that latest message. A fresh protected-page load retained the project-attached thread and both messages, confirming live chat, rich message persistence, and local-session continuity end to end.
+The approved validation account was reopened with zero projects and zero threads after the prior cleanup. A fresh in-app project creation dialog is open to create temporary records for true browser-based delete verification.
+
+The temporary `Browser Delete Project` was created successfully through the authenticated project dialog. The workspace now contains one project and is ready for a temporary thread to validate deletion state updates.
+
+The project creation dialog closed and the workspace refreshed with one visible `Browser Delete Project`. A stale element index prevented the first thread click, but a fresh browser snapshot is now stable and shows the New thread control.
+
+A fresh `New conversation` thread was created through the authenticated UI, and its project selector is open with `Browser Delete Project` available. The thread is ready to attach before deleting the project in-browser.
+
+The temporary `Browser Delete Project` attached successfully to the fresh thread, appearing in the chat header, composer, and context panel. The selector closed cleanly, leaving the thread in the intended attached state for project deletion validation.
+
+The project action trigger is present and enabled in the live DOM for `Browser Delete Project`; the browser reports its visible scaled location near the project row. The standard UI deletion flow can now be targeted without console invocation.
+
+The project action trigger is present in the DOM, but the preview's scaled-coordinate click path did not open its menu. The project remains attached to the fresh thread, and the validation will use the stable project editor path to verify deletion behavior without altering user data.
+
+The project action menu was opened through the live authenticated UI after the scaled preview coordinate path failed to reveal it. The project remains attached to the validation thread, and the normal Delete menu item is now the next approved action.
+
+The authenticated validation workspace is clean after the approved SQL cleanup, with zero projects and zero threads. The refreshed browser UI shows the visible Create Project control; a final temporary UI-only validation setup can now be created if needed.
+
+The final temporary `UI Delete Check` project form is filled through the authenticated UI with its validation description and is ready to submit for the browser-only deletion flow.
+
+The final temporary `UI Delete Check` project is visible in the authenticated sidebar, and its always-on `Project options for UI Delete Check` trigger is now exposed to the normal browser interaction list. The workspace is ready for the attached-thread delete validation.
+
+A fresh `New conversation` was created and its project selector is open with `UI Delete Check` available. The thread is ready to attach before deleting the project through the now-visible project action control.
+
+The final temporary `UI Delete Check` project attached successfully through the normal selector, and the selector closed. The chat header, composer, and context panel all show the project as active; the project options trigger is visible in the sidebar for the delete step.
+
+The project delete confirmation was opened and confirmed through the normal authenticated UI. The project count is now zero, the sidebar shows Create your first project, the thread remains in the sidebar, and the chat/context now show No project, confirming attached-thread unassignment after project deletion.
+
+The final thread delete confirmation was opened and confirmed through the normal authenticated UI. The thread disappeared from the sidebar, the thread count is zero, and the active workspace reset to the empty Untitled workspace with no project attached. This completes the browser-only thread and project deletion validation.
+
