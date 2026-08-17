@@ -88,3 +88,15 @@
 - [x] Commit and push the finalized Dockerfile, Render Blueprint, and environment guide to `nexuss0781/Nexuss-Agents`.
 - [x] Verify the pushed repository link and deployment files before delivery.
 
+- [x] Inspect the Nexuss Auth project configuration and obtain the exact project ID, enabled providers, and registered callback URI without guessing.
+- [x] Add the Nexuss Auth SDK and server-only environment configuration, preserving existing Paradox user ownership.
+- [x] Defer replacement of the local password/JWT session because the current cross-site Render/Vercel deployment cannot support Nexuss Auth session recovery securely; do not trust browser-provided identity data.
+- [x] Validate Nexuss Auth token authority, service health, exact callback configuration, and the cross-site session-handoff constraint with no credential exposure.
+- [x] Update Render deployment configuration and save a verified Nexuss Auth migration checkpoint.
+
+- [x] Audit the Nexuss Auth cookie, callback, origin, and session-handoff compatibility with the current Render and auth-service domains.
+- [x] Apply only a secure Nexuss Auth implementation that preserves server-side identity verification and Paradox user ownership; do not trust browser-provided identity data.
+- [x] Document the final deployment requirement or constraint and complete tests, builds, configuration review, and checkpoint audit without exposing credentials.
+
+- [x] Record Nexuss Auth as registered and prepared but not activated, because the current cross-site cookie topology blocks a secure application-session integration.
+- [x] Save a new checkpoint containing the audited Nexuss Auth configuration, tests, Render settings, and deployment constraint documentation.

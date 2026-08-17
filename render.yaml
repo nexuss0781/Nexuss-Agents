@@ -39,4 +39,9 @@ services:
         sync: false
       - key: PARADOX_DB_PATH
         value: /tmp/nexuss-agent.paradox.db
-
+      - key: NEXUSS_AUTH_URL
+        value: https://nexuss-auth.vercel.app
+      - key: NEXUSS_AUTH_PROJECT_ID
+        value: nexuss-agent
+      - key: NEXUSS_AUTH_REDIRECT_URI
+        value: https://nexuss-agents.onrender.com/auth/callback

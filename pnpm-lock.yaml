@@ -175,6 +175,9 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      nexuss-auth:
+        specifier: ^1.0.0
+        version: 1.0.0
       parad:
         specifier: ^2.2.2
         version: 2.2.2
@@ -3675,6 +3678,10 @@ packages:
     peerDependencies:
       react: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
       react-dom: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
+
+  nexuss-auth@1.0.0:
+    resolution: {integrity: sha512-iWCR2IqL3b3Ho+s89rdnY9c0XXKAjRPB85OUNSDLCzaFF+VucxGn8eMedgqmzmJdlpk+lQEDSNiXlbjBJ2kr8w==}
+    hasBin: true
 
   node-releases@2.0.23:
     resolution: {integrity: sha512-cCmFDMSm26S6tQSDpBCg/NR8NENrVPhAJSf+XbxBG4rPFaaonlEoE9wHQmun+cls499TQGSb7ZyPBRlzgKfpeg==}
@@ -8327,6 +8334,8 @@ snapshots:
     dependencies:
       react: 19.2.1
       react-dom: 19.2.1(react@19.2.1)
+
+  nexuss-auth@1.0.0: {}
 
   node-releases@2.0.23: {}
 

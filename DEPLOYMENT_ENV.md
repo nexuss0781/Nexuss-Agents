@@ -20,5 +20,10 @@ Do not commit a real `.env` file. Configure these values locally in an ignored `
 | `VITE_FRONTEND_FORGE_API_KEY` | No | Frontend compatibility key | Use the configured frontend key if required |
 | `VITE_ANALYTICS_ENDPOINT` | No | Optional analytics endpoint | Leave blank to disable |
 | `VITE_ANALYTICS_WEBSITE_ID` | No | Optional analytics site ID | Leave blank to disable |
+| `NEXUSS_AUTH_URL` | Prepared | Nexuss Auth service URL | `https://nexuss-auth.vercel.app` |
+| `NEXUSS_AUTH_PROJECT_ID` | Prepared | Registered Nexuss Auth project | `nexuss-agent` |
+| `NEXUSS_AUTH_REDIRECT_URI` | Prepared | Exact registered callback | `https://nexuss-agents.onrender.com/auth/callback` |
 
 The Render Blueprint marks secret values as `sync: false`, while `JWT_SECRET` is generated automatically. Never paste the Paradox passphrase or API key into `render.yaml`, Dockerfile, source code, or a public GitHub file.
+
+Nexuss Auth is registered and its public configuration is included in `render.yaml`. The current Render and Nexuss Auth domains are cross-site, so the application intentionally keeps its existing secure local session until both services can be placed under a shared custom parent domain. See `NEXUSS_AUTH_AUDIT.md` for the verified session-handoff constraint.
