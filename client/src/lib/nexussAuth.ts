@@ -18,9 +18,11 @@ export const nexussAuth = createAuth({
 });
 
 export function getGoogleSignInUrl() {
-  return nexussAuth.getLoginUrl("google", {
+  const url = new URL(nexussAuth.getLoginUrl("google", {
     redirectUri: NEXUSS_AUTH_PUBLIC_CONFIG.redirectUri,
-  });
+  }));
+  url.searchParams.set("handoff", "1");
+  return url.toString();
 }
 
 export function getGitHubSignInUrl() {

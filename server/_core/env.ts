@@ -12,4 +12,7 @@ export const ENV = {
   paradoxGatewayUrl: process.env.PARADOX_GATEWAY_URL ?? "https://paradoxdb.onrender.com/v1",
   paradoxProjectName: process.env.PARADOX_PROJECT_NAME ?? "nexuss-agent",
   paradoxDatabaseName: process.env.PARADOX_DATABASE_NAME ?? "nexuss-agent",
+  nexussAuthUrl: process.env.NEXUSS_AUTH_URL ?? "https://nexuss-auth.vercel.app",
+  nexussAuthProjectId: process.env.NEXUSS_AUTH_PROJECT_ID ?? "nexuss-agent-v2",
+  nexussAuthRedirectUri: process.env.NEXUSS_AUTH_REDIRECT_URI ?? "https://nexuss-agents.onrender.com/auth/callback",
 };

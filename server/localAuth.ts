@@ -28,9 +28,9 @@ export async function authenticatePassword(email: string, password: string) {
   return account.user;
 }
 
-export async function createLocalSessionToken(userId: number) {
+export async function createLocalSessionToken(userId: number, authMethod: "password" | "nexuss" = "password") {
   const expirationSeconds = Math.floor((Date.now() + SESSION_DURATION_MS) / 1000);
-  return new SignJWT({ userId, authMethod: "password" })
+  return new SignJWT({ userId, authMethod })
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setIssuedAt()
     .setExpirationTime(expirationSeconds)
@@ -43,9 +43,11 @@ export async function authenticateLocalRequest(req: Request) {
   try {
     const { payload } = await jwtVerify(token, sessionSecret(), { algorithms: ["HS256"] });
     const userId = payload.userId;
-    if (typeof userId !== "number" || payload.authMethod !== "password") return null;
+    if (typeof userId !== "number" || (payload.authMethod !== "password" && payload.authMethod !== "nexuss")) return null;
     const user = await getUserById(userId);
-    if (!user || user.loginMethod !== "password") return null;
+    if (!user) return null;
+    if (payload.authMethod === "password" && user.loginMethod !== "password") return null;
+    if (payload.authMethod === "nexuss" && user.loginMethod !== "google") return null;
     void touchLastSignedIn(user.id);
     return user;
   } catch {
@@ -53,8 +55,8 @@ export async function authenticateLocalRequest(req: Request) {
   }
 }
 
-export async function establishLocalSession(req: Request, res: Response, userId: number) {
-  const token = await createLocalSessionToken(userId);
+export async function establishLocalSession(req: Request, res: Response, userId: number, authMethod: "password" | "nexuss" = "password") {
+  const token = await createLocalSessionToken(userId, authMethod);
   res.cookie(COOKIE_NAME, token, {
     ...getSessionCookieOptions(req),
     maxAge: SESSION_DURATION_MS,

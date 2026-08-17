@@ -42,6 +42,12 @@ services:
       - key: NEXUSS_AUTH_URL
         value: https://nexuss-auth.vercel.app
       - key: NEXUSS_AUTH_PROJECT_ID
-        value: nexuss-agent
+        value: nexuss-agent-v2
       - key: NEXUSS_AUTH_REDIRECT_URI
+        value: https://nexuss-agents.onrender.com/auth/callback
+      - key: VITE_NEXUSS_AUTH_URL
+        value: https://nexuss-auth.vercel.app
+      - key: VITE_NEXUSS_AUTH_PROJECT_ID
+        value: nexuss-agent-v2
+      - key: VITE_NEXUSS_AUTH_REDIRECT_URI
         value: https://nexuss-agents.onrender.com/auth/callback
