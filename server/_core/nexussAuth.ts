@@ -17,19 +17,34 @@ function queryString(req: Request, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function errorDetails(error: unknown) {
+  return error instanceof Error
+    ? { name: error.name, message: error.message }
+    : { name: "UnknownError", message: String(error) };
+}
+
 type HandoffExchangeResult =
   | { user: HandoffUser; error: null }
-  | { user: null; error: "upstream_rejected" | "invalid_response" };
+  | { user: null; error: "upstream_rejected" | "invalid_response" | "upstream_unavailable" };
 
 async function exchangeHandoff(handoffToken: string): Promise<HandoffExchangeResult> {
-  const response = await fetch(`${ENV.nexussAuthUrl}/v1/handoff/exchange`, {
-    method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json" },
-    body: JSON.stringify({
+  let response: globalThis.Response;
+  try {
+    response = await fetch(`${ENV.nexussAuthUrl}/v1/handoff/exchange`, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({
+        projectId: ENV.nexussAuthProjectId,
+        handoffToken,
+      }),
+    });
+  } catch (error) {
+    console.error("[Nexuss Auth] Handoff exchange network failure", {
       projectId: ENV.nexussAuthProjectId,
-      handoffToken,
-    }),
-  });
+      ...errorDetails(error),
+    });
+    return { user: null, error: "upstream_unavailable" };
+  }
   if (!response.ok) {
     let reason = "unknown";
     try {
@@ -68,6 +83,13 @@ export function registerNexussAuthRoutes(app: Express) {
     const handoffToken = queryString(req, "handoff_token");
     const result = queryString(req, "nex_auth");
 
+    console.info("[Nexuss Auth] Handoff callback started", {
+      projectId: ENV.nexussAuthProjectId,
+      result: result ?? "missing",
+      hasHandoffToken: Boolean(handoffToken),
+      handoffTokenLength: handoffToken?.length ?? 0,
+    });
+
     if (result === "denied") {
       res.redirect(302, "/?auth=denied");
       return;
@@ -79,10 +101,18 @@ export function registerNexussAuthRoutes(app: Express) {
 
     const exchange = await exchangeHandoff(handoffToken);
     if (!exchange.user) {
+      console.warn("[Nexuss Auth] Handoff callback stopped at exchange", {
+        projectId: ENV.nexussAuthProjectId,
+        reason: exchange.error,
+      });
       res.status(401).json({ error: "nexuss_auth_handoff_rejected", reason: exchange.error });
       return;
     }
 
+    console.info("[Nexuss Auth] Handoff exchange succeeded", {
+      projectId: ENV.nexussAuthProjectId,
+      userReceived: true,
+    });
     const authUser = exchange.user;
     const openId = `nexuss:${authUser.id}`;
     const localUserInput = {
@@ -105,13 +135,21 @@ export function registerNexussAuthRoutes(app: Express) {
       try {
         await establishLocalSession(req, res, localUser.id, "nexuss");
       } catch (error) {
-        console.error("[Nexuss Auth] Local session could not be created", error);
+        console.error("[Nexuss Auth] Local session could not be created", {
+          projectId: ENV.nexussAuthProjectId,
+          jwtSecretConfigured: ENV.cookieSecret.length >= 32,
+          ...errorDetails(error),
+        });
         res.status(503).json({ error: "session_configuration_invalid" });
         return;
       }
       res.redirect(302, "/");
     } catch (error) {
-      console.error("[Nexuss Auth] Local persistence failed", error);
+      console.error("[Nexuss Auth] Local persistence failed", {
+        projectId: ENV.nexussAuthProjectId,
+        stage: "upsert_user_or_reload",
+        ...errorDetails(error),
+      });
       res.status(503).json({ error: "local_persistence_unavailable" });
     }
   });
