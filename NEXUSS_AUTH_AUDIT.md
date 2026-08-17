@@ -19,3 +19,5 @@ To complete the migration securely, host both the app and Nexuss Auth on subdoma
 ## Verified signals
 
 The Nexuss Auth token validation test passed using the official CLI. The Nexuss Auth configuration test passed against the service health endpoint and registered production settings. Both tests automatically skip when their private environment configuration is absent, so ordinary source-only test runs do not require credentials.
+
+On 2026-08-17, the configured Render hostname `https://nexuss-agents.onrender.com` resolved in the browser but displayed no rendered application content during the audit. The hostname remains the exact registered Nexuss Auth origin and callback host; deployment runtime troubleshooting is separate from the verified authentication-domain compatibility finding.

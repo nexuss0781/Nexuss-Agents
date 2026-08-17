@@ -100,3 +100,7 @@
 
 - [x] Record Nexuss Auth as registered and prepared but not activated, because the current cross-site cookie topology blocks a secure application-session integration.
 - [x] Save a new checkpoint containing the audited Nexuss Auth configuration, tests, Render settings, and deployment constraint documentation.
+
+- [ ] Audit the current Render and Nexuss Auth domain topology and identify only supported same-site activation options.
+- [ ] Apply safe Nexuss Auth readiness improvements that do not replace secure runtime authentication prematurely.
+- [ ] Revalidate configuration, tests, build, audit documentation, and save a continued readiness checkpoint.
