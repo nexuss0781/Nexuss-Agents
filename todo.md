@@ -1,8 +1,7 @@
-# Sidebar and Workspace Polish
+# Graphite and Espresso Accent Palette
 
-- [ ] Inspect sidebar, composer, profile, and placeholder label markup.
-- [ ] Calm the sidebar with a restrained brown accent while keeping key text white.
-- [ ] Replace technical placeholder labels with professional workspace language.
-- [ ] Add a plus control inside the composer.
-- [ ] Add a profile avatar and name row beneath Preferences.
-- [ ] Validate desktop/mobile behavior, then save and push the update to master.
+- [ ] Audit the current brown accent rules.
+- [ ] Replace saturated brown fills with graphite surfaces and muted espresso accents.
+- [ ] Preserve warm-white primary text and all non-accent styling.
+- [ ] Validate desktop/mobile rendering and production build.
+- [ ] Save and push the revised palette to master.
