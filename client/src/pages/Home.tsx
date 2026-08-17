@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
+import { getGoogleSignInUrl } from "@/lib/nexussAuth";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -86,9 +87,6 @@ export default function Home() {
   const utils = trpc.useUtils();
   const [authError, setAuthError] = useState<string | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
-  const [showLegacySignIn] = useState(true);
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
   const [activeThreadId, setActiveThreadId] = useState<number | null>(null);
   const [composer, setComposer] = useState("");
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
@@ -112,8 +110,6 @@ export default function Home() {
   const displayMessages = useMemo(() => [...persistedMessages, ...optimisticMessages], [persistedMessages, optimisticMessages]);
   const activeProject = activeThread?.project ?? null;
   const tokenEstimate = Math.ceil(composer.trim().length / 4);
-  const signIn = trpc.auth.login.useMutation();
-  const authSubmitting = signIn.isPending;
   useEffect(() => {
     if (!activeThreadId && threads.length) setActiveThreadId(threads[0].id);
   }, [activeThreadId, threads]);
@@ -250,15 +246,12 @@ export default function Home() {
     }
   };
 
-  const submitLegacySignIn = async (event: FormEvent) => {
-    event.preventDefault();
+  const continueWithGoogle = () => {
     setAuthError(null);
     try {
-      const account = await signIn.mutateAsync({ email: authEmail.trim(), password: authPassword });
-      utils.auth.me.setData(undefined, account);
-      await utils.auth.me.invalidate();
+      window.location.assign(getGoogleSignInUrl());
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "We couldn’t sign you in. Please try again.");
+      setAuthError(error instanceof Error ? error.message : "We couldn’t start Google sign-in. Please try again.");
     }
   };
 
@@ -272,17 +265,13 @@ export default function Home() {
           <div className="brand-mark"><Sparkles className="size-5" /></div>
           <p className="eyebrow">NEXUSS-AGENT</p>
           <h1>Continue your work.</h1>
-          <p className="landing-copy">Sign in to continue your conversations, projects, and focused AI work.</p>
+          <p className="landing-copy">Sign in with Google to continue your conversations, projects, and focused AI work.</p>
           <div className="auth-form">
             {authNotice && <p className="login-note">{authNotice}</p>}
             {authError && <p className="auth-error">{authError}</p>}
-            {showLegacySignIn && <form className="space-y-3" onSubmit={submitLegacySignIn}>
-              <label><span>Email</span><Input type="email" value={authEmail} onChange={event => setAuthEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" required /></label>
-              <label><span>Password</span><Input type="password" value={authPassword} onChange={event => setAuthPassword(event.target.value)} placeholder="Your password" autoComplete="current-password" minLength={8} required /></label>
-              <Button type="submit" disabled={authSubmitting} className="login-button">{authSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}Sign in with email<ArrowUp className="size-4" /></Button>
-            </form>}
+            <Button type="button" onClick={continueWithGoogle} className="login-button"><span className="font-bold">G</span>Continue with Google<ArrowUp className="size-4" /></Button>
           </div>
-          <p className="login-note">Email sign-in is active. Google sign-in is disabled until its Nexuss Auth project configuration is repaired.</p>
+          <p className="login-note">Google sign-in is provided by Nexuss Auth.</p>
         </section>
       </main>
     );

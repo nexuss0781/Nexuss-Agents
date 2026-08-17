@@ -115,12 +115,11 @@
 
 - [x] Save and push the Google-first Nexuss Auth interface and audit checkpoint to GitHub for Render deployment.
 
-- [x] Restore a working secure local email sign-in fallback while Nexuss Auth cannot establish a same-site production workspace session.
-- [x] Keep Google as the primary entry point and clearly disclose that same-site domains are required for workspace-session activation.
-- [x] Validate a working authenticated workspace and logout flow before publishing the Google-first interface.
-- [x] Disable the invalid Google OAuth action in the active sign-in UI while preserving secure local email authentication.
-- [ ] Update the Nexuss Auth audit to record the invalid/revoked project token and disabled provider state without exposing credentials.
-- [ ] Re-run tests, build, local sign-in/logout smoke, and live Render sign-in screen validation, then save a corrected checkpoint.
+- [x] Make Continue with Google the only sign-in action in the active application UI.
+- [x] Remove the email/password sign-in form and client mutation from the application entry point.
+- [x] Keep Google as the only advertised provider and clearly disclose that same-site domains are required for workspace-session activation.
+- [ ] Confirm the Nexuss Auth project and same-site deployment topology before activating Google workspace sessions.
+- [ ] Re-run tests, build, and live Google sign-in validation after the external project configuration is repaired.
 - [x] Inspect the local working tree and identify the approved unpushed authentication/environment changes.
 - [x] Commit and push the approved changes to `nexuss0781/Nexuss-Agents` main without storing the GitHub token.
 - [x] Verify the remote branch and report the resulting commit/link without exposing credentials.

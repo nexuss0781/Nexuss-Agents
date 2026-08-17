@@ -10,17 +10,11 @@ The currently registered application origin and the managed Nexuss Auth service 
 
 The application must not accept a user object posted from the browser as authentication proof, because that would allow a caller to impersonate any identity. The existing local application session is retained until a secure session handoff is available.
 
-> **Activation status:** Nexuss Auth is registered, SDK/CLI-tested, and configured in Render, but it is **not activated as the application’s runtime session provider**. Local email/password authentication remains the active production path until the same-site domain requirement below is met.
+> **Activation status:** Nexuss Auth is configured as the only sign-in entry point in the application UI, but it is **not yet activated as the application’s runtime session provider**. The current project configuration and cross-site deployment topology must be repaired before Google sign-in can establish a secure workspace session.
 
-The public sign-in interface now presents **Continue with Google** as its primary action. It uses the official SDK URL builder with the registered project ID and exact production callback. A direct OAuth-start verification returned a `302` redirect to Google. The registered `/auth/callback` route returns to the sign-in screen and reports the completed or cancelled Google action without treating it as local workspace authentication proof.
+The public sign-in interface presents only **Continue with Google**. It uses the official SDK URL builder with the configured project ID and exact production callback. The application no longer presents, invokes, or documents an email/password sign-in option.
 
-An explicit email sign-in fallback remains available for existing local workspaces while the custom-domain session configuration is pending. This preserves working authenticated workspace access without allowing Google callback display data to create a local session.
-
-Browser validation confirmed the Google-first screen renders with the Google action as the primary control and exposes the email/password fallback only after an explicit existing-workspace action.
-
-The fallback was then exercised with an existing isolated account: the server authenticated the account, restored the signed local session, and rendered its user-scoped empty workspace. This confirms that removing the default password presentation did not remove the current secure workspace access path.
-
-The same browser validation then used the visible sign-out control and returned to the Google-first sign-in screen, confirming the preserved local fallback session can be terminated normally.
+Until the Nexuss project is confirmed and the application and auth service are placed under a same-site custom-domain topology, a completed Google redirect must not be treated as proof of a local workspace session. The application must continue to establish authenticated state only through a verified server-side session.
 
 ## Required deployment topology
 
