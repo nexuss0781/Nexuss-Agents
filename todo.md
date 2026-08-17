@@ -1,7 +1,8 @@
-# Expanded Workbench Composition
+# Sidebar and Workspace Polish
 
-- [ ] Inspect the current conversation heading and fixed desktop geometry.
-- [ ] Remove the large Untitled exploration heading from the conversation area.
-- [ ] Expand the workbench card into the freed vertical space toward the composer.
-- [ ] Preserve complete card content, no scrollbars, and mobile behavior.
-- [ ] Validate, save, and push the update to master.
+- [ ] Inspect sidebar, composer, profile, and placeholder label markup.
+- [ ] Calm the sidebar with a restrained brown accent while keeping key text white.
+- [ ] Replace technical placeholder labels with professional workspace language.
+- [ ] Add a plus control inside the composer.
+- [ ] Add a profile avatar and name row beneath Preferences.
+- [ ] Validate desktop/mobile behavior, then save and push the update to master.
