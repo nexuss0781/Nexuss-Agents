@@ -118,9 +118,12 @@
 - [x] Restore a working secure local email sign-in fallback while Nexuss Auth cannot establish a same-site production workspace session.
 - [x] Keep Google as the primary entry point and clearly disclose that same-site domains are required for workspace-session activation.
 - [x] Validate a working authenticated workspace and logout flow before publishing the Google-first interface.
-- [ ] Disable the invalid Google OAuth action in the active sign-in UI while preserving secure local email authentication.
+- [x] Disable the invalid Google OAuth action in the active sign-in UI while preserving secure local email authentication.
 - [ ] Update the Nexuss Auth audit to record the invalid/revoked project token and disabled provider state without exposing credentials.
 - [ ] Re-run tests, build, local sign-in/logout smoke, and live Render sign-in screen validation, then save a corrected checkpoint.
-- [ ] Inspect the local working tree and identify the approved unpushed authentication/environment changes.
-- [ ] Commit and push the approved changes to `nexuss0781/Nexuss-Agents` main without storing the GitHub token.
-- [ ] Verify the remote branch and report the resulting commit/link without exposing credentials.
+- [x] Inspect the local working tree and identify the approved unpushed authentication/environment changes.
+- [x] Commit and push the approved changes to `nexuss0781/Nexuss-Agents` main without storing the GitHub token.
+- [x] Verify the remote branch and report the resulting commit/link without exposing credentials.
+- [ ] Re-push the remaining checklist update using the preconfigured GitHub credential helper without an inline token literal.
+- [ ] Re-run and record post-push validation for the disabled Google action and active email login path on the current preview.
+- [ ] Recommend revoking the GitHub token that was pasted into chat and creating a replacement token.
