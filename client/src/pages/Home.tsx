@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-const AXOLOTL_ICON = "/manus-storage/nexuss-agent-axolotl-only_475e56f0.png";
+const AXOLOTL_ICON = "/axolotl-only.png";
 
 type Project = { id: string; name: string; description: string; tone: string };
 type Message = { id: string; role: "user" | "assistant"; content: string; createdAt: string };

@@ -1,7 +1,8 @@
-# Four-Placement AXOLOTL Branding
+# Nexuss-Agent Runtime and Visual Repair
 
-- [x] Inspect current image references and identify the two missing image slots.
-- [x] Upload the axolotl-only asset to durable web storage.
-- [x] Use the asset in the background brand motif, both missing image slots, and favicon.
-- [x] Validate all placements and responsive rendering.
-- [x] Save and push the completed update to master.
+- [ ] Inspect all asset URLs, font sources, manifest entries, and overflow-causing layout rules.
+- [ ] Replace invalid asset references with a dependable project-safe strategy.
+- [ ] Add the non-deprecated mobile web-app metadata and remove invalid font sources.
+- [ ] Remove horizontal overflow and replace the generic empty-state motif with a branded AXOLOTL frame.
+- [ ] Validate desktop/mobile rendering, console-relevant paths, and production build.
+- [ ] Save the fix and push it to master while preserving other branches.
