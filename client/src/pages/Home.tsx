@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-const AXOLOTL_ICON = "/manus-storage/nexuss-agent-axolotl-geometric-mark_f64d61a2.png";
+const AXOLOTL_ICON = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663100991006/sSPzEjfZCraxEuOt.webp";
 
 type Project = { id: string; name: string; description: string; tone: string };
 type Message = { id: string; role: "user" | "assistant"; content: string; createdAt: string };

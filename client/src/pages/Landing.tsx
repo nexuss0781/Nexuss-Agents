@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 import { ArrowRight, ArrowUpRight, Braces, Check, ChevronDown, Code2, FolderKanban, GitBranch, Layers3, Menu, MoveRight, Plus, ShieldCheck, Sparkles, X } from "lucide-react";
 import "./Landing.css";
 
-const AXOLOTL_ICON = "/manus-storage/nexuss-agent-axolotl-geometric-mark_f64d61a2.png";
-const HERO_VISUAL = "/manus-storage/nexuss-agent-hero-instrument_7c7b5a95.png";
-const CAPABILITY_VISUAL = "/manus-storage/nexuss-agent-capability-specimen_dabadf5b.png";
-const FINAL_VISUAL = "/manus-storage/nexuss-agent-final-signal_02e1ae79.png";
+const AXOLOTL_ICON = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663100991006/sSPzEjfZCraxEuOt.webp";
+const HERO_VISUAL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663100991006/LnTCbGOvmiEOValM.webp";
+const CAPABILITY_VISUAL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663100991006/cqDGGiNGfXHkPKku.webp";
+const FINAL_VISUAL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663100991006/eKKdXbFKdTrwyMgn.webp";
 
 const navigation = [{ id: "system", label: "System" }, { id: "workbench", label: "Workbench" }, { id: "method", label: "Method" }];
 
