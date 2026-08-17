@@ -17,24 +17,37 @@ function queryString(req: Request, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-async function exchangeHandoff(handoffToken: string): Promise<HandoffUser | null> {
+type HandoffExchangeResult =
+  | { user: HandoffUser; error: null }
+  | { user: null; error: "upstream_rejected" | "invalid_response" };
+
+async function exchangeHandoff(handoffToken: string): Promise<HandoffExchangeResult> {
   const response = await fetch(`${ENV.nexussAuthUrl}/v1/handoff/exchange`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({
       projectId: ENV.nexussAuthProjectId,
       handoffToken,
     }),
   });
-  if (!response.ok) return null;
+  if (!response.ok) {
+    console.error("[Nexuss Auth] Handoff exchange rejected", { status: response.status, projectId: ENV.nexussAuthProjectId });
+    return { user: null, error: "upstream_rejected" };
+  }
   const payload = (await response.json()) as { user?: HandoffUser };
   const user = payload.user;
-  if (!user || typeof user.id !== "string" || !user.id.trim()) return null;
+  if (!user || typeof user.id !== "string" || !user.id.trim()) {
+    console.error("[Nexuss Auth] Handoff exchange returned an invalid user payload");
+    return { user: null, error: "invalid_response" };
+  }
   return {
-    id: user.id,
-    email: typeof user.email === "string" ? user.email : null,
-    name: typeof user.name === "string" ? user.name : null,
-    avatarUrl: typeof user.avatarUrl === "string" ? user.avatarUrl : null,
+    user: {
+      id: user.id,
+      email: typeof user.email === "string" ? user.email : null,
+      name: typeof user.name === "string" ? user.name : null,
+      avatarUrl: typeof user.avatarUrl === "string" ? user.avatarUrl : null,
+    },
+    error: null,
   };
 }
 
@@ -53,12 +66,12 @@ export function registerNexussAuthRoutes(app: Express) {
     }
 
     try {
-      const authUser = await exchangeHandoff(handoffToken);
-      if (!authUser) {
-        res.status(401).json({ error: "invalid or expired Nexuss Auth handoff" });
+      const exchange = await exchangeHandoff(handoffToken);
+      if (!exchange.user) {
+        res.status(401).json({ error: "nexuss_auth_handoff_rejected", reason: exchange.error });
         return;
       }
-
+      const authUser = exchange.user;
       const openId = `nexuss:${authUser.id}`;
       await db.upsertUser({
         openId,
@@ -69,15 +82,16 @@ export function registerNexussAuthRoutes(app: Express) {
       });
       const localUser = await db.getUserByOpenId(openId);
       if (!localUser) {
-        res.status(500).json({ error: "authenticated user could not be stored" });
+        console.error("[Nexuss Auth] Local user was not readable after upsert", { openId });
+        res.status(503).json({ error: "local_persistence_unavailable" });
         return;
       }
 
       await establishLocalSession(req, res, localUser.id, "nexuss");
       res.redirect(302, "/");
     } catch (error) {
-      console.error("[Nexuss Auth] Callback failed", error);
-      res.status(502).json({ error: "Nexuss Auth handoff failed" });
+      console.error("[Nexuss Auth] Local callback persistence failed", error);
+      res.status(503).json({ error: "local_persistence_unavailable" });
     }
   });
 }

@@ -74,9 +74,10 @@ export async function getParadoxDb(): Promise<ParadConnection> {
       gatewayUrl: ENV.paradoxGatewayUrl,
       apiKey: ENV.paradoxApiKey,
       dbPath: process.env.PARADOX_DB_PATH ?? "/tmp/nexuss-agent.paradox.db",
-      autoSync: true,
-      pullOnStartup: true,
+      autoSync: false,
+      pullOnStartup: false,
     });
+    await connectionPromise.then(db => db.pull());
   }
 
   const db = await connectionPromise;

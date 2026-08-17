@@ -74,12 +74,14 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       "UPDATE users SET name = ?, email = ?, loginMethod = ?, role = ?, updatedAt = ?, lastSignedIn = ? WHERE openId = ?",
       [user.name ?? null, user.email ?? null, user.loginMethod ?? null, user.role ?? (user.openId === ENV.ownerOpenId ? "admin" : "user"), timestamp, timestamp, user.openId],
     );
+    await connection.push();
     return;
   }
   connection.execute(
     "INSERT INTO users (openId, name, email, loginMethod, role, createdAt, updatedAt, lastSignedIn) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     [user.openId, user.name ?? null, user.email ?? null, user.loginMethod ?? null, user.role ?? (user.openId === ENV.ownerOpenId ? "admin" : "user"), timestamp, timestamp, timestamp],
   );
+  await connection.push();
 }
 
 export async function getUserByOpenId(openId: string) {
