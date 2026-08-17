@@ -1,6 +1,6 @@
-# GitHub Master Branch Sync
+# Push Root-Level Docker Update
 
-- [ ] Inspect the selected repository, remotes, current branch, and existing master branch.
-- [ ] Prepare the current Nexuss-Agent files for a focused commit.
-- [ ] Push only the current commit to master without deleting or rewriting other branches.
-- [ ] Verify master and confirm other remote branches remain present.
+- [ ] Inspect the local repository sync state and target branches.
+- [ ] Commit the latest root-level Docker configuration update.
+- [ ] Push only master to nexuss0781/Nexuss-Agents.
+- [ ] Verify master and confirm other branches remain intact.

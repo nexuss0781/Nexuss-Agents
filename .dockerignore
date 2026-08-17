@@ -1,0 +1,25 @@
+# Dependencies and package-manager caches
+node_modules
+.pnpm-store
+
+# Build output recreated inside the builder stage
+dist
+build
+
+# Local runtime and development artifacts
+.manus-logs
+.webdev
+coverage
+.vscode
+.idea
+.DS_Store
+
+# Local secrets and machine-specific configuration
+.env
+.env.*
+.project-config.json
+
+# Git metadata
+git
+.git
+.gitignore
