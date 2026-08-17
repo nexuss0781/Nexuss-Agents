@@ -225,3 +225,17 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 /* Stealth mark surfaces: no white boxes around the AXOLOTL symbol. */
 .brand-mark, .empty-brand-mark { background: #0b0b0c; border: 1px solid rgba(244,244,240,.2); }
 .brand-mark img, .empty-brand-mark img { filter: none; }
+
+/* Desktop viewport lock: the entire workbench remains visible in one screen. */
+@media (min-width: 801px) {
+  html, body, #root { height: 100%; overflow: hidden; }
+  .app-shell { height: 100dvh; min-height: 0; overflow: hidden; }
+  .main-stage { position: relative; height: 100dvh; min-height: 0; overflow: hidden; }
+  .topbar { height: 62px; min-height: 62px; }
+  .conversation-area { position: absolute; inset: 62px 0 166px; min-height: 0; height: auto; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; overscroll-behavior: none; padding-top: 26px; padding-bottom: 18px; }
+  .conversation-area::-webkit-scrollbar { display: none; width: 0; height: 0; }
+  .conversation-heading { margin-top: 0; }
+  .empty-thread { min-height: 300px; height: min(42vh, 350px); max-height: 350px; }
+  .composer-wrap { position: absolute; left: 0; right: 0; bottom: 0; z-index: 12; width: 100%; padding: 0 20px 18px; background: #0b0b0c; }
+  .composer { max-height: 150px; }
+}

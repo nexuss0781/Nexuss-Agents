@@ -1,7 +1,7 @@
-# Dark Stealth AXOLOTL Branding
+# One-Screen Desktop Workspace
 
-- [ ] Replace the visible white asset background with a near-black stealth treatment.
-- [ ] Apply the dark asset consistently to favicon, inline marks, and branded frame.
-- [ ] Refine contrast so the AXOLOTL remains readable without a white box.
-- [ ] Validate desktop/mobile rendering and production build.
-- [ ] Save and push the update to master.
+- [ ] Inspect desktop shell height, overflow, workbench sizing, and composer positioning.
+- [ ] Lock the desktop shell to the viewport and remove horizontal/vertical page scrolling.
+- [ ] Prevent the conversation heading and empty workbench from shifting downward.
+- [ ] Keep the composer visible within the same desktop viewport.
+- [ ] Validate desktop and mobile behavior, then save and push the update to master.
