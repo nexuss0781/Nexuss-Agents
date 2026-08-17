@@ -239,3 +239,14 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .composer-wrap { position: absolute; left: 0; right: 0; bottom: 0; z-index: 12; width: 100%; padding: 0 20px 18px; background: #0b0b0c; }
   .composer { max-height: 150px; }
 }
+
+/* Refined desktop composition: title in navigation, workbench lifted, no clipped center content. */
+.topbar-thread-title { max-width: min(34vw, 420px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 18px; color: #f4f4f0; font-size: 12px; letter-spacing: -.01em; }
+@media (min-width: 801px) {
+  .conversation-area { inset: 62px 0 174px; padding-top: 18px; padding-bottom: 12px; }
+  .conversation-heading { min-height: 44px; align-items: center; }
+  .conversation-heading h1 { margin-top: 0; }
+  .empty-thread { margin-top: 6px; height: min(39vh, 320px); min-height: 286px; max-height: 320px; }
+  .empty-brand-mark { margin-top: 48px; }
+}
+@media (max-width: 800px) { .topbar-thread-title { display: none; } }
