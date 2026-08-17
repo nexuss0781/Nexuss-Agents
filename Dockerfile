@@ -12,5 +12,5 @@ ENV NODE_ENV=production
 
 EXPOSE 3000
 
-CMD ["node", "dist/index.js"]
+CMD ["sh", "-c", "sh scripts/write-runtime-config.sh && exec node dist/index.js"]
 
