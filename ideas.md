@@ -73,3 +73,23 @@ The AXOLOTL mark is a bold geometric icon: a flattened, angular body loop with t
 - The landing page uses AXOLOTL WHITE, graphite, smoke, and cold-silver hierarchy; warm bronze and sepia accents are excluded from the public brand surface.
 - Hero decoration is derived from angular loop geometry, eye dots, thread indices, and schematic hairlines rather than generic circuits, constellations, or orbital diagrams.
 - The public landing page and `/app` workspace share the same restrained Obsidian Console language so the transition between them feels continuous.
+
+## Premium Landing Evolution: The Instrument for Complex Work
+
+The public surface evolves from a short product introduction into a **cinematic field guide for agentic work**. The intended feeling is not an ordinary SaaS landing page: it is an invitation into a composed instrument that absorbs complexity and returns a next move. The visual system will remain monochrome, but gain depth through translucent graphite planes, macro AXOLOTL geometry, precision diagrams, editorial imagery, and a varied progression of dense and quiet sections.
+
+### Narrative Architecture
+
+The story opens with an oversized product declaration and a live-looking runtime specimen. It then shifts through a manifesto, an operational capabilities sequence, an applied workspace preview, a systems principles wall, a practical implementation strip, and a high-contrast final entry point. Every section answers a progressively more concrete question: why the product exists, how it holds context, what the workspace makes possible, and where to begin.
+
+### Visual Language
+
+Use **technical editorial brutalism** rather than generic dark SaaS styling. Section transitions will alternate between full-bleed dark fields, fine-rule index bands, dense card assemblies, and quiet typographic interludes. The AXOLOTL symbol becomes a macro-scale structural contour, while its eye dots become an active-status motif. A near-white action surface is reserved for decisive moments. No gradients in brand colors, colorful lighting, pill-heavy UI, generic bento grids, fake testimonials, or fabricated performance claims are permitted.
+
+### Interaction and Motion
+
+Motion should make the site feel awake but controlled: the hero specimen emits a slow signal sweep, rules resolve into place, cards raise minimally on hover, and the local navigation identifies the active section on scroll. All nonessential motion will be disabled for reduced-motion preferences. CTA actions remain direct: they always enter the real `/app` workspace.
+
+### Content Standard
+
+The page will use concrete product language based only on the implemented workspace: threads, projects, assignment, local persistence, Markdown, LaTex, code rendering, and responsive composition. It will avoid invented customers, reviews, integrations, metrics, and capabilities.

@@ -9,13 +9,13 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/axolotl-only.png",
+      "src": "/manus-storage/nexuss-agent-axolotl-geometric-mark_f64d61a2.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/axolotl-only.png",
+      "src": "/manus-storage/nexuss-agent-axolotl-geometric-mark_f64d61a2.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

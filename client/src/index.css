@@ -217,10 +217,14 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .app-shell, .main-stage, .conversation-area, .composer-wrap { min-width: 0; max-width: 100%; }
 .orbit-art { display: none; }
 .empty-thread { isolation: isolate; overflow: hidden; }
-.empty-thread::before { content: ""; position: absolute; z-index: 0; right: 6%; top: 14%; width: 34%; height: 72%; border: 1px solid rgba(244,244,240,.22); background: linear-gradient(135deg, transparent 0 10%, rgba(244,244,240,.035) 10% 10.5%, transparent 10.5% 89.5%, rgba(244,244,240,.035) 89.5% 90%, transparent 90%), url("/axolotl-only.png") center / 70% auto no-repeat; opacity: .32; clip-path: polygon(9% 0, 91% 0, 100% 12%, 100% 88%, 91% 100%, 9% 100%, 0 88%, 0 12%); pointer-events: none; }
+.empty-thread::before { content: ""; position: absolute; z-index: 0; right: 6%; top: 14%; width: 34%; height: 72%; border: 1px solid rgba(244,244,240,.22); background: linear-gradient(135deg, transparent 0 10%, rgba(244,244,240,.035) 10% 10.5%, transparent 10.5% 89.5%, rgba(244,244,240,.035) 89.5% 90%, transparent 90%), url("/manus-storage/nexuss-agent-axolotl-geometric-mark_f64d61a2.png") center / 70% auto no-repeat; opacity: .32; clip-path: polygon(9% 0, 91% 0, 100% 12%, 100% 88%, 91% 100%, 9% 100%, 0 88%, 0 12%); pointer-events: none; }
+.empty-thread-topline { position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between; width: min(100%, 650px); padding-bottom: 14px; border-bottom: 1px solid rgba(244,244,240,.12); }
+.empty-thread-readout { display: grid; gap: 4px; color: #7f8480; font: 8px "IBM Plex Mono", monospace; letter-spacing: .12em; text-align: right; }
+.empty-thread-readout strong { color: #e3e3dc; font-weight: 500; }
+.empty-thread-bottomline { position: absolute; right: 27px; bottom: 23px; left: 27px; z-index: 3; display: flex; justify-content: space-between; color: #747974; font: 8px "IBM Plex Mono", monospace; letter-spacing: .12em; }
 .empty-thread::after { display: none; }
 .empty-thread > *:not(.orbit-art) { position: relative; z-index: 1; }
-@media (max-width: 800px) { .empty-thread::before { right: -4%; top: 22%; width: 54%; height: 62%; opacity: .2; } }
+@media (max-width: 800px) { .empty-thread::before { right: -4%; top: 22%; width: 54%; height: 62%; opacity: .2; }.empty-thread-topline { width: 100%; }.empty-thread-readout { font-size: 7px; }.empty-thread-bottomline { display: none; } }
 
 /* Stealth mark surfaces: no white boxes around the AXOLOTL symbol. */
 .brand-mark, .empty-brand-mark { background: #0b0b0c; border: 1px solid rgba(244,244,240,.2); }

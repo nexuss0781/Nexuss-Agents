@@ -1,9 +1,8 @@
-# Nexuss-Agent Landing Page and /app Route
+# Premium Landing Redesign
 
-- [ ] Define premium landing-page structure, copy, visual direction, and route behavior.
-- [ ] Generate custom hero and supporting visual assets for the landing page.
-- [ ] Create the public landing page at `/` with a clear route into `/app`.
-- [ ] Move the existing agent workspace to `/app` without losing functionality.
-- [ ] Add responsive behavior, polished interactions, and accessible navigation.
-- [ ] Validate `/`, `/app`, mobile/desktop layouts, and the production build.
-- [ ] Save a checkpoint and push the completed experience to master.
+- [x] Define a richer premium narrative, section architecture, and visual rhythm for the public site.
+- [x] Generate distinctive AXOLOTL-derived visual assets for the hero, feature system, and final conversion moment.
+- [x] Rebuild the landing page with elevated motion, product proof, platform capability sections, and a stronger `/app` entry.
+- [x] Preserve the existing `/app` workspace and test the route transition.
+- [x] Validate desktop and mobile visual composition, interactions, accessibility, and production build.
+- [ ] Save a checkpoint and push the completed redesign to `master`.
