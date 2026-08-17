@@ -31,7 +31,10 @@ async function exchangeHandoff(handoffToken: string): Promise<HandoffExchangeRes
     }),
   });
   if (!response.ok) {
-    console.error("[Nexuss Auth] Handoff exchange rejected", { status: response.status, projectId: ENV.nexussAuthProjectId });
+    console.error("[Nexuss Auth] Handoff exchange rejected", {
+      status: response.status,
+      projectId: ENV.nexussAuthProjectId,
+    });
     return { user: null, error: "upstream_rejected" };
   }
   const payload = (await response.json()) as { user?: HandoffUser };
@@ -65,21 +68,24 @@ export function registerNexussAuthRoutes(app: Express) {
       return;
     }
 
+    const exchange = await exchangeHandoff(handoffToken);
+    if (!exchange.user) {
+      res.status(401).json({ error: "nexuss_auth_handoff_rejected", reason: exchange.error });
+      return;
+    }
+
+    const authUser = exchange.user;
+    const openId = `nexuss:${authUser.id}`;
+    const localUserInput = {
+      openId,
+      name: authUser.name,
+      email: authUser.email,
+      loginMethod: "google" as const,
+      lastSignedIn: new Date(),
+    };
+
     try {
-      const exchange = await exchangeHandoff(handoffToken);
-      if (!exchange.user) {
-        res.status(401).json({ error: "nexuss_auth_handoff_rejected", reason: exchange.error });
-        return;
-      }
-      const authUser = exchange.user;
-      const openId = `nexuss:${authUser.id}`;
-      await db.upsertUser({
-        openId,
-        name: authUser.name,
-        email: authUser.email,
-        loginMethod: "google",
-        lastSignedIn: new Date(),
-      });
+      await db.upsertUser(localUserInput);
       const localUser = await db.getUserByOpenId(openId);
       if (!localUser) {
         console.error("[Nexuss Auth] Local user was not readable after upsert", { openId });
@@ -87,10 +93,16 @@ export function registerNexussAuthRoutes(app: Express) {
         return;
       }
 
-      await establishLocalSession(req, res, localUser.id, "nexuss");
+      try {
+        await establishLocalSession(req, res, localUser.id, "nexuss");
+      } catch (error) {
+        console.error("[Nexuss Auth] Local session could not be created", error);
+        res.status(503).json({ error: "session_configuration_invalid" });
+        return;
+      }
       res.redirect(302, "/");
     } catch (error) {
-      console.error("[Nexuss Auth] Local callback persistence failed", error);
+      console.error("[Nexuss Auth] Local persistence failed", error);
       res.status(503).json({ error: "local_persistence_unavailable" });
     }
   });
