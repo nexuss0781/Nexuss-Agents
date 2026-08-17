@@ -31,8 +31,17 @@ async function exchangeHandoff(handoffToken: string): Promise<HandoffExchangeRes
     }),
   });
   if (!response.ok) {
+    let reason = "unknown";
+    try {
+      const body = (await response.json()) as { error?: unknown; reason?: unknown };
+      if (typeof body.error === "string") reason = body.error;
+      else if (typeof body.reason === "string") reason = body.reason;
+    } catch {
+      // Preserve the status-based diagnostic when the upstream body is not JSON.
+    }
     console.error("[Nexuss Auth] Handoff exchange rejected", {
       status: response.status,
+      reason,
       projectId: ENV.nexussAuthProjectId,
     });
     return { user: null, error: "upstream_rejected" };
