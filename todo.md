@@ -20,5 +20,13 @@
 - [x] Review the approved original AXOLOTL brand file and identify the correct source for all visible brand surfaces.
 - [x] Prepare a compact Render-safe version of the original brand mark for the site and favicon.
 - [x] Restore the original brand in the landing header, hero focal point, workspace, favicon, and manifest.
-- [x] Confirm the restored brand is visible in the first impression at desktop and mobile sizes; live Render verification will follow the master push.
-- [ ] Save and push the original-brand restoration to `master`.
+- [x] Confirm the restored brand is visible in the first impression at desktop, mobile, and the live Render deployment.
+- [x] Save and push the original-brand restoration to `master`.
+
+## Label and Jargon Simplification
+
+- [x] Audit miniature labels, decorative system codes, and AI-jargon fragments across `/` and `/app`.
+- [x] Remove landing-page readouts, micro-labels, and nonessential jargon while preserving headings, brand, and navigation.
+- [x] Remove workspace decorative labels while retaining the labels required to use threads, projects, and the composer.
+- [x] Validate the simplified layout at desktop and mobile sizes.
+- [ ] Save and push the label-free revision to `master`.
