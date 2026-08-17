@@ -26,4 +26,4 @@ Do not commit a real `.env` file. Configure these values locally in an ignored `
 
 The Render Blueprint marks secret values as `sync: false`, while `JWT_SECRET` is generated automatically. Never paste the Paradox passphrase or API key into `render.yaml`, Dockerfile, source code, or a public GitHub file.
 
-Nexuss Auth is registered and its public configuration is included in `render.yaml`. The current Render and Nexuss Auth domains are cross-site, so the application intentionally keeps its existing secure local session until both services can be placed under a shared custom parent domain. See `NEXUSS_AUTH_AUDIT.md` for the verified session-handoff constraint.
+Nexuss Auth is registered with Google and GitHub enabled, and its public configuration is included in `render.yaml`. The sign-in screen starts Google OAuth through Nexuss Auth. The current Render and Nexuss Auth domains are cross-site, so the application does not create a local workspace session from browser identity data until both services can be placed under a shared custom parent domain. See `NEXUSS_AUTH_AUDIT.md` for the verified session-handoff constraint.

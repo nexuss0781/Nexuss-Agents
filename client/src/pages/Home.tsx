@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
+import { getGoogleSignInUrl } from "@/lib/nexussAuth";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -84,11 +85,11 @@ function streamEventBuffer(buffer: string, onEvent: (event: string, data: Record
 export default function Home() {
   const { user, loading, isAuthenticated, logout } = useAuth();
   const utils = trpc.useUtils();
-  const [authMode, setAuthMode] = useState<"signIn" | "register">("signIn");
-  const [authName, setAuthName] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [showLegacySignIn, setShowLegacySignIn] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
-  const [authError, setAuthError] = useState<string | null>(null);
   const [activeThreadId, setActiveThreadId] = useState<number | null>(null);
   const [composer, setComposer] = useState("");
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
@@ -113,9 +114,7 @@ export default function Home() {
   const activeProject = activeThread?.project ?? null;
   const tokenEstimate = Math.ceil(composer.trim().length / 4);
   const signIn = trpc.auth.login.useMutation();
-  const register = trpc.auth.register.useMutation();
-  const authSubmitting = signIn.isPending || register.isPending;
-
+  const authSubmitting = signIn.isPending;
   useEffect(() => {
     if (!activeThreadId && threads.length) setActiveThreadId(threads[0].id);
   }, [activeThreadId, threads]);
@@ -123,6 +122,18 @@ export default function Home() {
   useEffect(() => {
     setOptimisticMessages([]);
   }, [activeThreadId]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const nexussAuthResult = params.get("nex_auth");
+    if (!nexussAuthResult) return;
+    setAuthNotice(
+      nexussAuthResult === "success"
+        ? "Google sign-in completed. Workspace access will activate after the same-site auth domain is configured."
+        : "Google sign-in was cancelled. You can try again whenever you are ready.",
+    );
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
 
   const refresh = async () => {
     await utils.playground.bootstrap.invalidate();
@@ -240,13 +251,20 @@ export default function Home() {
     }
   };
 
-  const submitAuth = async (event: FormEvent) => {
+  const continueWithGoogle = () => {
+    setAuthError(null);
+    try {
+      window.location.assign(getGoogleSignInUrl());
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "We couldn’t start Google sign-in. Please try again.");
+    }
+  };
+
+  const submitLegacySignIn = async (event: FormEvent) => {
     event.preventDefault();
     setAuthError(null);
     try {
-      const account = authMode === "register"
-        ? await register.mutateAsync({ name: authName.trim(), email: authEmail.trim(), password: authPassword })
-        : await signIn.mutateAsync({ email: authEmail.trim(), password: authPassword });
+      const account = await signIn.mutateAsync({ email: authEmail.trim(), password: authPassword });
       utils.auth.me.setData(undefined, account);
       await utils.auth.me.invalidate();
     } catch (error) {
@@ -263,16 +281,22 @@ export default function Home() {
         <section className="landing-card">
           <div className="brand-mark"><Sparkles className="size-5" /></div>
           <p className="eyebrow">NEXUSS-AGENT</p>
-          <h1>{authMode === "signIn" ? "Welcome back." : "Set up your thinking space."}</h1>
-          <p className="landing-copy">{authMode === "signIn" ? "Sign in to continue your conversations, projects, and focused AI work." : "Create a password-protected workspace for your conversations and project context."}</p>
-          <form className="auth-form" onSubmit={submitAuth}>
-            {authMode === "register" && <label><span>Name</span><Input value={authName} onChange={event => setAuthName(event.target.value)} placeholder="Your name" autoComplete="name" minLength={2} required /></label>}
-            <label><span>Email</span><Input type="email" value={authEmail} onChange={event => setAuthEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" required /></label>
-            <label><span>Password</span><Input type="password" value={authPassword} onChange={event => setAuthPassword(event.target.value)} placeholder={authMode === "register" ? "At least 8 characters" : "Your password"} autoComplete={authMode === "register" ? "new-password" : "current-password"} minLength={8} required /></label>
+          <h1>Continue your work.</h1>
+          <p className="landing-copy">Sign in with Google to continue your conversations, projects, and focused AI work.</p>
+          <div className="auth-form">
+            {authNotice && <p className="login-note">{authNotice}</p>}
             {authError && <p className="auth-error">{authError}</p>}
-            <Button type="submit" disabled={authSubmitting} className="login-button">{authSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}{authMode === "signIn" ? "Sign in" : "Create account"}<ArrowUp className="size-4" /></Button>
-          </form>
-          <p className="login-note">{authMode === "signIn" ? "New to Nexuss-Agent?" : "Already have an account?"} <button type="button" onClick={() => { setAuthMode(mode => mode === "signIn" ? "register" : "signIn"); setAuthError(null); }}>{authMode === "signIn" ? "Create an account" : "Sign in"}</button></p>
+            <Button type="button" onClick={continueWithGoogle} className="login-button"><span className="font-bold">G</span>Continue with Google<ArrowUp className="size-4" /></Button>
+            <button type="button" className="login-note text-left" onClick={() => { setShowLegacySignIn(value => !value); setAuthError(null); }}>
+              {showLegacySignIn ? "Hide email sign-in" : "Use email sign-in for an existing workspace"}
+            </button>
+            {showLegacySignIn && <form className="space-y-3" onSubmit={submitLegacySignIn}>
+              <label><span>Email</span><Input type="email" value={authEmail} onChange={event => setAuthEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" required /></label>
+              <label><span>Password</span><Input type="password" value={authPassword} onChange={event => setAuthPassword(event.target.value)} placeholder="Your password" autoComplete="current-password" minLength={8} required /></label>
+              <Button type="submit" disabled={authSubmitting} className="login-button">{authSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}Sign in with email<ArrowUp className="size-4" /></Button>
+            </form>}
+          </div>
+          <p className="login-note">Google is secured through Nexuss Auth. Email sign-in remains available only while the custom-domain session setup is pending.</p>
         </section>
       </main>
     );

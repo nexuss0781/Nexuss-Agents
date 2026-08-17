@@ -101,6 +101,20 @@
 - [x] Record Nexuss Auth as registered and prepared but not activated, because the current cross-site cookie topology blocks a secure application-session integration.
 - [x] Save a new checkpoint containing the audited Nexuss Auth configuration, tests, Render settings, and deployment constraint documentation.
 
-- [ ] Audit the current Render and Nexuss Auth domain topology and identify only supported same-site activation options.
-- [ ] Apply safe Nexuss Auth readiness improvements that do not replace secure runtime authentication prematurely.
-- [ ] Revalidate configuration, tests, build, audit documentation, and save a continued readiness checkpoint.
+- [x] Audit the current Render and Nexuss Auth domain topology and identify only supported same-site activation options.
+- [x] Apply safe Nexuss Auth readiness improvements that do not replace secure runtime authentication prematurely.
+- [x] Revalidate configuration, tests, build, audit documentation, and save a continued readiness checkpoint.
+
+- [x] Inspect the registered Nexuss Auth project and service prerequisites for enabling Google without changing provider secrets.
+- [x] Enable Google only if the managed Nexuss Auth service confirms provider support and project configuration accepts it.
+- [x] Validate the final provider configuration and document any activation constraint without exposing credentials.
+
+- [x] Replace the local email/password presentation with a Google-first Nexuss Auth entry point and an explicit secure-session status.
+- [x] Preserve the server-side protected-session boundary; do not create a local session from unverified browser-provided identity data.
+- [x] Validate Google OAuth start, signed-out behavior, tests, build, and deployment configuration after the interface simplification.
+
+- [ ] Save and push the Google-first Nexuss Auth interface and audit checkpoint to GitHub for Render deployment.
+
+- [x] Restore a working secure local email sign-in fallback while Nexuss Auth cannot establish a same-site production workspace session.
+- [x] Keep Google as the primary entry point and clearly disclose that same-site domains are required for workspace-session activation.
+- [x] Validate a working authenticated workspace and logout flow before publishing the Google-first interface.
