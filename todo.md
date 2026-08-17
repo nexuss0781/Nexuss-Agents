@@ -13,4 +13,12 @@
 - [x] Package optimized Render-safe visual assets within the static build output.
 - [x] Replace landing, workspace, favicon, and manifest references with stable deployed paths.
 - [x] Validate production build output and browser asset requests at desktop and mobile sizes.
-- [ ] Save the correction and push the deployment-ready fix to `master`.
+- [x] Save the correction and push the deployment-ready fix to `master`.
+
+## Original AXOLOTL Brand Restoration
+
+- [x] Review the approved original AXOLOTL brand file and identify the correct source for all visible brand surfaces.
+- [x] Prepare a compact Render-safe version of the original brand mark for the site and favicon.
+- [x] Restore the original brand in the landing header, hero focal point, workspace, favicon, and manifest.
+- [x] Confirm the restored brand is visible in the first impression at desktop and mobile sizes; live Render verification will follow the master push.
+- [ ] Save and push the original-brand restoration to `master`.

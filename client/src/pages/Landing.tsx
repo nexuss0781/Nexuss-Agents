@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, ArrowUpRight, Braces, Check, ChevronDown, Code2, FolderKanban, GitBranch, Layers3, Menu, MoveRight, Plus, ShieldCheck, Sparkles, X } from "lucide-react";
 import "./Landing.css";
 
-const AXOLOTL_ICON = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663100991006/sSPzEjfZCraxEuOt.webp";
+const AXOLOTL_ICON = "/axolotl-only.png";
 const HERO_VISUAL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663100991006/LnTCbGOvmiEOValM.webp";
 const CAPABILITY_VISUAL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663100991006/cqDGGiNGfXHkPKku.webp";
 const FINAL_VISUAL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663100991006/eKKdXbFKdTrwyMgn.webp";
@@ -50,6 +50,7 @@ export default function Landing() {
           <div className="nexus-hero-shell">
             <div className="nexus-hero-copy">
               <div className="nexus-index"><span className="nexus-index-line" />NEXUSS / 001 <span>AGENT RUNTIME</span></div>
+              <div className="nexus-hero-original-brand"><img src={AXOLOTL_ICON} alt="Original Nexuss-Agent AXOLOTL brand mark" /><span><strong>AXOLOTL</strong><small>THE ORIGINAL SYSTEM MARK</small></span></div>
               <h1>The instrument<br />for <i>complex work.</i></h1>
               <p>A disciplined surface for the work that does not fit inside one prompt. Hold the thread, shape the project, and keep the next move close.</p>
               <div className="nexus-hero-actions"><button className="nexus-button nexus-button-light" onClick={enterWorkspace}>Enter the workspace <ArrowRight size={17} /></button><a className="nexus-text-link" href="#system">See how it holds context <MoveRight size={16} /></a></div>
