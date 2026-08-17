@@ -1,7 +1,7 @@
-# Graphite and Espresso Accent Palette
+# Complete Terminology Cleanup
 
-- [ ] Audit the current brown accent rules.
-- [ ] Replace saturated brown fills with graphite surfaces and muted espresso accents.
-- [ ] Preserve warm-white primary text and all non-accent styling.
-- [ ] Validate desktop/mobile rendering and production build.
-- [ ] Save and push the revised palette to master.
+- [ ] Audit every occurrence of Threads 01, LOCAL PLAYGROUND 01, Unassigned, DARK MODE, 00 / READY, and related placeholder wording.
+- [ ] Replace remaining legacy labels in desktop and mobile markup with consistent professional terminology.
+- [ ] Verify persisted and empty-state text does not reintroduce old wording.
+- [ ] Validate desktop/mobile screenshots and production build.
+- [ ] Save and push the complete terminology update to master.
