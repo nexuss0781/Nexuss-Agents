@@ -131,3 +131,79 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 1px
 /* Fresh workspace state: one intentional entry action, no demo prompt cards. */
 .empty-create-button { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; padding: 9px 11px; border: 1px solid rgba(255,255,255,.18); border-radius: 2px; background: rgba(255,255,255,.06); color: #d6d6d2; font-size: 11px; }
 .empty-create-button:hover { border-color: rgba(255,255,255,.38); background: rgba(255,255,255,.1); color: #fff; }
+
+/* Screenshot polish: professional empty state, no persistence-status copy, and viewport-safe composition. */
+html, body, #root { width: 100%; height: 100%; overflow: hidden; }
+.app-shell { height: 100dvh; min-height: 100dvh; overflow: hidden; }
+.main-stage { height: 100dvh; }
+.empty-thread { min-height: clamp(300px, 43vh, 390px); background: #0d0d0f; background-image: radial-gradient(circle at 79% 50%, rgba(255,255,255,.035), transparent 30%), linear-gradient(135deg, rgba(255,255,255,.025), transparent 38%); }
+.empty-thread::after { content: ""; position: absolute; inset: 0; pointer-events: none; border: 1px solid rgba(255,255,255,.025); background: repeating-linear-gradient(135deg, transparent 0 28px, rgba(255,255,255,.012) 29px 30px); mask-image: linear-gradient(90deg, transparent 40%, black 100%); }
+.orbit-art { position: absolute; width: 280px; height: 220px; right: 7%; top: 22%; opacity: .72; }
+.orbit-ring { position: absolute; left: 50%; top: 50%; display: block; border: 1px solid rgba(244,244,240,.23); border-radius: 50%; transform: translate(-50%, -50%) rotate(-25deg); }
+.orbit-ring-one { width: 230px; height: 96px; }
+.orbit-ring-two { width: 184px; height: 184px; border-color: rgba(244,244,240,.09); transform: translate(-50%, -50%) rotate(38deg); }
+.orbit-node { position: absolute; display: block; width: 7px; height: 7px; border: 1px solid #d9d9d3; border-radius: 50%; background: #0d0d0f; box-shadow: 0 0 0 4px rgba(244,244,240,.05); }
+.orbit-node-one { left: 22px; top: 86px; }.orbit-node-two { right: 28px; top: 57px; }.orbit-node-three { left: 50%; bottom: 15px; }
+.orbit-art::before { content: ""; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; border: 1px solid rgba(244,244,240,.42); transform: translate(-50%, -50%) rotate(45deg); }
+.orbit-art::after { content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; border-radius: 50%; background: #f4f4f0; transform: translate(-50%, -50%); box-shadow: 0 0 20px rgba(244,244,240,.32); }
+.empty-thread > *:not(.orbit-art) { z-index: 2; }
+.empty-create-button { position: relative; z-index: 3; }
+.sidebar-footer { margin-top: auto; }
+
+@media (max-width: 800px) {
+  html, body, #root { overflow: hidden; }
+  .app-shell, .main-stage { height: 100svh; min-height: 100svh; }
+  .empty-thread { min-height: 330px; }
+  .orbit-art { width: 225px; height: 180px; right: -9%; top: 24%; opacity: .4; }
+  .orbit-ring-one { width: 185px; height: 78px; }.orbit-ring-two { width: 145px; height: 145px; }
+}
+
+/* Brand polish: derive the empty-state schematic from the AXOLOTL loop and eye-dot geometry. */
+.conversation-heading, .message-stack, .empty-thread, .composer-wrap { width: min(930px, 100%); }
+.conversation-heading, .message-stack, .empty-thread { margin-left: clamp(0px, 1.5vw, 20px); margin-right: auto; }
+.empty-thread { background-image: linear-gradient(90deg, rgba(13,13,15,.98) 0%, rgba(13,13,15,.86) 53%, rgba(13,13,15,.66) 100%); }
+.empty-brand-mark { position: relative; z-index: 3; display: grid; place-items: center; width: 31px; height: 31px; margin-top: 78px; border: 1px solid rgba(244,244,240,.28); background: #f4f4f0; }
+.empty-brand-mark img { width: 25px; height: 25px; filter: invert(1); object-fit: contain; }
+.empty-thread > svg { display: none; }
+.empty-thread h2 { margin-top: 14px; letter-spacing: -.045em; font-weight: 600; }
+.empty-thread p { max-width: 410px; }
+.axolotl-schematic { right: 8%; top: 19%; width: 285px; height: 240px; opacity: .76; }
+.axolotl-loop { position: absolute; left: 50%; top: 50%; width: 210px; height: 114px; border: 1px solid rgba(244,244,240,.32); border-radius: 48% 52% 45% 55%; transform: translate(-50%, -50%) rotate(-17deg); }
+.axolotl-loop::before, .axolotl-loop::after { content: ""; position: absolute; top: 50%; width: 44px; height: 26px; border-top: 1px solid rgba(244,244,240,.3); border-radius: 50%; }
+.axolotl-loop::before { left: -30px; transform: rotate(-30deg); }.axolotl-loop::after { right: -30px; transform: rotate(30deg); }
+.axolotl-eye { position: absolute; top: 50%; width: 8px; height: 8px; border: 1px solid #f4f4f0; border-radius: 50%; background: #0d0d0f; box-shadow: 0 0 0 4px rgba(244,244,240,.045); }
+.axolotl-eye-one { left: 48px; transform: translateY(-50%); }.axolotl-eye-two { right: 48px; transform: translateY(-50%); }
+.axolotl-gill { position: absolute; width: 31px; height: 15px; border-top: 1px solid rgba(244,244,240,.36); border-radius: 50%; }
+.axolotl-gill-one { left: 36px; top: 76px; transform: rotate(-27deg); }.axolotl-gill-two { right: 36px; top: 76px; transform: rotate(27deg); }
+.empty-index { position: relative; z-index: 3; }
+
+@media (max-width: 800px) {
+  .conversation-heading, .message-stack, .empty-thread, .composer-wrap { width: 100%; margin-left: auto; margin-right: auto; }
+  .empty-brand-mark { margin-top: 54px; }
+  .axolotl-schematic { right: -10%; top: 23%; width: 220px; height: 190px; opacity: .42; }
+  .axolotl-loop { width: 165px; height: 90px; }.axolotl-eye-one { left: 34px; }.axolotl-eye-two { right: 34px; }
+}
+
+@media (max-width: 800px) {
+  .axolotl-schematic { right: -16%; top: 34%; opacity: .24; }
+}
+
+/* Monochrome AXOLOTL asset treatment. */
+.brand-mark img, .empty-brand-mark img, .role-mark.assistant img { filter: none; object-fit: contain; }
+.empty-brand-mark { background: #f4f4f0; }
+
+/* Brand extensions: installable icon, mobile drawer lockup, and future response loader. */
+.mobile-brand-lockup { display: none; }
+.axolotl-loader { display: inline-flex; align-items: center; gap: 9px; min-height: 28px; color: #8d8e91; font: 9px "IBM Plex Mono", monospace; letter-spacing: .12em; }
+.loader-mark { display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid rgba(244,244,240,.32); background: #f4f4f0; overflow: hidden; }
+.loader-mark img { width: 21px; height: 21px; object-fit: contain; }
+.axolotl-loader i { width: 3px; height: 3px; border-radius: 50%; background: #f4f4f0; opacity: .32; animation: axolotl-pulse 1.2s infinite ease-in-out; }
+.axolotl-loader i:nth-of-type(2) { animation-delay: .16s; }.axolotl-loader i:nth-of-type(3) { animation-delay: .32s; }
+@keyframes axolotl-pulse { 0%, 70%, 100% { opacity: .22; transform: translateY(0); } 35% { opacity: 1; transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .axolotl-loader i { animation: none; opacity: .55; } }
+@media (max-width: 800px) {
+  .mobile-brand-lockup { display: flex; align-items: center; gap: 14px; margin: 0 8px 22px; padding: 17px 0 18px; border-top: 1px solid rgba(255,255,255,.08); border-bottom: 1px solid rgba(255,255,255,.08); }
+  .mobile-brand-art { display: grid; place-items: center; width: 58px; height: 58px; background: #f4f4f0; border: 1px solid rgba(244,244,240,.45); overflow: hidden; }
+  .mobile-brand-art img { width: 52px; height: 52px; object-fit: contain; }
+  .mobile-brand-copy { display: grid; gap: 6px; }.mobile-brand-copy strong { font-size: 14px; letter-spacing: .14em; }.mobile-brand-copy span { color: #77787c; font: 9px "IBM Plex Mono", monospace; letter-spacing: .12em; }
+}

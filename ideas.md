@@ -62,3 +62,9 @@ The AXOLOTL mark is a bold geometric icon: a flattened, angular body loop with t
 
 ### Signature Brand Color
 **AXOLOTL WHITE — #F4F4F0**, a slightly warm white used for the AXOLOTL mark, active controls, and primary action surfaces. It is ownable because it is intentionally softer than pure white while retaining crisp contrast against the Obsidian Console background.
+
+## Style Decisions
+
+- Decorative diagrams must derive from the AXOLOTL angular loop, eye-dot geometry, thread indices, or technical hairline schematics; generic orbit and constellation language is avoided.
+- The workspace grid remains deliberately asymmetric, with the reading surface offset against the sidebar and composer rather than centered like a conventional dashboard.
+- The AXOLOTL glyph acts as a primary brand motif in system moments and empty states, not only as a small header badge.
