@@ -113,7 +113,7 @@
 - [x] Preserve the server-side protected-session boundary; do not create a local session from unverified browser-provided identity data.
 - [x] Validate Google OAuth start, signed-out behavior, tests, build, and deployment configuration after the interface simplification.
 
-- [ ] Save and push the Google-first Nexuss Auth interface and audit checkpoint to GitHub for Render deployment.
+- [x] Save and push the Google-first Nexuss Auth interface and audit checkpoint to GitHub for Render deployment.
 
 - [x] Restore a working secure local email sign-in fallback while Nexuss Auth cannot establish a same-site production workspace session.
 - [x] Keep Google as the primary entry point and clearly disclose that same-site domains are required for workspace-session activation.
