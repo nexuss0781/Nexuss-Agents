@@ -1,6 +1,7 @@
-# Push Root-Level Docker Update
+# Docker Install Failure Repair
 
-- [ ] Inspect the local repository sync state and target branches.
-- [ ] Commit the latest root-level Docker configuration update.
-- [ ] Push only master to nexuss0781/Nexuss-Agents.
-- [ ] Verify master and confirm other branches remain intact.
+- [ ] Reproduce the exact pnpm frozen-lockfile failure and capture its cause.
+- [ ] Align packageManager, package.json, and pnpm-lock.yaml for deterministic Docker installs.
+- [ ] Update the Dockerfile with a robust dependency-install strategy.
+- [ ] Validate the frontend build and complete Docker configuration.
+- [ ] Save a corrected Docker checkpoint and push the fix to master.

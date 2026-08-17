@@ -9,6 +9,8 @@ WORKDIR /app
 # Keep dependency installation reproducible and cache-friendly.
 RUN corepack enable && corepack prepare pnpm@10.4.1 --activate
 COPY package.json pnpm-lock.yaml ./
+# The lockfile references this local patched dependency, so it must exist before install.
+COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 
 COPY . .
