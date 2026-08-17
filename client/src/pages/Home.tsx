@@ -1,433 +1,214 @@
-import { useAuth } from "@/_core/hooks/useAuth";
-import { MarkdownMessage } from "@/components/MarkdownMessage";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Textarea } from "@/components/ui/textarea";
-import { trpc } from "@/lib/trpc";
-import { getGoogleSignInUrl } from "@/lib/nexussAuth";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+// Design philosophy: Obsidian Console — Swiss precision, monochrome hierarchy, quiet depth.
+import { useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import "katex/dist/katex.min.css";
 import {
+  Archive,
   ArrowUp,
-  Bot,
   Check,
   ChevronDown,
-  Clock3,
+  CirclePlus,
   Command,
+  Copy,
   Folder,
   FolderPlus,
-  Loader2,
-  LogOut,
-  MessageSquare,
-  MessageSquarePlus,
+  Menu,
   MoreHorizontal,
-  PanelRight,
   Pencil,
   Plus,
+  Search,
+  Settings2,
   Sparkles,
   Trash2,
-  UserRound,
   X,
 } from "lucide-react";
-import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
-type Project = { id: number; name: string; description: string | null; color: string; createdAt: Date; updatedAt: Date; userId: number };
-type ThreadSummary = {
-  id: number; userId: number; projectId: number | null; title: string; createdAt: Date; updatedAt: Date;
-  project: Pick<Project, "id" | "name" | "color"> | null;
-  latestMessage: { content: string; role: "user" | "assistant"; createdAt: Date } | null;
+const AXOLOTL_ICON = "/manus-storage/nexuss-agent-axolotl_ad77cb68.png";
+const CONSOLE_TEXTURE = "/manus-storage/nexuss-agent-console-texture_300b805a.png";
+const ORBIT_ART = "/manus-storage/nexuss-agent-signal-orbit_185c66cf.png";
+
+type Project = { id: string; name: string; description: string; tone: string };
+type Message = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
+type Thread = { id: string; title: string; projectId?: string; updatedAt: string; messages: Message[] };
+
+type Workspace = { projects: Project[]; threads: Thread[]; activeThreadId: string };
+
+const now = new Date().toISOString();
+const seed: Workspace = {
+  projects: [],
+  activeThreadId: '',
+  threads: [],
 };
-type ChatMessage = { id: number | string; role: "user" | "assistant"; content: string; createdAt: Date };
-type ProjectDialogState = { open: boolean; project?: Project };
-type ThreadDialogState = { open: boolean; thread?: ThreadSummary };
-type DeleteTarget = { type: "thread" | "project"; id: number; name: string };
 
-const PROJECT_COLORS = ["#00FF88", "#3B82F6", "#A78BFA", "#F59E0B", "#F472B6"];
-const SUGGESTIONS = ["Frame a product strategy", "Explain a technical concept", "Draft a crisp project brief"];
+function uid(prefix: string) {
+  return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
+}
 
-function compactDate(value?: Date) {
-  if (!value) return "Just now";
+function formatDate(value: string) {
   const date = new Date(value);
-  const diff = Date.now() - date.getTime();
-  if (diff < 60_000) return "Just now";
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const today = new Date();
+  if (date.toDateString() === today.toDateString()) return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-function initials(name?: string | null) {
-  return name?.split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase() || "NX";
-}
-
-function messageSnippet(message: ThreadSummary["latestMessage"]) {
-  if (!message) return "No messages yet";
-  return message.content.replace(/\s+/g, " ").slice(0, 54) || "No messages yet";
-}
-
-function streamEventBuffer(buffer: string, onEvent: (event: string, data: Record<string, unknown>) => void) {
-  const chunks = buffer.split(/\r?\n\r?\n/);
-  const rest = chunks.pop() ?? "";
-  chunks.forEach(chunk => {
-    const event = chunk.match(/^event:\s*(.+)$/m)?.[1] || "message";
-    const dataLine = chunk.split(/\r?\n/).find(line => line.startsWith("data:"));
-    if (!dataLine) return;
-    try { onEvent(event, JSON.parse(dataLine.replace(/^data:\s?/, ""))); } catch { /* ignore malformed provider frame */ }
-  });
-  return rest;
+function MarkdownMessage({ content }: { content: string }) {
+  return (
+    <div className="markdown-body">
+      <ReactMarkdown
+        remarkPlugins={[remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        components={{
+          code({ className, children, ...props }) {
+            const match = /language-(\w+)/.exec(className || "");
+            return match ? (
+              <SyntaxHighlighter style={vscDarkPlus as any} language={match[1]} PreTag="div" className="code-block">
+                {String(children).replace(/\n$/, "")}
+              </SyntaxHighlighter>
+            ) : (
+              <code className="inline-code">{children}</code>
+            );
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
 }
 
 export default function Home() {
-  const { user, loading, isAuthenticated, logout } = useAuth();
-  const utils = trpc.useUtils();
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [authNotice, setAuthNotice] = useState<string | null>(null);
-  const [activeThreadId, setActiveThreadId] = useState<number | null>(null);
-  const [composer, setComposer] = useState("");
-  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [projectDialog, setProjectDialog] = useState<ProjectDialogState>({ open: false });
-  const [threadDialog, setThreadDialog] = useState<ThreadDialogState>({ open: false });
-  const [threadTitle, setThreadTitle] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
-  const [projectName, setProjectName] = useState("");
-  const [projectDescription, setProjectDescription] = useState("");
-  const [projectColor, setProjectColor] = useState(PROJECT_COLORS[0]);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const bootstrapQuery = trpc.playground.bootstrap.useQuery(undefined, { enabled: Boolean(isAuthenticated) });
-  const bootstrap = bootstrapQuery.data as { projects: Project[]; threads: ThreadSummary[] } | undefined;
-  const projects = bootstrap?.projects ?? [];
-  const threads = bootstrap?.threads ?? [];
-  const activeThread = threads.find(thread => thread.id === activeThreadId) ?? null;
-  const messagesQuery = trpc.playground.threads.messages.useQuery({ id: activeThreadId ?? -1 }, { enabled: Boolean(activeThread && isAuthenticated) });
-  const persistedMessages = (messagesQuery.data as ChatMessage[] | undefined) ?? [];
-  const displayMessages = useMemo(() => [...persistedMessages, ...optimisticMessages], [persistedMessages, optimisticMessages]);
-  const activeProject = activeThread?.project ?? null;
-  const tokenEstimate = Math.ceil(composer.trim().length / 4);
-  useEffect(() => {
-    if (!activeThreadId && threads.length) setActiveThreadId(threads[0].id);
-  }, [activeThreadId, threads]);
-
-  useEffect(() => {
-    setOptimisticMessages([]);
-  }, [activeThreadId]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const nexussAuthResult = params.get("nex_auth");
-    if (!nexussAuthResult) return;
-    setAuthNotice(
-      nexussAuthResult === "success"
-        ? "Google sign-in completed. Workspace access will activate after the same-site auth domain is configured."
-        : "Google sign-in was cancelled. You can try again whenever you are ready.",
-    );
-    window.history.replaceState({}, "", window.location.pathname);
-  }, []);
-
-  const refresh = async () => {
-    await utils.playground.bootstrap.invalidate();
-  };
-
-  const createThread = trpc.playground.threads.create.useMutation({
-    onSuccess: async thread => { await refresh(); setActiveThreadId(thread.id); },
-    onError: () => toast.error("Unable to create a new thread."),
-  });
-  const renameThread = trpc.playground.threads.rename.useMutation({ onSuccess: async () => { setThreadDialog({ open: false }); await refresh(); }, onError: () => toast.error("Unable to rename that thread.") });
-  const deleteThread = trpc.playground.threads.delete.useMutation({
-    onSuccess: async () => { await refresh(); setActiveThreadId(null); },
-    onError: () => toast.error("Unable to delete that thread."),
-  });
-  const setThreadProject = trpc.playground.threads.setProject.useMutation({ onSuccess: refresh, onError: () => toast.error("Unable to update the project.") });
-  const createProject = trpc.playground.projects.create.useMutation({ onSuccess: async () => { setProjectDialog({ open: false }); await refresh(); }, onError: () => toast.error("Unable to create the project.") });
-  const updateProject = trpc.playground.projects.update.useMutation({ onSuccess: async () => { setProjectDialog({ open: false }); await refresh(); }, onError: () => toast.error("Unable to update the project.") });
-  const deleteProject = trpc.playground.projects.delete.useMutation({ onSuccess: refresh, onError: () => toast.error("Unable to delete the project.") });
-
-  const resizeComposer = () => {
-    const element = textareaRef.current;
-    if (!element) return;
-    element.style.height = "0px";
-    element.style.height = `${Math.min(element.scrollHeight, 180)}px`;
-  };
-
-  const openProjectDialog = (project?: Project) => {
-    setProjectDialog({ open: true, project });
-    setProjectName(project?.name ?? "");
-    setProjectDescription(project?.description ?? "");
-    setProjectColor(project?.color ?? PROJECT_COLORS[0]);
-  };
-
-  const openThreadRenameDialog = (thread: ThreadSummary) => {
-    setThreadDialog({ open: true, thread });
-    setThreadTitle(thread.title);
-  };
-
-  const saveProject = (event: FormEvent) => {
-    event.preventDefault();
-    const name = projectName.trim();
-    if (!name) return toast.error("Give the project a name first.");
-    const payload = { name, description: projectDescription.trim() || null, color: projectColor };
-    if (projectDialog.project) updateProject.mutate({ id: projectDialog.project.id, ...payload });
-    else createProject.mutate(payload);
-  };
-
-  const saveThreadRename = (event: FormEvent) => {
-    event.preventDefault();
-    const title = threadTitle.trim();
-    const thread = threadDialog.thread;
-    if (!thread || !title) return toast.error("Give the thread a title first.");
-    if (title === thread.title) return setThreadDialog({ open: false });
-    renameThread.mutate({ id: thread.id, title });
-  };
-
-  const confirmDelete = () => {
-    if (!deleteTarget) return;
-    const target = deleteTarget;
-    setDeleteTarget(null);
-    if (target.type === "thread") deleteThread.mutate({ id: target.id });
-    else deleteProject.mutate({ id: target.id });
-  };
-
-  const sendMessage = async () => {
-    const content = composer.trim();
-    if (!content || !activeThreadId || isStreaming) return;
-    const threadId = activeThreadId;
-    const userTempId = `local-user-${Date.now()}`;
-    const assistantTempId = `local-assistant-${Date.now()}`;
-    setComposer("");
-    requestAnimationFrame(resizeComposer);
-    setOptimisticMessages([
-      { id: userTempId, role: "user", content, createdAt: new Date() },
-      { id: assistantTempId, role: "assistant", content: "", createdAt: new Date() },
-    ]);
-    setIsStreaming(true);
-
+  const [workspace, setWorkspace] = useState<Workspace>(() => {
     try {
-      const response = await fetch("/api/chat/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ threadId, content }),
-      });
-      if (!response.ok || !response.body) throw new Error("Chat request failed");
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        buffer = streamEventBuffer(buffer, (event, data) => {
-          if (event === "delta" && typeof data.text === "string") {
-            setOptimisticMessages(current => current.map(message => message.id === assistantTempId ? { ...message, content: message.content + data.text } : message));
-          }
-          if (event === "error") toast.error(typeof data.message === "string" ? data.message : "The response could not be completed.");
-        });
-      }
-      await Promise.all([utils.playground.threads.messages.invalidate({ id: threadId }), refresh()]);
-      setOptimisticMessages([]);
-    } catch {
-      setOptimisticMessages(current => current.map(message => message.id === assistantTempId ? { ...message, content: "I couldn’t complete that response. Please try again." } : message));
-      toast.error("The connection was interrupted.");
-    } finally {
-      setIsStreaming(false);
+      const stored = JSON.parse(localStorage.getItem("nexuss-agent-workspace-v2") || "null") as Workspace | null;
+      if (!stored) return seed;
+      return stored;
+    } catch { return seed; }
+  });
+  const [query, setQuery] = useState("");
+  const [draft, setDraft] = useState("");
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [projectEditor, setProjectEditor] = useState<{ mode: "create" | "edit"; project?: Project } | null>(null);
+  const [threadEditor, setThreadEditor] = useState<string | null>(null);
+  const [threadName, setThreadName] = useState("");
+  const [mobileNav, setMobileNav] = useState(false);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => { localStorage.setItem("nexuss-agent-workspace-v2", JSON.stringify(workspace)); }, [workspace]);
+
+  const activeThread = workspace.threads.find((thread) => thread.id === workspace.activeThreadId) || workspace.threads[0];
+  const activeProject = workspace.projects.find((project) => project.id === activeThread?.projectId);
+  const filteredThreads = useMemo(() => workspace.threads.filter((thread) => thread.title.toLowerCase().includes(query.toLowerCase())), [workspace.threads, query]);
+
+  function patchThread(id: string, patch: Partial<Thread>) {
+    setWorkspace((current) => ({ ...current, threads: current.threads.map((thread) => thread.id === id ? { ...thread, ...patch, updatedAt: new Date().toISOString() } : thread) }));
+  }
+
+  function createThread() {
+    const thread: Thread = { id: uid("thread"), title: "Untitled exploration", updatedAt: new Date().toISOString(), messages: [] };
+    setWorkspace((current) => ({ ...current, threads: [thread, ...current.threads], activeThreadId: thread.id }));
+    setMobileNav(false);
+    toast.success("New thread created");
+  }
+
+  function deleteThread(id: string) {
+    if (workspace.threads.length === 1) return toast.error("Keep at least one thread in the workspace");
+    const remaining = workspace.threads.filter((thread) => thread.id !== id);
+    setWorkspace((current) => ({ ...current, threads: remaining, activeThreadId: current.activeThreadId === id ? remaining[0].id : current.activeThreadId }));
+    toast.success("Thread deleted");
+  }
+
+  function submitThreadName() {
+    if (!threadEditor || !threadName.trim()) return setThreadEditor(null);
+    patchThread(threadEditor, { title: threadName.trim() });
+    setThreadEditor(null);
+  }
+
+  function saveProject(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("name") || "").trim();
+    const description = String(form.get("description") || "").trim();
+    if (!name) return;
+    if (projectEditor?.mode === "edit" && projectEditor.project) {
+      setWorkspace((current) => ({ ...current, projects: current.projects.map((project) => project.id === projectEditor.project?.id ? { ...project, name, description } : project) }));
+      toast.success("Project updated");
+    } else {
+      const project = { id: uid("project"), name, description, tone: "#f4f4f0" };
+      setWorkspace((current) => ({ ...current, projects: [...current.projects, project] }));
+      toast.success("Project created");
     }
-  };
+    setProjectEditor(null);
+  }
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      void sendMessage();
-    }
-  };
+  function deleteProject(id: string) {
+    setWorkspace((current) => ({ ...current, projects: current.projects.filter((project) => project.id !== id), threads: current.threads.map((thread) => thread.projectId === id ? { ...thread, projectId: undefined } : thread) }));
+    toast.success("Project removed; threads are still safe");
+  }
 
-  const continueWithGoogle = () => {
-    setAuthError(null);
-    try {
-      window.location.assign(getGoogleSignInUrl());
-    } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "We couldn’t start Google sign-in. Please try again.");
-    }
-  };
+  function sendMessage() {
+    const content = draft.trim();
+    if (!content || !activeThread) return;
+    const userMessage: Message = { id: uid("message"), role: "user", content, createdAt: new Date().toISOString() };
+    const assistantMessage: Message = { id: uid("message"), role: "assistant", content: "I’m ready for the next layer of thinking. Tools are intentionally offline in this build, but your thread and project context are persisted locally.", createdAt: new Date().toISOString() };
+    patchThread(activeThread.id, { messages: [...activeThread.messages, userMessage, assistantMessage], title: activeThread.messages.length === 0 ? content.slice(0, 42) : activeThread.title });
+    setDraft("");
+  }
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center bg-[#0A0E1A]"><Loader2 className="size-5 animate-spin text-[#00FF88]" /></div>;
-
-  if (!isAuthenticated || !user) {
-    return (
-      <main className="landing-shell">
-        <div className="landing-grid" />
-        <section className="landing-card">
-          <div className="brand-mark"><Sparkles className="size-5" /></div>
-          <p className="eyebrow">NEXUSS-AGENT</p>
-          <h1>Continue your work.</h1>
-          <p className="landing-copy">Sign in with Google to continue your conversations, projects, and focused AI work.</p>
-          <div className="auth-form">
-            {authNotice && <p className="login-note">{authNotice}</p>}
-            {authError && <p className="auth-error">{authError}</p>}
-            <Button type="button" onClick={continueWithGoogle} className="login-button"><span className="font-bold">G</span>Continue with Google<ArrowUp className="size-4" /></Button>
-          </div>
-          <p className="login-note">Google sign-in is provided by Nexuss Auth.</p>
-        </section>
-      </main>
-    );
+  function handleComposerKey(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage(); }
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0E1A] text-[#F7FAFC]">
-      <div className="app-shell">
-        <aside className="left-panel">
-          <div className="brand-row">
-            <div className="brand-mark"><Sparkles className="size-4" /></div>
-            <span className="brand-name">nexuss<span>.</span></span>
-            <span className="beta-chip">AGENT</span>
-          </div>
-          <Button onClick={() => createThread.mutate({})} disabled={createThread.isPending} className="new-thread-button">
-            {createThread.isPending ? <Loader2 className="size-4 animate-spin" /> : <MessageSquarePlus className="size-4" />} New thread
-          </Button>
-          <div className="sidebar-section-label"><span>Threads</span><span>{threads.length}</span></div>
-          <ScrollArea className="thread-scroll">
-            <div className="space-y-1 pr-2">
-              {bootstrapQuery.isLoading && <div className="sidebar-loading">Loading workspace…</div>}
-              {threads.map(thread => (
-                <div key={thread.id} role="button" tabIndex={0} onClick={() => setActiveThreadId(thread.id)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setActiveThreadId(thread.id); } }} className={cn("thread-item", activeThreadId === thread.id && "thread-item-active")}>
-                  <div className="thread-item-top"><span className="thread-title">{thread.title}</span><span className="thread-time">{compactDate(thread.latestMessage?.createdAt ?? thread.updatedAt)}</span></div>
-                  <div className="thread-preview">{messageSnippet(thread.latestMessage)}</div>
-                  <span className="thread-action" onClick={event => event.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild><button aria-label={`Thread options for ${thread.title}`} className="icon-trigger"><MoreHorizontal className="size-3.5" /></button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="dropdown-dark w-36">
-                        <DropdownMenuItem onClick={() => openThreadRenameDialog(thread)}><Pencil className="size-3.5" />Rename</DropdownMenuItem>
-                        <DropdownMenuItem className="danger-item" onClick={() => setDeleteTarget({ type: "thread", id: thread.id, name: thread.title })}><Trash2 className="size-3.5" />Delete</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </span>
-                </div>
-              ))}
-              {!bootstrapQuery.isLoading && threads.length === 0 && <div className="sidebar-empty">Start a fresh thread to begin.</div>}
-            </div>
-          </ScrollArea>
-          <div className="projects-heading"><div className="sidebar-section-label"><span>Projects</span><span>{projects.length}</span></div><button onClick={() => openProjectDialog()} className="plus-control" aria-label="Create project"><Plus className="size-4" /></button></div>
-          <ScrollArea className="projects-scroll">
-            <div className="space-y-0.5 pr-2">
-              {projects.map(project => (
-                <div key={project.id} className="project-row">
-                  <span className="project-dot" style={{ backgroundColor: project.color }} /><span className="project-name">{project.name}</span>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild><button className="project-menu" aria-label={`Project options for ${project.name}`}><MoreHorizontal className="size-3.5" /></button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="dropdown-dark w-36">
-                      <DropdownMenuItem onClick={() => openProjectDialog(project)}><Pencil className="size-3.5" />Edit</DropdownMenuItem>
-                      <DropdownMenuItem className="danger-item" onClick={() => setDeleteTarget({ type: "project", id: project.id, name: project.name })}><Trash2 className="size-3.5" />Delete</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
-              {projects.length === 0 && <button onClick={() => openProjectDialog()} className="create-project-empty"><FolderPlus className="size-3.5" />Create your first project</button>}
-            </div>
-          </ScrollArea>
-          <div className="sidebar-account">
-            <Avatar className="account-avatar"><AvatarFallback>{initials(user.name)}</AvatarFallback></Avatar>
-            <div className="min-w-0 flex-1"><div className="account-name">{user.name || "Nexuss user"}</div><div className="account-subtitle">Workspace account</div></div>
-            <button onClick={logout} className="account-logout" title="Sign out"><X className="size-3.5" /></button>
-          </div>
-        </aside>
-
-        <main className="chat-panel">
-          <header className="chat-header">
-            <div className="min-w-0"><div className="chat-kicker">AI WORKSPACE</div><h2>{activeThread?.title ?? "Untitled workspace"}</h2></div>
-            <div className="header-actions">
-              {activeProject ? <span className="active-project-badge"><span style={{ background: activeProject.color }} />{activeProject.name}</span> : <span className="status-badge">No project</span>}
-              <span className="model-badge"><span />Nexuss core</span>
-            </div>
-          </header>
-          <section className="chat-body">
-            {!activeThread ? (
-              <div className="welcome-state">
-                <div className="welcome-orb"><Sparkles className="size-7" /></div>
-                <p className="eyebrow">NEXUSS-AGENT</p>
-                <h1>A quieter place to reason.</h1>
-                <p>Create a thread, attach a project when context matters, then let the work unfold.</p>
-                <Button onClick={() => createThread.mutate({})} className="new-thread-button"><MessageSquarePlus className="size-4" />Create a thread</Button>
+    <div className="app-shell">
+      <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
+        <div className="brand-row">
+          <div className="brand-mark"><img src={AXOLOTL_ICON} alt="AXOLOTL" /></div>
+          <div><div className="brand-name">NEXUSS-AGENT</div><div className="brand-meta">LOCAL PLAYGROUND <span>01</span></div></div>
+          <button className="icon-button mobile-close" onClick={() => setMobileNav(false)} aria-label="Close navigation"><X size={17} /></button>
+        </div>
+        <button className="new-thread-button" onClick={createThread}><CirclePlus size={17} /><span>New thread</span><kbd>⌘ K</kbd></button>
+        <div className="sidebar-section thread-section">
+          <div className="section-label"><span>Threads</span><span className="count">{workspace.threads.length.toString().padStart(2, "0")}</span></div>
+          <div className="search-field"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter threads" /></div>
+          <div className="thread-list">
+            {filteredThreads.map((thread) => (
+              <div key={thread.id} className={`thread-item ${thread.id === activeThread?.id ? "active" : ""}`} onClick={() => { setWorkspace((current) => ({ ...current, activeThreadId: thread.id })); setMobileNav(false); }}>
+                <div className="thread-item-main"><span className="thread-dot" /> <span className="thread-title">{thread.title}</span></div>
+                <div className="thread-item-sub"><span>{formatDate(thread.updatedAt)}</span><button className="item-more" onClick={(event) => { event.stopPropagation(); setThreadEditor(thread.id); setThreadName(thread.title); }} aria-label="Thread actions"><MoreHorizontal size={15} /></button></div>
               </div>
-            ) : (
-              <ScrollArea className="message-scroll">
-                <div className="messages-wrap">
-                  {displayMessages.length === 0 ? (
-                    <div className="conversation-empty">
-                      <div className="assistant-avatar"><Bot className="size-4" /></div>
-                      <div><h3>Ready when you are.</h3><p>Nexuss has no connected tools yet. Use this space to think, draft, explore, and refine.</p></div>
-                      <div className="suggestion-grid">{SUGGESTIONS.map(prompt => <button key={prompt} onClick={() => setComposer(prompt)}>{prompt}<ArrowUp className="size-3.5" /></button>)}</div>
-                    </div>
-                  ) : displayMessages.map((message, index) => (
-                    <article key={message.id} className={cn("message-row", message.role === "user" ? "message-user" : "message-assistant")}>
-                      {message.role === "assistant" && <div className="assistant-avatar"><Bot className="size-4" /></div>}
-                      <div className={cn("message-content", message.role === "user" ? "user-message-content" : "assistant-message-content")}>
-                        <div className="message-meta">{message.role === "user" ? "You" : "Nexuss"}<span>•</span>{compactDate(message.createdAt)}</div>
-                        {message.role === "assistant" ? message.content ? <MarkdownMessage content={message.content} /> : (isStreaming && index === displayMessages.length - 1 ? <div className="typing-indicator"><i /><i /><i /></div> : null) : <p>{message.content}</p>}
-                      </div>
-                      {message.role === "user" && <div className="user-avatar"><UserRound className="size-3.5" /></div>}
-                    </article>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
-          </section>
-          <footer className="composer-zone">
-            <div className="composer-shell">
-              <div className="composer-topline">
-                <Popover>
-                  <PopoverTrigger asChild><button disabled={!activeThread || setThreadProject.isPending} className="composer-project-control"><Folder className="size-3.5" />{activeProject?.name ?? "Attach project"}<ChevronDown className="size-3" /></button></PopoverTrigger>
-                  <PopoverContent align="start" side="top" className="project-popover">
-                    <p>Thread project</p>
-                    <button className={cn("project-select-option", !activeProject && "project-select-active")} onClick={() => activeThread && setThreadProject.mutate({ id: activeThread.id, projectId: null })}><span className="project-dot muted-dot" />No project{!activeProject && <Check className="size-3.5" />}</button>
-                    {projects.map(project => <button key={project.id} className={cn("project-select-option", activeProject?.id === project.id && "project-select-active")} onClick={() => activeThread && setThreadProject.mutate({ id: activeThread.id, projectId: project.id })}><span className="project-dot" style={{ background: project.color }} />{project.name}{activeProject?.id === project.id && <Check className="size-3.5" />}</button>)}
-                    <button className="new-project-option" onClick={() => openProjectDialog()}><Plus className="size-3.5" />New project</button>
-                  </PopoverContent>
-                </Popover>
-                <span>{composer.length.toLocaleString()} chars <span className="token-separator">·</span> ~{tokenEstimate.toLocaleString()} tokens</span>
-              </div>
-              <Textarea ref={textareaRef} disabled={!activeThread || isStreaming} value={composer} onChange={event => { setComposer(event.target.value); requestAnimationFrame(resizeComposer); }} onKeyDown={handleKeyDown} placeholder={activeThread ? "Ask Nexuss anything…" : "Create a thread to begin"} rows={1} className="composer-input" />
-              <div className="composer-footer"><span><Command className="size-3" /> Enter to send</span><button onClick={() => void sendMessage()} disabled={!composer.trim() || !activeThread || isStreaming} className="send-button" aria-label="Send message">{isStreaming ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}</button></div>
-            </div>
-          </footer>
-        </main>
-
-        <aside className="right-panel">
-          <div className="context-header"><div><p>CONTEXT</p><h2>Thread briefing</h2></div><div className="context-header-actions"><PanelRight className="size-4 text-[#78849B]" /><button onClick={logout} className="context-logout" title="Sign out"><LogOut className="size-3.5" /><span>Sign out</span></button></div></div>
-          <div className="context-card project-context-card">
-            <div className="context-icon" style={{ background: `${activeProject?.color ?? "#1E40AF"}22`, color: activeProject?.color ?? "#6EA8FE" }}><Folder className="size-4" /></div>
-            <div className="context-card-main"><p>PROJECT</p><h3>{activeProject?.name ?? "No project attached"}</h3><span>{activeProject ? "Workspace context is active" : "Attach one from the composer"}</span></div>
+            ))}
           </div>
-          {activeProject?.id && <button onClick={() => { const project = projects.find(item => item.id === activeProject.id); if (project) openProjectDialog(project); }} className="edit-project-link"><Pencil className="size-3.5" />Edit project context</button>}
-          <div className="context-divider" />
-          <div className="context-section"><p className="context-label">THREAD DETAILS</p><div className="detail-row"><Clock3 className="size-3.5" /><span>Updated</span><b>{compactDate(activeThread?.updatedAt)}</b></div><div className="detail-row"><MessageSquare className="size-3.5" /><span>Messages</span><b>{displayMessages.length}</b></div></div>
-          <div className="context-divider" />
-          <div className="context-section agent-note"><p className="context-label">AGENT MODE</p><div><Sparkles className="size-4" /><span>Tools are disabled</span></div><p>Nexuss is in focused chat mode. Projects are included as lightweight conversation context.</p></div>
-        </aside>
-      </div>
+        </div>
+        <div className="sidebar-section project-section">
+          <div className="section-label"><span>Projects</span><button className="section-action" onClick={() => setProjectEditor({ mode: "create" })}><Plus size={14} /></button></div>
+          <div className="project-list">
+            {workspace.projects.map((project) => (
+              <div className="project-row" key={project.id}>
+                <Folder size={15} /><div className="project-row-copy"><span>{project.name}</span><small>{project.description}</small></div><button className="item-more" onClick={() => setProjectEditor({ mode: "edit", project })} aria-label={`Edit ${project.name}`}><MoreHorizontal size={15} /></button>
+              </div>
+            ))}
+            <button className="add-project" onClick={() => setProjectEditor({ mode: "create" })}><FolderPlus size={15} /> Add project</button>
+          </div>
+        </div>
+        <div className="sidebar-footer"><div className="status-line"><span className="status-dot" /> Local storage synced</div><button className="footer-action" onClick={() => toast("Authentication is not enabled in this build") }><Settings2 size={15} /> Preferences <span>⌘ ,</span></button></div>
+      </aside>
 
-      <Dialog open={projectDialog.open} onOpenChange={open => setProjectDialog(current => ({ ...current, open }))}>
-        <DialogContent className="project-dialog">
-          <DialogHeader><DialogTitle>{projectDialog.project ? "Edit project" : "Create a project"}</DialogTitle><DialogDescription>Give the workspace a purpose and a signal colour.</DialogDescription></DialogHeader>
-          <form onSubmit={saveProject} className="space-y-4"><div className="form-field"><label htmlFor="project-name">Name</label><Input id="project-name" value={projectName} onChange={event => setProjectName(event.target.value)} placeholder="e.g. Horizon redesign" autoFocus /></div><div className="form-field"><label htmlFor="project-description">Description <span>Optional</span></label><Textarea id="project-description" value={projectDescription} onChange={event => setProjectDescription(event.target.value)} placeholder="What should this project help you achieve?" /></div><div className="form-field"><label>Colour tag</label><div className="colour-picker">{PROJECT_COLORS.map(color => <button key={color} type="button" onClick={() => setProjectColor(color)} className={cn("colour-swatch", projectColor === color && "colour-swatch-active")} style={{ background: color }} aria-label={`Use ${color}`}><Check className="size-3" /></button>)}</div></div><DialogFooter><Button type="button" variant="ghost" onClick={() => setProjectDialog({ open: false })}>Cancel</Button><Button type="submit" className="dialog-save" disabled={createProject.isPending || updateProject.isPending}>{createProject.isPending || updateProject.isPending ? <Loader2 className="size-4 animate-spin" /> : null}{projectDialog.project ? "Save changes" : "Create project"}</Button></DialogFooter></form>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={threadDialog.open} onOpenChange={open => setThreadDialog(current => ({ ...current, open }))}>
-        <DialogContent className="project-dialog">
-          <DialogHeader><DialogTitle>Rename thread</DialogTitle><DialogDescription>Choose a concise name that makes the conversation easy to find.</DialogDescription></DialogHeader>
-          <form onSubmit={saveThreadRename} className="space-y-4"><div className="form-field"><label htmlFor="thread-title">Thread title</label><Input id="thread-title" value={threadTitle} onChange={event => setThreadTitle(event.target.value)} placeholder="Thread title" autoFocus maxLength={160} /></div><DialogFooter><Button type="button" variant="ghost" onClick={() => setThreadDialog({ open: false })}>Cancel</Button><Button type="submit" className="dialog-save" disabled={renameThread.isPending}>{renameThread.isPending ? <Loader2 className="size-4 animate-spin" /> : null}Save title</Button></DialogFooter></form>
-        </DialogContent>
-      </Dialog>
-      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={open => { if (!open) setDeleteTarget(null); }}>
-        <AlertDialogContent className="project-dialog">
-          <AlertDialogHeader><AlertDialogTitle>Delete {deleteTarget?.type === "project" ? "project" : "thread"}?</AlertDialogTitle><AlertDialogDescription>{deleteTarget?.type === "project" ? `“${deleteTarget.name}” will be removed. Its threads will stay in your workspace without a project attachment.` : `“${deleteTarget?.name}” and all of its messages will be permanently removed.`}</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmDelete} className="delete-confirm">Delete {deleteTarget?.type === "project" ? "project" : "thread"}</AlertDialogAction></AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <main className="main-stage">
+        <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="breadcrumb"><span>Workspace</span><ChevronDown size={14} /><span className="breadcrumb-muted">{activeProject?.name || "Unassigned"}</span></div></div><div className="topbar-right"><span className="mode-label">DARK MODE</span><span className="topbar-rule" /><button className="icon-button" onClick={() => toast("Command palette coming soon")} aria-label="Command palette"><Command size={17} /></button><div className="avatar">NA</div></div></header>
+        <div className="mobile-context-strip"><button className="mobile-context-button" onClick={() => setMobileNav(true)}><Menu size={15} /><span>Threads</span><b>{workspace.threads.length.toString().padStart(2, "0")}</b></button><div className="mobile-context-title"><span>ACTIVE THREAD</span><strong>{activeThread?.title || "No active thread"}</strong></div><button className="mobile-context-button" onClick={createThread}><Plus size={15} /><span>New</span></button></div><section className="conversation-area">
+          <div className="conversation-heading"><div><div className="eyebrow">THREAD / {activeThread?.id.slice(-5).toUpperCase()}</div><h1>{activeThread?.title || "Start a new thread"}</h1></div><div className="heading-actions"><span className="persisted-label"><Check size={13} /> Saved locally</span><button className="icon-button" onClick={() => { if (activeThread) { setThreadEditor(activeThread.id); setThreadName(activeThread.title); } }} aria-label="Rename thread"><Pencil size={16} /></button><button className="icon-button danger-hover" onClick={() => activeThread && deleteThread(activeThread.id)} aria-label="Delete thread"><Trash2 size={16} /></button></div></div>
+          {activeThread?.messages.length ? <div className="message-stack">{activeThread.messages.map((message, index) => <article className={`message ${message.role}`} key={message.id}><div className="message-meta"><span className={`role-mark ${message.role}`}>{message.role === "assistant" ? <img src={AXOLOTL_ICON} alt="" /> : "YOU"}</span><span>{message.role === "assistant" ? "NEXUSS-AGENT" : "YOU"}</span><span className="message-time">{formatDate(message.createdAt)}</span>{message.role === "assistant" && <button className="copy-button" onClick={() => { navigator.clipboard?.writeText(message.content); toast.success("Copied to clipboard"); }}><Copy size={13} /> Copy</button>}</div><div className="message-content"><MarkdownMessage content={message.content} /></div>{index < activeThread.messages.length - 1 && <div className="message-divider" />}</article>)}</div> : <div className="empty-thread" style={{ backgroundImage: `linear-gradient(90deg, rgba(11,11,12,.96), rgba(11,11,12,.76)), url(${CONSOLE_TEXTURE})` }}><img className="orbit-art" src={ORBIT_ART} alt="" /><div className="empty-index">00 / READY</div><Sparkles size={20} /><h2>Make the first move.</h2><p>This is a clean surface for complicated thinking. Start a thread, add context, and keep the useful parts close.</p><button className="empty-create-button" onClick={createThread}><Plus size={14} /> Create your first thread <ArrowUp size={13} /></button></div>}
+        </section>
+        <div className="composer-wrap"><div className="composer" onClick={() => composerRef.current?.focus()}><div className="composer-top"><span className="composer-label">PROMPT / {activeProject?.name || "NO PROJECT"}</span><div className="composer-actions"><button className="project-picker" onClick={(event) => { event.stopPropagation(); setProjectMenuOpen(!projectMenuOpen); }}><Folder size={14} /> {activeProject?.name || "Assign project"}<ChevronDown size={13} /></button>{projectMenuOpen && <div className="project-menu"><button onClick={() => { if (activeThread) patchThread(activeThread.id, { projectId: undefined }); setProjectMenuOpen(false); }}>No project</button>{workspace.projects.map((project) => <button key={project.id} onClick={() => { if (activeThread) patchThread(activeThread.id, { projectId: project.id }); setProjectMenuOpen(false); }}><Folder size={14} />{project.name}{project.id === activeThread?.projectId && <Check size={13} />}</button>)}</div>}</div></div><textarea ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleComposerKey} placeholder="Ask anything. Shift + Enter for a new line." rows={2} /><div className="composer-bottom"><span className="composer-hint"><kbd>↵</kbd> send <kbd>⇧ ↵</kbd> new line</span><button className="send-button" onClick={sendMessage} disabled={!draft.trim()} aria-label="Send message"><ArrowUp size={17} /></button></div></div><div className="composer-note"><Archive size={12} /> Conversations are persisted in this browser <span>•</span> No tools connected</div></div><div className="mobile-bottom-bar"><button onClick={() => setMobileNav(true)}><Menu size={16} /><span>Workspace</span></button><button onClick={() => setProjectMenuOpen(!projectMenuOpen)}><Folder size={16} /><span>{activeProject?.name || "Project"}</span></button><button onClick={() => composerRef.current?.focus()}><ArrowUp size={16} /><span>Prompt</span></button></div>
+      </main>
+
+      {threadEditor && <div className="modal-backdrop" onMouseDown={() => setThreadEditor(null)}><div className="small-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-eyebrow">THREAD SETTINGS</div><h3>Rename thread</h3><input autoFocus value={threadName} onChange={(event) => setThreadName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && submitThreadName()} /><div className="modal-actions"><button className="text-button" onClick={() => setThreadEditor(null)}>Cancel</button><button className="primary-button" onClick={submitThreadName}>Save name</button></div></div></div>}
+      {projectEditor && <div className="modal-backdrop" onMouseDown={() => setProjectEditor(null)}><form className="small-modal" onSubmit={saveProject} onMouseDown={(event) => event.stopPropagation()}><div className="modal-eyebrow">PROJECT REGISTRY</div><h3>{projectEditor.mode === "edit" ? "Edit project" : "New project"}</h3><label>Name<input name="name" defaultValue={projectEditor.project?.name || ""} autoFocus placeholder="e.g. Product systems" /></label><label>Description<input name="description" defaultValue={projectEditor.project?.description || ""} placeholder="What belongs here?" /></label><div className="modal-actions">{projectEditor.mode === "edit" && projectEditor.project && <button type="button" className="delete-project" onClick={() => { deleteProject(projectEditor.project!.id); setProjectEditor(null); }}><Trash2 size={14} /> Delete</button>}<span className="modal-spacer" /><button type="button" className="text-button" onClick={() => setProjectEditor(null)}>Cancel</button><button className="primary-button" type="submit">{projectEditor.mode === "edit" ? "Save changes" : "Create project"}</button></div></form></div>}
     </div>
   );
 }
