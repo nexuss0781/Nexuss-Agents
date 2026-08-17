@@ -84,7 +84,7 @@
 - [x] Correct the Render Paradox gateway endpoint to the documented production URL and re-validate the Blueprint.
 - [x] Save a new checkpoint after the finalized Dockerfile and Render Blueprint are validated.
 
-- [ ] Add a non-secret `.env.example` covering local and Render configuration without writing credential values.
-- [ ] Commit and push the finalized Dockerfile, Render Blueprint, and environment template to `nexuss0781/Nexuss-Agents`.
-- [ ] Verify the pushed repository link and deployment files before delivery.
+- [x] Add a safe non-secret deployment environment guide covering local and Render configuration without writing credential values.
+- [x] Commit and push the finalized Dockerfile, Render Blueprint, and environment guide to `nexuss0781/Nexuss-Agents`.
+- [x] Verify the pushed repository link and deployment files before delivery.
 
