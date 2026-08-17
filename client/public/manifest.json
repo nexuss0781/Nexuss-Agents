@@ -9,13 +9,13 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/manus-storage/nexuss-agent-axolotl-black-white_0867a102.png",
+      "src": "/manus-storage/nexuss-agent-axolotl-only_475e56f0.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/manus-storage/nexuss-agent-axolotl-black-white_0867a102.png",
+      "src": "/manus-storage/nexuss-agent-axolotl-only_475e56f0.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
