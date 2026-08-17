@@ -68,3 +68,8 @@ The AXOLOTL mark is a bold geometric icon: a flattened, angular body loop with t
 - Decorative diagrams must derive from the AXOLOTL angular loop, eye-dot geometry, thread indices, or technical hairline schematics; generic orbit and constellation language is avoided.
 - The workspace grid remains deliberately asymmetric, with the reading surface offset against the sidebar and composer rather than centered like a conventional dashboard.
 - The AXOLOTL glyph acts as a primary brand motif in system moments and empty states, not only as a small header badge.
+
+- The AXOLOTL mark remains a precise geometric symbol rather than a colorful mascot or illustrative animal on the public landing page.
+- The landing page uses AXOLOTL WHITE, graphite, smoke, and cold-silver hierarchy; warm bronze and sepia accents are excluded from the public brand surface.
+- Hero decoration is derived from angular loop geometry, eye dots, thread indices, and schematic hairlines rather than generic circuits, constellations, or orbital diagrams.
+- The public landing page and `/app` workspace share the same restrained Obsidian Console language so the transition between them feels continuous.

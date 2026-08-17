@@ -276,3 +276,103 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .profile-copy strong { overflow: hidden; color: #f4f4f0; font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .profile-copy span { color: #77787c; font: 8px "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
 @media (max-width: 800px) { .profile-row { margin-top: 8px; } }
+
+
+/* Landing page — editorial stealth: graphite surfaces, warm-white hierarchy, espresso signal accents, and instrument-panel geometry. */
+.landing-page { min-height: 100vh; overflow-x: hidden; background: #090a0a; color: #f4f1ec; font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif; }
+.landing-page button, .landing-page a { font: inherit; }
+.landing-nav { position: absolute; inset: 0 0 auto; z-index: 10; display: flex; align-items: center; justify-content: space-between; height: 82px; padding: 0 clamp(24px, 5vw, 84px); border-bottom: 1px solid rgba(244,241,236,.14); background: rgba(9,10,10,.62); backdrop-filter: blur(16px); }
+.landing-brand { display: inline-flex; align-items: center; gap: 11px; color: #f4f1ec; text-decoration: none; letter-spacing: .11em; }
+.landing-brand-mark { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(244,241,236,.34); background: #111212; }
+.landing-brand-mark img { width: 27px; height: 27px; object-fit: contain; }
+.landing-brand strong, .landing-brand small { display: block; }
+.landing-brand strong { font-size: 12px; font-weight: 700; }
+.landing-brand small { margin-top: 4px; color: #8c8b87; font-size: 8px; letter-spacing: .17em; }
+.landing-nav-links { display: flex; gap: 30px; margin-left: auto; margin-right: 32px; }
+.landing-nav-links a { color: #a1a09a; font-size: 11px; letter-spacing: .11em; text-decoration: none; text-transform: uppercase; transition: color 180ms ease; }
+.landing-nav-links a:hover { color: #f4f1ec; }
+.landing-nav-cta, .landing-primary { display: inline-flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid #92705a; background: #2c201b; color: #f4f1ec; cursor: pointer; letter-spacing: .06em; font-size: 11px; transition: transform 180ms ease, background 180ms ease, border-color 180ms ease; }
+.landing-nav-cta { padding: 11px 15px; }
+.landing-primary { padding: 15px 20px; }
+.landing-nav-cta:hover, .landing-primary:hover { transform: translateY(-2px); border-color: #c49a79; background: #402d24; }
+.landing-hero { position: relative; min-height: min(800px, 100vh); display: flex; align-items: center; padding: 140px clamp(24px, 9vw, 148px) 100px; background-position: center; background-size: cover; }
+.landing-hero-overlay { position: absolute; inset: 0; background: linear-gradient(90deg, #090a0a 0%, rgba(9,10,10,.95) 35%, rgba(9,10,10,.28) 100%), linear-gradient(0deg, #090a0a 0%, transparent 30%); }
+.landing-hero-grid { position: absolute; inset: 82px 0 0; opacity: .28; background-image: linear-gradient(rgba(244,241,236,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(244,241,236,.06) 1px, transparent 1px); background-size: 90px 90px; mask-image: linear-gradient(90deg, black, transparent 80%); }
+.landing-hero-copy { position: relative; z-index: 1; max-width: 650px; }
+.eyebrow, .section-kicker { display: flex; align-items: center; gap: 10px; color: #a77b5b; font-size: 10px; font-weight: 700; letter-spacing: .19em; text-transform: uppercase; }
+.eyebrow span:last-child { color: #8b8b86; }
+.eyebrow-line { width: 28px; height: 1px; background: #a77b5b; }
+.landing-hero h1 { max-width: 690px; margin: 24px 0 20px; color: #f4f1ec; font-size: clamp(52px, 7vw, 98px); line-height: .94; letter-spacing: -.075em; font-weight: 500; }
+.landing-hero h1 em, .landing-intro h2 span, .visual-copy h2 span, .access-panel h2 span { color: #ad8568; font-style: normal; }
+.landing-hero-copy > p { max-width: 430px; color: #a3a39d; font-size: 17px; line-height: 1.65; }
+.landing-hero-actions { display: flex; align-items: center; gap: 22px; margin-top: 32px; }
+.landing-secondary { display: inline-flex; align-items: center; gap: 8px; color: #d8d5ce; font-size: 12px; text-decoration: none; }
+.landing-secondary:hover { color: #ad8568; }
+.landing-proof-row { display: flex; flex-wrap: wrap; gap: 17px; margin-top: 42px; color: #8d8d88; font-size: 10px; letter-spacing: .05em; }
+.landing-proof-row span { display: inline-flex; align-items: center; gap: 6px; }
+.landing-proof-row svg { color: #ad8568; }
+.landing-hero-readout { position: absolute; right: clamp(24px, 5vw, 84px); bottom: 62px; z-index: 1; display: flex; flex-direction: column; gap: 8px; color: #787a76; font-size: 9px; letter-spacing: .16em; text-align: right; }
+.landing-hero-readout strong { color: #d7d4ce; font-size: 11px; font-weight: 500; }
+.section-shell { padding: 130px clamp(24px, 9vw, 148px); }
+.landing-intro { background: #0b0c0c; }
+.intro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(48px, 11vw, 180px); margin-top: 50px; }
+.intro-grid h2, .visual-copy h2, .access-panel h2 { margin: 0; color: #f4f1ec; font-size: clamp(44px, 5.5vw, 76px); line-height: .98; letter-spacing: -.065em; font-weight: 500; }
+.large-copy { max-width: 520px; margin: 0; color: #d7d4ce; font-size: 24px; line-height: 1.35; letter-spacing: -.02em; }
+.muted-copy { max-width: 440px; margin-top: 26px; color: #898b87; line-height: 1.7; }
+.principle-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-top: 100px; border-top: 1px solid rgba(244,241,236,.15); border-bottom: 1px solid rgba(244,241,236,.15); }
+.principle-strip > div { min-height: 170px; padding: 25px 22px 25px 0; border-right: 1px solid rgba(244,241,236,.12); }
+.principle-strip > div:not(:first-child) { padding-left: 22px; }
+.principle-strip > div:last-child { border-right: 0; }
+.principle-strip span { color: #ad8568; font-size: 10px; letter-spacing: .16em; }
+.principle-strip strong { display: block; margin-top: 25px; font-size: 18px; font-weight: 500; }
+.principle-strip p { max-width: 220px; color: #898b87; font-size: 13px; line-height: 1.55; }
+.landing-orchestration { background: #0f1010; }
+.visual-split { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(310px, .88fr); gap: clamp(44px, 8vw, 120px); align-items: center; margin-top: 55px; }
+.visual-frame { position: relative; min-height: 480px; overflow: hidden; border: 1px solid rgba(244,241,236,.16); background: #090a0a; }
+.visual-frame img { width: 100%; height: 100%; min-height: 480px; display: block; object-fit: cover; opacity: .82; }
+.frame-corner { position: absolute; width: 22px; height: 22px; border-color: #ad8568; }
+.corner-a { top: 18px; left: 18px; border-top: 1px solid; border-left: 1px solid; }
+.corner-b { right: 18px; bottom: 18px; border-right: 1px solid; border-bottom: 1px solid; }
+.frame-label { position: absolute; left: 22px; bottom: 18px; color: #9b9b96; font-size: 9px; letter-spacing: .15em; }
+.visual-copy > p { max-width: 390px; margin: 28px 0; color: #9b9b96; line-height: 1.7; }
+.feature-list { border-top: 1px solid rgba(244,241,236,.13); }
+.feature-list > div { display: flex; gap: 15px; padding: 18px 0; border-bottom: 1px solid rgba(244,241,236,.13); }
+.feature-list svg { flex: none; margin-top: 2px; color: #ad8568; }
+.feature-list strong, .feature-list small { display: block; }
+.feature-list strong { font-size: 13px; font-weight: 500; }
+.feature-list small { margin-top: 5px; color: #858680; font-size: 11px; line-height: 1.45; }
+.landing-access { position: relative; background-color: #0b0c0c; background-position: center; background-size: cover; }
+.landing-access::before { position: absolute; inset: 0; content: ""; background: rgba(9,10,10,.84); }
+.access-panel { position: relative; z-index: 1; display: flex; align-items: end; justify-content: space-between; gap: 40px; padding: clamp(30px, 5vw, 70px); border: 1px solid rgba(244,241,236,.15); background: rgba(10,11,11,.72); }
+.access-panel h2 { margin-top: 24px; font-size: clamp(44px, 6vw, 80px); }
+.access-panel p { max-width: 350px; color: #93948e; line-height: 1.6; }
+.landing-footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px clamp(24px, 5vw, 84px); border-top: 1px solid rgba(244,241,236,.13); color: #777a76; font-size: 9px; letter-spacing: .14em; }
+@media (max-width: 800px) { .landing-nav { height: 70px; padding: 0 18px; } .landing-nav-links { display: none; } .landing-nav-cta { padding: 9px 11px; font-size: 10px; } .landing-hero { min-height: 760px; align-items: end; padding: 120px 22px 72px; background-position: 62% center; } .landing-hero-overlay { background: linear-gradient(0deg, #090a0a 5%, rgba(9,10,10,.82) 46%, rgba(9,10,10,.3) 100%); } .landing-hero h1 { font-size: clamp(48px, 15vw, 76px); } .landing-hero-copy > p { font-size: 15px; } .landing-hero-readout { right: 22px; bottom: 24px; } .landing-proof-row { margin-top: 28px; } .section-shell { padding: 84px 22px; } .intro-grid, .visual-split { grid-template-columns: 1fr; gap: 42px; } .intro-grid h2, .visual-copy h2 { font-size: 52px; } .large-copy { font-size: 20px; } .principle-strip { grid-template-columns: 1fr; margin-top: 60px; } .principle-strip > div, .principle-strip > div:not(:first-child) { min-height: auto; padding: 20px 0; border-right: 0; border-bottom: 1px solid rgba(244,241,236,.12); } .principle-strip > div:last-child { border-bottom: 0; } .principle-strip strong { margin-top: 15px; } .visual-frame, .visual-frame img { min-height: 330px; } .access-panel { align-items: start; flex-direction: column; padding: 28px 22px; } .landing-footer { flex-direction: column; gap: 9px; } }
+@media (prefers-reduced-motion: no-preference) { .landing-hero-copy { animation: landing-rise 700ms cubic-bezier(.23,1,.32,1) both; } .landing-hero-readout { animation: landing-fade 900ms ease both; } }
+@keyframes landing-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes landing-fade { from { opacity: 0; } to { opacity: 1; } }
+
+
+/* Landing refinement: AXOLOTL WHITE and graphite do the hierarchy work; schematic geometry replaces mascot/circuit decoration. */
+.landing-page { background: #080909; }
+.landing-page .landing-hero-overlay { background: linear-gradient(90deg, #080909 0%, rgba(8,9,9,.96) 38%, rgba(8,9,9,.54) 100%), linear-gradient(0deg, #080909 0%, transparent 38%); }
+.landing-page .landing-hero-grid { opacity: .18; background-size: 118px 118px; mask-image: linear-gradient(90deg, black, transparent 72%); }
+.landing-page .landing-hero h1 em, .landing-page .landing-intro h2 span, .landing-page .visual-copy h2 span, .landing-page .access-panel h2 span { color: #f4f1ec; }
+.landing-page .landing-nav-cta, .landing-page .landing-primary { background: #f4f1ec; border-color: #f4f1ec; color: #0a0b0b; }
+.landing-page .landing-nav-cta:hover, .landing-page .landing-primary:hover { background: #d9d8d4; border-color: #d9d8d4; }
+.landing-page .eyebrow, .landing-page .section-kicker, .landing-page .eyebrow-line, .landing-page .landing-proof-row svg, .landing-page .feature-list svg { color: #d6d8d4; }
+.landing-page .eyebrow-line { background: #d6d8d4; }
+.landing-page .landing-hero-readout strong { color: #f4f1ec; }
+.landing-hero-schematic { position: absolute; top: 16%; right: 13%; width: min(46vw, 650px); aspect-ratio: 1.25; opacity: .75; transform: rotate(-9deg); }
+.schematic-loop { position: absolute; inset: 15% 8%; border: 1px solid rgba(244,241,236,.36); border-radius: 48% 52% 45% 55%; transform: rotate(18deg); }
+.schematic-loop-a { clip-path: polygon(0 0, 100% 0, 100% 48%, 0 100%); }
+.schematic-loop-b { inset: 24% 17%; border-color: rgba(244,241,236,.19); transform: rotate(-22deg); }
+.schematic-eye { position: absolute; width: 8px; height: 8px; border: 1px solid #f4f1ec; border-radius: 50%; background: #080909; box-shadow: 0 0 0 4px rgba(244,241,236,.06); }
+.schematic-eye-a { top: 45%; left: 39%; }
+.schematic-eye-b { top: 45%; right: 39%; }
+.schematic-index { position: absolute; right: 6%; bottom: 13%; color: #aeb1ae; font-size: 9px; letter-spacing: .2em; }
+.landing-page .frame-corner { border-color: #d6d8d4; }
+.landing-page .section-shell { background-color: #0b0c0c; }
+.landing-page .landing-orchestration { background-color: #0d0e0e; }
+.landing-page .landing-access { background-blend-mode: screen; }
+@media (max-width: 800px) { .landing-hero-schematic { top: 19%; right: -18%; width: 78vw; opacity: .48; } .landing-page .landing-hero { background-position: 64% center; } }

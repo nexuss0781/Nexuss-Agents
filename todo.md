@@ -1,7 +1,9 @@
-# Complete Terminology Cleanup
+# Nexuss-Agent Landing Page and /app Route
 
-- [ ] Audit every occurrence of Threads 01, LOCAL PLAYGROUND 01, Unassigned, DARK MODE, 00 / READY, and related placeholder wording.
-- [ ] Replace remaining legacy labels in desktop and mobile markup with consistent professional terminology.
-- [ ] Verify persisted and empty-state text does not reintroduce old wording.
-- [ ] Validate desktop/mobile screenshots and production build.
-- [ ] Save and push the complete terminology update to master.
+- [ ] Define premium landing-page structure, copy, visual direction, and route behavior.
+- [ ] Generate custom hero and supporting visual assets for the landing page.
+- [ ] Create the public landing page at `/` with a clear route into `/app`.
+- [ ] Move the existing agent workspace to `/app` without losing functionality.
+- [ ] Add responsive behavior, polished interactions, and accessible navigation.
+- [ ] Validate `/`, `/app`, mobile/desktop layouts, and the production build.
+- [ ] Save a checkpoint and push the completed experience to master.
