@@ -1,8 +1,7 @@
-# Refined Desktop Composition
+# Expanded Workbench Composition
 
-- [ ] Inspect the current topbar and conversation heading markup.
-- [ ] Remove the THREAD / ID breadcrumb from the desktop heading.
-- [ ] Move the active thread title into the top navigation bar.
-- [ ] Pull the workbench upward and keep its full content visible.
-- [ ] Rebalance composer height and fixed viewport geometry without scrollbars.
-- [ ] Validate desktop/mobile behavior, then save and push the update to master.
+- [ ] Inspect the current conversation heading and fixed desktop geometry.
+- [ ] Remove the large Untitled exploration heading from the conversation area.
+- [ ] Expand the workbench card into the freed vertical space toward the composer.
+- [ ] Preserve complete card content, no scrollbars, and mobile behavior.
+- [ ] Validate, save, and push the update to master.
