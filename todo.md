@@ -77,3 +77,10 @@
 - [x] Reframe the migration notes to document only verifiable non-secret configuration and the alias path, without claiming an uninspectable approval artifact.
 - [x] Keep active Paradox credentials represented only by server-side environment names; do not add secret values or unverifiable storage claims.
 
+- [x] Add a production Dockerfile that installs dependencies, runs the full frontend/server build, and starts the compiled server on Render’s PORT.
+- [x] Add a Render Blueprint configuration with the required service, build, start, health-check, and secret environment mappings.
+- [x] Validate the Docker/Render configuration and save a deployment-ready checkpoint.
+
+- [x] Correct the Render Paradox gateway endpoint to the documented production URL and re-validate the Blueprint.
+- [x] Save a new checkpoint after the finalized Dockerfile and Render Blueprint are validated.
+

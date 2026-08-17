@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: nexuss-agent
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PARADOX_PROJECT_NAME
+        value: nexuss-agent
+      - key: PARADOX_DATABASE_NAME
+        value: nexuss-agent
+      - key: PARADOX_GATEWAY_URL
+        value: https://paradox-db.onrender.com/v1
+      - key: PARADOX_API_KEY
+        sync: false
+      - key: PARADOX_PASSPHRASE
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: BUILT_IN_FORGE_API_URL
+        sync: false
+      - key: BUILT_IN_FORGE_API_KEY
+        sync: false
+      - key: VITE_APP_ID
+        value: nexuss-agent
+      - key: VITE_APP_TITLE
+        value: Nexuss-Agent
+      - key: VITE_FRONTEND_FORGE_API_URL
+        sync: false
+      - key: VITE_FRONTEND_FORGE_API_KEY
+        sync: false
+      - key: VITE_ANALYTICS_ENDPOINT
+        sync: false
+      - key: VITE_ANALYTICS_WEBSITE_ID
+        sync: false
+      - key: PARADOX_DB_PATH
+        value: /tmp/nexuss-agent.paradox.db
+
