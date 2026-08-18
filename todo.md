@@ -79,4 +79,4 @@
 - [x] Inspect the current authenticated user data passed into the workspace and the existing account presentation.
 - [x] Add a larger, visible account area with the real avatar, name, email, and sign-out action.
 - [x] Validate the enlarged account area visually at desktop and mobile sizes; the avatar, name, email, and sign-out action remain visible in the desktop topbar/sidebar and the mobile drawer, with initials as a fallback if the provider avatar fails to load. Profile unit test, TypeScript, and production build also passed.
-- [ ] Save and push the account navigation enhancement to `master`.
+- [x] Save and push the account navigation enhancement to `master`.
