@@ -175,3 +175,11 @@
 - [x] Add guarded server-side dynamic model discovery and persistent multi-select model preferences without exposing the API key to the browser.
 - [x] Build and test a streamlined responsive settings form with refreshable model choices, select/unselect controls, recovery feedback, TypeScript, and a production build.
 - [x] Save and push the provider and model preferences enhancement to `master` (GitHub commit `080bedd`).
+
+## Settings Scrollability
+
+- [x] Make the settings panel body independently scrollable within the viewport while preserving its header and footer actions.
+- [x] Retain a separate, bounded scroll area for long available-model catalogs.
+- [x] Validate responsive scroll behavior, TypeScript, and the production build.
+- [x] Save a checkpoint for the validated settings scrollability correction (project version `887a5c01`).
+- [ ] Push the settings scrollability correction and checklist record to `master`.

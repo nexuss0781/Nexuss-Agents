@@ -182,11 +182,13 @@ describe("persistent workspace client", () => {
     await waitForText(host, "Base model API");
     expect(host.textContent).toContain("settings@example.com");
     expect(host.textContent).not.toContain("Encrypted local saving");
+    expect(host.querySelector(".settings-scroll-body")).not.toBeNull();
     const apiKey = await waitForInputPlaceholder(host, 'input[aria-label="Model provider API key"]', "Saved securely");
     expect(apiKey.placeholder).toContain("Saved securely");
     const refreshModels = Array.from(host.querySelectorAll("button")).find((button) => button.textContent?.includes("Refresh models"));
     await act(async () => { refreshModels?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
     await waitForText(host, "model-beta");
+    expect(host.querySelector(".model-list")).not.toBeNull();
     const beta = Array.from(host.querySelectorAll<HTMLButtonElement>(".model-choice")).find((button) => button.textContent?.includes("model-beta"));
     await act(async () => { beta?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
     const saveProvider = Array.from(host.querySelectorAll("button")).find((button) => button.textContent?.includes("Save provider"));
