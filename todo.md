@@ -90,3 +90,11 @@
 - [x] Save and push the finished login portal redesign to `master`.
 
 > Visual review note: The desktop entry console keeps a clear asymmetric headline-to-auth-panel hierarchy, while the 390px mobile layout retains readable identity metadata and full-width Google and GitHub actions.
+
+## Paradox-DB Connection Readiness
+
+- [x] Inspect whether an existing Paradox-DB integration is configured and confirm the appropriate server-side connection approach.
+- [x] Register the approved Paradox-DB account with a generated high-entropy registration credential, obtaining a gateway-issued API key without exposing credentials in source code or URLs.
+- [x] Generate a separate high-entropy database passphrase and retain the generated API key and passphrase in a restricted local credential record until application persistence is explicitly wired.
+- [x] Verify encrypted Paradox-DB connectivity with a minimal server-side database operation, remote encrypted sync, and clean shutdown.
+- [x] Document the successful connection and persistence implementation constraints before adding application data models.

@@ -138,7 +138,7 @@ importers:
         version: 17.4.2
       drizzle-orm:
         specifier: ^0.44.5
-        version: 0.44.7(mysql2@3.23.3(@types/node@24.7.0))
+        version: 0.44.7(mysql2@3.23.3(@types/node@24.7.0))(sql.js@1.14.2)
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.2.1)
@@ -172,6 +172,9 @@ importers:
       nexuss-auth:
         specifier: ^1.0.0
         version: 1.0.0
+      parad:
+        specifier: ^2.2.2
+        version: 2.2.2
       react:
         specifier: ^19.2.1
         version: 19.2.1
@@ -3559,6 +3562,11 @@ packages:
   package-manager-detector@1.5.0:
     resolution: {integrity: sha512-uBj69dVlYe/+wxj8JOpr97XfsxH/eumMt6HqjNTmJDf/6NO9s+0uxeOneIz3AsPt2m6y9PqzDzd3ATcU17MNfw==}
 
+  parad@2.2.2:
+    resolution: {integrity: sha512-QVDcZsoRd42xMOy4wlxVWu8sSFVOPAifQatdfPH9a8JAIjVcHhK/Wm1VvB7PdgPSOoVEF7/365dWz0uTTut3HQ==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   parse-entities@4.0.2:
     resolution: {integrity: sha512-GG2AQYWoLgL877gQIKeRPGO1xF9+eG1ujIb5soS5gPvLQ1y2o8FL90w2QWNdf9I361Mpp7726c+lj3U0qK1uGw==}
 
@@ -3888,6 +3896,9 @@ packages:
   sql-escaper@1.5.1:
     resolution: {integrity: sha512-4toX5E1fQbBrpfXidaHnF0669nkAdETeIPTs2SUjxxD7RRIs9ICG4gtpmfc68JCEKehsdwLFqBu9VlQqZ1P1gg==}
     engines: {bun: '>=1.0.0', deno: '>=2.0.0', node: '>=12.0.0'}
+
+  sql.js@1.14.2:
+    resolution: {integrity: sha512-3ZGPovObMFrdw79zrUHbfdE/DLIsy8jdNdssmMSQuRAymedU6q84asPt0kgiqrdMYlPegDItiIMfmIXzZnYFcw==}
 
   stackback@0.0.2:
     resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
@@ -6561,9 +6572,10 @@ snapshots:
       esbuild: 0.25.10
       tsx: 4.23.12
 
-  drizzle-orm@0.44.7(mysql2@3.23.3(@types/node@24.7.0)):
+  drizzle-orm@0.44.7(mysql2@3.23.3(@types/node@24.7.0))(sql.js@1.14.2):
     optionalDependencies:
       mysql2: 3.23.3(@types/node@24.7.0)
+      sql.js: 1.14.2
 
   dunder-proto@1.0.1:
     dependencies:
@@ -7676,6 +7688,10 @@ snapshots:
 
   package-manager-detector@1.5.0: {}
 
+  parad@2.2.2:
+    dependencies:
+      sql.js: 1.14.2
+
   parse-entities@4.0.2:
     dependencies:
       '@types/unist': 2.0.11
@@ -8110,6 +8126,8 @@ snapshots:
   space-separated-tokens@2.0.2: {}
 
   sql-escaper@1.5.1: {}
+
+  sql.js@1.14.2: {}
 
   stackback@0.0.2: {}
 
