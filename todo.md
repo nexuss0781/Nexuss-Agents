@@ -48,4 +48,13 @@
 - [x] Create a dedicated login portal with Google and GitHub entry; first-time users are created by the selected provider flow.
 - [x] Configure automatic account creation and route signed-in users into the protected workspace.
 - [x] Verify callback success, invalid/replayed handoff rejection, session recovery, logout, and protected access with automated tests; the user will complete the live provider test on Render.
-- [ ] Save and push the authentication-enabled project to `master`.
+- [x] Save and push the authentication-enabled project to `master`.
+- [x] Confirm the configured callback already uses the exact active Render origin, so the server can safely use the registered production callback without a runtime-origin override.
+
+## OAuth Bootstrap Repair
+
+- [x] Identify the unused built-in OAuth initialization that emits the missing `OAUTH_SERVER_URL` error.
+- [x] Remove the unused initialization while preserving the Nexuss Auth Google and GitHub routes.
+- [x] Validate server startup, TypeScript, production build, and provider-start routes without `OAUTH_SERVER_URL`.
+- [x] Recheck Google, GitHub, and missing-handoff callback responses after removing the template OAuth bootstrap.
+- [ ] Save and push the correction to `master`.
