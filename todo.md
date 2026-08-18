@@ -200,4 +200,4 @@
 - [x] Add robust rendering fallbacks for invalid diagram definitions, safe external links, and accessible copyable code blocks.
 - [x] Add regression coverage for research-rich content formats, then validate TypeScript and the production build.
 - [x] Save a checkpoint for the research renderer enhancement (project version `cb6000dd`).
-- [ ] Push the research renderer enhancement and checklist record to `master`.
+- [x] Push the research renderer enhancement and checklist record to `master` (GitHub commit `9bab791`).
