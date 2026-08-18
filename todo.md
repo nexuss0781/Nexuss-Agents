@@ -182,4 +182,4 @@
 - [x] Retain a separate, bounded scroll area for long available-model catalogs.
 - [x] Validate responsive scroll behavior, TypeScript, and the production build.
 - [x] Save a checkpoint for the validated settings scrollability correction (project version `887a5c01`).
-- [ ] Push the settings scrollability correction and checklist record to `master`.
+- [x] Push the settings scrollability correction and checklist record to `master` (GitHub commit `75aca0a`).
