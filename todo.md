@@ -119,3 +119,18 @@
 - [x] Add a mounted client regression test proving Retry recovers from a failed workspace load into an interactive workspace state.
 - [x] Add a mounted client regression test proving project creation is enabled and succeeds after the workspace has recovered.
 - [x] Save and push the workspace reliability fix to `master`.
+
+## Live Production Workspace Repair
+
+- [x] Inspect the live production workspace request and confirm the deployed server reports `Paradox-DB persistence is not configured`.
+- [x] Apply `PARADOX_GATEWAY_URL`, `PARADOX_API_KEY`, and `PARADOX_PASSPHRASE` to the Render server environment, then redeploy; the live workspace now loads and displays persisted project data.
+- [ ] Verify a live signed-in workspace can create a project, send a first message, and persist the resulting project-linked thread on the deployed service.
+- [ ] Save and push the production workspace repair to `master`.
+
+## Composer and Project Assignment Interaction
+
+- [x] Audit why the empty workspace disables the composer and project assignment controls despite available persisted projects.
+- [x] Allow an authenticated user to enter a first message immediately, creating a durable thread on send when none exists.
+- [x] Keep the assignment dropdown enabled for saved projects and apply the selected project to the created or active thread.
+- [x] Test immediate compose, automatic thread creation, project selection, assignment persistence, and message saving through mounted client coverage, full tests, TypeScript, and production build.
+- [ ] Save and push the composer interaction fix to `master`.

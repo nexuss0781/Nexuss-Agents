@@ -16,10 +16,10 @@ type WorkspaceSnapshot = { projects: Array<{ id: string; name: string; descripti
 
 const roots: Array<{ root: Root; host: HTMLDivElement }> = [];
 
-function mockLink(resolve: (path: string) => unknown | Error): TRPCLink<AppRouter> {
+function mockLink(resolve: (path: string, input?: unknown) => unknown | Error): TRPCLink<AppRouter> {
   return () => ({ op }) => observable((observer) => {
     queueMicrotask(() => {
-      const value = resolve(op.path);
+      const value = resolve(op.path, op.input);
       if (value instanceof Error) observer.error(value as never);
       else { observer.next({ result: { data: value } } as never); observer.complete(); }
     });
@@ -27,7 +27,7 @@ function mockLink(resolve: (path: string) => unknown | Error): TRPCLink<AppRoute
   });
 }
 
-async function mountWorkspace(resolve: (path: string) => unknown | Error) {
+async function mountWorkspace(resolve: (path: string, input?: unknown) => unknown | Error) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -141,6 +141,41 @@ describe("persistent workspace client", () => {
 
     await waitForText(host, "Start a thread.");
     expect(calls).toHaveBeenCalledWith("workspace.migrate");
+  });
+
+  it("creates a project-linked thread from the first message in an empty workspace", async () => {
+    const inputs = vi.fn();
+    const project: WorkspaceSnapshot["projects"][number] = { id: "pntp", name: "PNTP", description: "", tone: "#f4f4f0" };
+    const empty: WorkspaceSnapshot = { projects: [project], threads: [] };
+    const host = await mountWorkspace((path, input) => {
+      inputs(path, input);
+      if (path === "workspace.createThread") return { id: "first-thread", title: "New thread", projectId: "pntp", updatedAt: "2026-08-18T00:00:00.000Z", messages: [] };
+      if (path === "workspace.appendMessages") return { id: "first-thread" };
+      return empty;
+    });
+
+    await waitForText(host, "Start a thread.");
+    const composer = host.querySelector<HTMLTextAreaElement>("textarea");
+    expect(composer?.disabled).toBe(false);
+    const picker = Array.from(host.querySelectorAll("button")).find((button) => button.textContent?.includes("Assign project"));
+    await act(async () => { picker?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    const projectOption = Array.from(host.querySelectorAll(".project-menu button")).find((button) => button.textContent?.includes("PNTP"));
+    await act(async () => { projectOption?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+
+    if (!composer) throw new Error("Composer was not rendered");
+    await act(async () => {
+      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+      setValue?.call(composer, "First persisted message");
+      composer.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const send = host.querySelector<HTMLButtonElement>('button[aria-label="Send message"]');
+    await act(async () => {
+      send?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((resolveTick) => setTimeout(resolveTick, 0));
+    });
+
+    expect(inputs).toHaveBeenCalledWith("workspace.createThread", { projectId: "pntp" });
+    expect(inputs).toHaveBeenCalledWith("workspace.appendMessages", expect.objectContaining({ threadId: "first-thread" }));
   });
 
   it("renders complete persisted history again after a fresh workspace mount", async () => {
