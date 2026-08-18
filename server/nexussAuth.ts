@@ -14,6 +14,14 @@ export type NexussAuthUser = {
   avatarUrl: string | null;
 };
 
+type AuthFailureCode = "configuration" | "handoff_required" | "invalid_handoff" | "user_not_found" | "handoff_failed";
+
+class NexussAuthFailure extends Error {
+  constructor(public readonly code: AuthFailureCode, public readonly status?: number) {
+    super(code);
+  }
+}
+
 function config() {
   const authUrl = process.env.NEXUSS_AUTH_URL;
   const projectId = process.env.NEXUSS_AUTH_PROJECT_ID;
@@ -30,6 +38,11 @@ function secret() {
   const value = process.env.JWT_SECRET;
   if (!value) throw new Error("Application session signing is not configured");
   return new TextEncoder().encode(value);
+}
+
+function assertSignInReady() {
+  config();
+  secret();
 }
 
 function cookieOptions() {
@@ -84,13 +97,18 @@ async function exchangeHandoff(handoffToken: string) {
   const { authUrl, projectId } = config();
   const response = await fetch(`${authUrl}/v1/handoff/exchange`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({ projectId, handoffToken }),
   });
 
-  if (!response.ok) throw new Error(`Nexuss Auth handoff exchange failed: ${response.status}`);
-  const body = await response.json() as { user?: NexussAuthUser };
-  if (!body.user?.id) throw new Error("Nexuss Auth handoff returned no user");
+  const body = await response.json().catch(() => ({})) as { error?: string; user?: NexussAuthUser };
+  if (!response.ok) {
+    const code: AuthFailureCode = body.error === "handoff_required" || body.error === "invalid_handoff" || body.error === "user_not_found"
+      ? body.error
+      : "handoff_failed";
+    throw new NexussAuthFailure(code, response.status);
+  }
+  if (!body.user?.id) throw new NexussAuthFailure("handoff_failed", response.status);
   return body.user;
 }
 
@@ -98,7 +116,7 @@ export function registerNexussAuthRoutes(app: Express) {
   app.get("/auth/callback", async (req, res) => {
     const handoffToken = typeof req.query.handoff_token === "string" ? req.query.handoff_token : null;
     if (!handoffToken) {
-      res.redirect("/login?error=sign-in");
+      res.redirect("/login?error=handoff_required");
       return;
     }
 
@@ -107,9 +125,10 @@ export function registerNexussAuthRoutes(app: Express) {
       const session = await createSession(user);
       res.cookie(SESSION_COOKIE, session, cookieOptions());
       res.redirect("/app");
-    } catch {
-      console.error("Nexuss Auth handoff exchange failed");
-      res.redirect("/login?error=sign-in");
+    } catch (error) {
+      const failure = error instanceof NexussAuthFailure ? error : new NexussAuthFailure("configuration");
+      console.error(`[Nexuss Auth] Handoff failed: ${failure.code}${failure.status ? ` (${failure.status})` : ""}`);
+      res.redirect(`/login?error=${failure.code}`);
     }
   });
 
@@ -119,6 +138,12 @@ export function registerNexussAuthRoutes(app: Express) {
       return;
     }
 
-    res.redirect(buildNexussSignInUrl(req.params.provider));
+    try {
+      assertSignInReady();
+      res.redirect(buildNexussSignInUrl(req.params.provider));
+    } catch {
+      console.error("[Nexuss Auth] Sign-in is not configured");
+      res.redirect("/login?error=configuration");
+    }
   });
 }

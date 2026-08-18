@@ -57,4 +57,12 @@
 - [x] Remove the unused initialization while preserving the Nexuss Auth Google and GitHub routes.
 - [x] Validate server startup, TypeScript, production build, and provider-start routes without `OAUTH_SERVER_URL`.
 - [x] Recheck Google, GitHub, and missing-handoff callback responses after removing the template OAuth bootstrap.
-- [ ] Save and push the correction to `master`.
+- [x] Save and push the correction to `master`.
+
+## Nexuss Auth Handoff Repair
+
+- [x] Re-read the Nexuss Auth handoff contract and capture the failure details without retaining one-time tokens; the prior callback masked the service response and now emits only safe failure categories and status codes.
+- [x] Correct the server-side handoff exchange handling and callback parsing with safe error categories for configuration, missing, invalid, or expired handoffs.
+- [x] Test successful and rejected handoff behavior, including replay rejection, without exposing sensitive tokens.
+- [ ] Verify the live Google completion flow after the diagnostic callback repair deploys to Render.
+- [ ] Save and push the callback repair to `master`.

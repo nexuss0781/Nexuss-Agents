@@ -62,7 +62,7 @@ describe("Nexuss Auth OAuth start", () => {
 
   it("rejects an invalid handoff without creating an application session", async () => {
     configureAuthEnv();
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 401 })));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "invalid_handoff" }), { status: 401 })));
     const cookies: unknown[] = [];
     const redirects: string[] = [];
     const res = { cookie: (value: unknown) => cookies.push(value), redirect: (value: string) => redirects.push(value) } as unknown as Response;
@@ -70,14 +70,14 @@ describe("Nexuss Auth OAuth start", () => {
     await callbackHandler()({ query: { handoff_token: "invalid-or-replayed" } } as Request, res);
 
     expect(cookies).toHaveLength(0);
-    expect(redirects).toEqual(["/login?error=sign-in"]);
+    expect(redirects).toEqual(["/login?error=invalid_handoff"]);
   });
 
   it("does not establish a second session when a handoff token is replayed", async () => {
     configureAuthEnv();
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ user: { id: "user-2", email: "person@example.com", name: "Person", avatarUrl: null } }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(null, { status: 401 })));
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "invalid_handoff" }), { status: 401 })));
     const firstCookies: unknown[] = [];
     const secondCookies: unknown[] = [];
     const firstRedirects: string[] = [];
@@ -90,7 +90,7 @@ describe("Nexuss Auth OAuth start", () => {
     expect(firstCookies).toHaveLength(1);
     expect(firstRedirects).toEqual(["/app"]);
     expect(secondCookies).toHaveLength(0);
-    expect(secondRedirects).toEqual(["/login?error=sign-in"]);
+    expect(secondRedirects).toEqual(["/login?error=invalid_handoff"]);
   });
 
   it("clears the Nexuss-Agent session cookie on logout", () => {
