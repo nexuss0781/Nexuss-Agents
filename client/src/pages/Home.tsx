@@ -106,7 +106,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       legacyWorkspace.current = stored && Array.isArray(stored.projects) && Array.isArray(stored.threads) ? { projects: stored.projects, threads: stored.threads } : seed;
     } catch { legacyWorkspace.current = seed; }
   }
-  const workspaceQuery = trpc.workspace.load.useQuery(workspaceInput, { retry: false, staleTime: 15_000 });
+  const navigationQuery = trpc.workspace.navigation.useQuery(undefined, { retry: false, staleTime: 15_000 });
+  const activeChatQuery = trpc.workspace.chat.useQuery({ chatSlug: routeChatSlug || "chat-00000000000000000000000000000000" }, { enabled: Boolean(routeChatSlug), retry: false, staleTime: 15_000 });
   const utils = trpc.useUtils();
   const [activeThreadId, setActiveThreadId] = useState("");
   const [query, setQuery] = useState("");
@@ -121,31 +122,32 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const [migrationSettled, setMigrationSettled] = useState(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const migrationStarted = useRef(false);
-  const workspace = workspaceQuery.data || seed;
+  const workspace = navigationQuery.data || seed;
   const migration = trpc.workspace.migrate.useMutation({
     onSuccess: () => {
       localStorage.removeItem("nexuss-agent-workspace-v2");
       setMigrationSettled(true);
-      void utils.workspace.load.invalidate();
+      void utils.workspace.navigation.invalidate();
     },
     onError: () => { setMigrationSettled(true); toast.error("Your existing browser history could not be imported. It remains stored locally until the next attempt."); },
   });
-  const createProjectMutation = trpc.workspace.createProject.useMutation({ onSuccess: () => utils.workspace.load.invalidate(), onError: () => toast.error("Project could not be saved") });
-  const updateProjectMutation = trpc.workspace.updateProject.useMutation({ onSuccess: () => utils.workspace.load.invalidate(), onError: () => toast.error("Project could not be updated") });
-  const deleteProjectMutation = trpc.workspace.deleteProject.useMutation({ onSuccess: () => utils.workspace.load.invalidate(), onError: () => toast.error("Project could not be removed") });
-  const createThreadMutation = trpc.workspace.createThread.useMutation({ onSuccess: (thread) => { setActiveThreadId(thread.id); setPendingProjectId(null); setLocation(`/app/chat/${thread.chatSlug}`); void utils.workspace.load.invalidate(); toast.success(thread.created === false ? "Existing empty thread selected" : "New thread created"); }, onError: () => toast.error("Thread could not be created") });
-  const renameThreadMutation = trpc.workspace.renameThread.useMutation({ onSuccess: () => utils.workspace.load.invalidate(), onError: () => toast.error("Thread could not be renamed") });
-  const deleteThreadMutation = trpc.workspace.deleteThread.useMutation({ onSuccess: () => utils.workspace.load.invalidate(), onError: () => toast.error("Thread could not be deleted") });
-  const assignThreadProjectMutation = trpc.workspace.assignThreadProject.useMutation({ onSuccess: () => utils.workspace.load.invalidate(), onError: () => toast.error("Project assignment could not be saved") });
-  const appendMessagesMutation = trpc.workspace.appendMessages.useMutation({ onSuccess: () => utils.workspace.load.invalidate(), onError: () => toast.error("Message could not be saved") });
+  const refreshWorkspace = () => { void utils.workspace.navigation.invalidate(); void utils.workspace.chat.invalidate(); };
+  const createProjectMutation = trpc.workspace.createProject.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Project could not be saved") });
+  const updateProjectMutation = trpc.workspace.updateProject.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Project could not be updated") });
+  const deleteProjectMutation = trpc.workspace.deleteProject.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Project could not be removed") });
+  const createThreadMutation = trpc.workspace.createThread.useMutation({ onSuccess: (thread) => { setActiveThreadId(thread.id); setPendingProjectId(null); setLocation(`/app/chat/${thread.chatSlug}`); refreshWorkspace(); toast.success(thread.created === false ? "Existing empty thread selected" : "New thread created"); }, onError: () => toast.error("Thread could not be created") });
+  const renameThreadMutation = trpc.workspace.renameThread.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Thread could not be renamed") });
+  const deleteThreadMutation = trpc.workspace.deleteThread.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Thread could not be deleted") });
+  const assignThreadProjectMutation = trpc.workspace.assignThreadProject.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Project assignment could not be saved") });
+  const appendMessagesMutation = trpc.workspace.appendMessages.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Message could not be saved") });
 
   useEffect(() => {
-    if (!workspaceQuery.isSuccess || migrationStarted.current) return;
+    if (!navigationQuery.isSuccess || migrationStarted.current) return;
     migrationStarted.current = true;
     const legacy = legacyWorkspace.current || seed;
-    if (shouldMigrateLegacyWorkspace(workspaceQuery.data || seed, legacy)) migration.mutate(legacy);
+    if (shouldMigrateLegacyWorkspace(navigationQuery.data || seed, legacy)) migration.mutate(legacy);
     else setMigrationSettled(true);
-  }, [workspaceQuery.isSuccess, workspaceQuery.data]);
+  }, [navigationQuery.isSuccess, navigationQuery.data]);
 
   useEffect(() => {
     if (!workspace.threads.length) { setActiveThreadId(""); return; }
@@ -154,8 +156,9 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     if (selected.chatSlug && selected.chatSlug !== routeChatSlug) setLocation(`/app/chat/${selected.chatSlug}`, { replace: true });
   }, [workspace.threads, activeThreadId, routeChatSlug, setLocation]);
 
-  const activeThread = workspace.threads.find((thread) => thread.chatSlug === routeChatSlug) || workspace.threads.find((thread) => thread.id === activeThreadId) || workspace.threads[0];
-  const workspaceReady = workspaceQuery.isSuccess && migrationSettled;
+  const activeThreadSummary = workspace.threads.find((thread) => thread.chatSlug === routeChatSlug) || workspace.threads.find((thread) => thread.id === activeThreadId) || workspace.threads[0];
+  const activeThread = activeThreadSummary ? { ...activeThreadSummary, messages: activeChatQuery.data?.messages || activeThreadSummary.messages } : undefined;
+  const workspaceReady = navigationQuery.isSuccess && migrationSettled;
   const activeProject = workspace.projects.find((project) => project.id === activeThread?.projectId);
   const activeThreadSlug = activeThread?.chatSlug || (activeThread ? `chat-${activeThread.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}` : undefined);
   const responsePending = createThreadMutation.isPending || appendMessagesMutation.isPending;
@@ -260,7 +263,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         </div>
         <div className="sidebar-section project-section">
           <div className="project-list">
-            {workspace.projects.map((project) => (
+            <div className="sidebar-list-label">Projects</div>
+            {navigationQuery.isLoading ? <div className="project-list-skeleton" aria-label="Loading saved projects"><i /><i /><i /></div> : workspace.projects.map((project) => (
               <div className="project-row" key={project.id}>
                 <Folder size={15} /><div className="project-row-copy"><span>{project.name}</span><small>{project.description}</small></div><button className="item-more" onClick={() => setProjectEditor({ mode: "edit", project })} aria-label={`Edit ${project.name}`}><MoreHorizontal size={15} /></button>
               </div>
@@ -275,7 +279,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="topbar-thread-copy"><div className="topbar-thread-title">{activeThread?.title || "New thread"}</div>{activeThreadSlug && <span className="topbar-thread-slug">{activeThreadSlug}</span>}</div></div><div className="topbar-right">{onSignOut && <button className="icon-button" onClick={onSignOut} disabled={signOutPending} aria-label="Sign out"><LogOut size={16} /></button>}</div></header>
         <div className="mobile-context-strip"><button className="mobile-context-button" onClick={() => setMobileNav(true)}><Menu size={15} /><span>Threads</span></button><div className="mobile-context-title"><strong>{activeThread?.title || "New thread"}</strong></div><button className="mobile-context-button" onClick={createThread} disabled={!workspaceReady || createThreadMutation.isPending}><Plus size={15} /><span>New</span></button></div><section className="conversation-area">
           <div className="conversation-heading">{activeThread && <div className="heading-actions"><button className="icon-button" onClick={() => { setThreadEditor(activeThread.id); setThreadName(activeThread.title); }} aria-label="Rename thread"><Pencil size={16} /></button><button className="icon-button danger-hover" onClick={() => deleteThread(activeThread.id)} aria-label="Delete thread"><Trash2 size={16} /></button></div>}</div>
-          {workspaceQuery.isError ? <div className="empty-thread"><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Workspace unavailable.</h2><p>Your saved data is unchanged. Check your connection and try again.</p><button className="empty-create-button" onClick={() => workspaceQuery.refetch()}><ArrowUp size={14} /> Retry loading</button></div> : !workspaceReady || migration.isPending ? <AxolotlLoader label="LOADING YOUR WORKSPACE" /> : activeThread?.messages.length || responsePending ? <div className="message-stack">{activeThread?.messages.map((message, index) => <article className={`message ${message.role}`} key={message.id}><div className="message-meta"><span className={`role-mark ${message.role}`}>{message.role === "assistant" ? <img src={AXOLOTL_ICON} alt="" /> : "You"}</span><span>{message.role === "assistant" ? "Nexuss-Agent" : "You"}</span><span className="message-time">{formatDate(message.createdAt)}</span>{message.role === "assistant" && <button className="copy-button" onClick={() => { navigator.clipboard?.writeText(message.content); toast.success("Copied to clipboard"); }}><Copy size={13} /> Copy</button>}</div><div className="message-content"><MarkdownMessage content={message.content} /></div>{index < (activeThread?.messages.length || 0) - 1 && <div className="message-divider" />}</article>)}{responsePending && <ResponseSkeleton />}</div> : <div className="empty-thread"><div className="orbit-art axolotl-schematic" aria-hidden="true"><span className="axolotl-loop" /><span className="axolotl-eye axolotl-eye-one" /><span className="axolotl-eye axolotl-eye-two" /><span className="axolotl-gill axolotl-gill-one" /><span className="axolotl-gill axolotl-gill-two" /></div><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Start a thread.</h2><p>Give your work a place to begin.</p><button className="empty-create-button" onClick={createThread} disabled={createThreadMutation.isPending}><Plus size={14} /> New thread <ArrowUp size={13} /></button></div>}
+          {navigationQuery.isError || activeChatQuery.isError ? <div className="empty-thread"><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Workspace unavailable.</h2><p>Your saved data is unchanged. Check your connection and try again.</p><button className="empty-create-button" onClick={() => { void navigationQuery.refetch(); if (routeChatSlug) void activeChatQuery.refetch(); }}><ArrowUp size={14} /> Retry loading</button></div> : !workspaceReady || migration.isPending ? <AxolotlLoader label="LOADING YOUR WORKSPACE" /> : activeThread?.messages.length || responsePending ? <div className="message-stack">{activeThread?.messages.map((message, index) => <article className={`message ${message.role}`} key={message.id}><div className="message-meta"><span className={`role-mark ${message.role}`}>{message.role === "assistant" ? <img src={AXOLOTL_ICON} alt="" /> : "You"}</span><span>{message.role === "assistant" ? "Nexuss-Agent" : "You"}</span><span className="message-time">{formatDate(message.createdAt)}</span>{message.role === "assistant" && <button className="copy-button" onClick={() => { navigator.clipboard?.writeText(message.content); toast.success("Copied to clipboard"); }}><Copy size={13} /> Copy</button>}</div><div className="message-content"><MarkdownMessage content={message.content} /></div>{index < (activeThread?.messages.length || 0) - 1 && <div className="message-divider" />}</article>)}{responsePending && <ResponseSkeleton />}</div> : <div className="empty-thread"><div className="orbit-art axolotl-schematic" aria-hidden="true"><span className="axolotl-loop" /><span className="axolotl-eye axolotl-eye-one" /><span className="axolotl-eye axolotl-eye-two" /><span className="axolotl-gill axolotl-gill-one" /><span className="axolotl-gill axolotl-gill-two" /></div><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Start a thread.</h2><p>Give your work a place to begin.</p><button className="empty-create-button" onClick={createThread} disabled={createThreadMutation.isPending}><Plus size={14} /> New thread <ArrowUp size={13} /></button></div>}
         </section>
         <div className="composer-wrap"><div className="composer" onClick={() => composerRef.current?.focus()}><div className="composer-top"><button className="composer-plus" onClick={(event) => { event.stopPropagation(); toast("Attachments are coming soon"); }} aria-label="Add context"><Plus size={16} /></button><div className="composer-actions"><button className="project-picker" onClick={(event) => { event.stopPropagation(); setProjectMenuOpen(!projectMenuOpen); }} disabled={!workspaceReady || workspace.projects.length === 0}><Folder size={14} /> {activeProject?.name || workspace.projects.find((project) => project.id === pendingProjectId)?.name || "Assign project"}<ChevronDown size={13} /></button>{projectMenuOpen && <div className="project-menu"><button onClick={() => { if (activeThread) assignThreadProjectMutation.mutate({ id: activeThread.id, projectId: null }); else setPendingProjectId(null); setProjectMenuOpen(false); }}>No project</button>{workspace.projects.map((project) => <button key={project.id} onClick={() => { if (activeThread) assignThreadProjectMutation.mutate({ id: activeThread.id, projectId: project.id }); else setPendingProjectId(project.id); setProjectMenuOpen(false); }}><Folder size={14} />{project.name}{project.id === (activeThread?.projectId || pendingProjectId) && <Check size={13} />}</button>)}</div>}</div></div><textarea ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleComposerKey} placeholder="Write your message…" rows={2} disabled={!workspaceReady || appendMessagesMutation.isPending || createThreadMutation.isPending} /><div className="composer-bottom"><button className="send-button" onClick={() => void sendMessage()} disabled={!workspaceReady || !draft.trim() || appendMessagesMutation.isPending || createThreadMutation.isPending} aria-label="Send message"><ArrowUp size={17} /></button></div></div></div><div className="mobile-bottom-bar"><button onClick={() => setMobileNav(true)}><Menu size={16} /><span>Threads</span></button><button onClick={() => setProjectMenuOpen(!projectMenuOpen)} disabled={!workspaceReady || workspace.projects.length === 0}><Folder size={16} /><span>{activeProject?.name || workspace.projects.find((project) => project.id === pendingProjectId)?.name || "Project"}</span></button><button onClick={() => composerRef.current?.focus()} disabled={!workspaceReady}><ArrowUp size={16} /><span>Write</span></button></div>
       </main>

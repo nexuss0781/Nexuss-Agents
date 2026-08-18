@@ -68,7 +68,7 @@ describe("persistent workspace client", () => {
     const mutations = vi.fn();
     const remote: WorkspaceSnapshot = { projects: [{ id: "remote-project", name: "Remote project", description: "", tone: "#fff" }], threads: [{ id: "remote-thread", title: "Remote history", updatedAt: "2026-08-18T00:00:00.000Z", messages: [] }] };
     const host = await mountWorkspace((path) => {
-      if (path === "workspace.load") return remote;
+      if (path === "workspace.navigation") return remote;
       mutations(path);
       return remote;
     });
@@ -91,7 +91,7 @@ describe("persistent workspace client", () => {
     const restored: WorkspaceSnapshot = { projects: [], threads: [{ id: "restored-thread", title: "Recovered thread", updatedAt: "2026-08-18T00:00:00.000Z", messages: [] }] };
     const host = await mountWorkspace((path) => {
       calls(path);
-      if (path === "workspace.load") {
+      if (path === "workspace.navigation") {
         loadAttempts += 1;
         if (loadAttempts === 1) return new Error("Gateway unavailable");
         return createdProject ? { ...restored, projects: [{ id: "created-project", name: "Recovered project", description: "", tone: "#f4f4f0" }] } : restored;
@@ -145,6 +145,15 @@ describe("persistent workspace client", () => {
     expect(calls).toHaveBeenCalledWith("workspace.migrate");
   });
 
+  it("shows the left project skeleton and hydrates saved projects before a first prompt", async () => {
+    let resolveNavigation: ((value: WorkspaceSnapshot) => void) | undefined;
+    const pendingNavigation = new Promise<WorkspaceSnapshot>((resolve) => { resolveNavigation = resolve; });
+    const host = await mountWorkspace((path) => path === "workspace.navigation" ? pendingNavigation : { projects: [], threads: [] });
+    expect(host.querySelector('[aria-label="Loading saved projects"]')).not.toBeNull();
+    await act(async () => { resolveNavigation?.({ projects: [{ id: "hydrated-project", name: "Saved before prompting", description: "", tone: "#f4f4f0" }], threads: [] }); });
+    await waitForText(host, "Saved before prompting");
+  });
+
   it("creates a project-linked thread from the first message in an empty workspace", async () => {
     const inputs = vi.fn();
     const project: WorkspaceSnapshot["projects"][number] = { id: "pntp", name: "PNTP", description: "", tone: "#f4f4f0" };
@@ -187,7 +196,8 @@ describe("persistent workspace client", () => {
     const active: WorkspaceSnapshot = { projects: [], threads: [{ id: "focused-thread", chatSlug: "chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", title: "Focused history", updatedAt: "2026-08-18T00:00:00.000Z", messages: [{ id: "focus-message", role: "user", content: "Only this history is loaded", createdAt: "2026-08-18T00:00:00.000Z" }] }, { id: "other-thread", chatSlug: "chat-cccccccccccccccccccccccccccccccc", title: "Other history", updatedAt: "2026-08-17T00:00:00.000Z", messages: [] }] };
     const host = await mountWorkspace((path, input) => { calls(path, input); return active; });
     await waitForText(host, "Only this history is loaded");
-    expect(calls).toHaveBeenCalledWith("workspace.load", { chatSlug: "chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" });
+    expect(calls).toHaveBeenCalledWith("workspace.navigation", undefined);
+    expect(calls).toHaveBeenCalledWith("workspace.chat", { chatSlug: "chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" });
     expect(host.textContent).toContain("chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
   });
 

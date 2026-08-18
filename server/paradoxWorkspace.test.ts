@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { ParadConnection } from "parad";
+import { describe, expect, it, vi } from "vitest";
 import {
   appendThreadMessages,
   assignThreadProject,
@@ -7,13 +11,22 @@ import {
   createThread,
   deleteProject,
   deleteThread,
+  loadWorkspaceChat,
+  loadWorkspaceNavigation,
   loadWorkspace,
   migrateWorkspace,
+  workspaceSyncOptions,
 } from "./paradoxWorkspace";
 
-process.env.PARADOX_TEST_SKIP_PUSH = "1";
+process.env.PARADOX_TEST_DISABLE_AUTOSYNC = "1";
 
 describe("Paradox workspace persistence", () => {
+  it("uses a bounded background sync cadence in production and disables the daemon only in tests", () => {
+    expect(workspaceSyncOptions({ NODE_ENV: "production" })).toEqual({ autoSync: true, pushIntervalMs: 2_500, pullIntervalMs: 30_000 });
+    expect(workspaceSyncOptions({ NODE_ENV: "test" })).toMatchObject({ autoSync: false });
+    expect(workspaceSyncOptions({ NODE_ENV: "production", PARADOX_TEST_DISABLE_AUTOSYNC: "1" })).toMatchObject({ autoSync: false });
+  });
+
   it("releases the workspace operation queue after an unavailable configuration so a later request can recover", async () => {
     const apiKey = process.env.PARADOX_API_KEY;
     const owner = `recovery-owner-${randomUUID()}`;
@@ -24,6 +37,36 @@ describe("Paradox workspace persistence", () => {
       if (apiKey) process.env.PARADOX_API_KEY = apiKey;
     }
     await expect(loadWorkspace(owner)).resolves.toMatchObject({ projects: [], threads: [] });
+  }, 90_000);
+
+  it("acknowledges a mutation only after its encrypted dotdat snapshot can be reopened locally", async () => {
+    const owner = `local-snapshot-owner-${randomUUID()}`;
+    const manualPush = vi.spyOn(ParadConnection.prototype, "push").mockRejectedValue(new Error("Cloud unavailable"));
+    const project = await createProject(owner, { name: "Local-first project", description: "No cloud round trip", tone: "#f4f4f0" });
+    const dbPath = process.env.PARADOX_DB_PATH || join(tmpdir(), "nexuss-agent-workspace.dotdat");
+    const passphrase = process.env.PARADOX_PASSPHRASE;
+
+    expect(existsSync(dbPath)).toBe(true);
+    expect(passphrase).toBeTruthy();
+
+    const localReader = new ParadConnection({
+      dbPath,
+      gatewayUrl: "",
+      passphrase: passphrase!,
+      autoSync: false,
+      pullOnStartup: false,
+    });
+    await localReader.init();
+    try {
+      expect(localReader.execute("SELECT id, name FROM workspace_projects WHERE id = ? AND owner_id = ?", [project.id, owner]).rows).toEqual([
+        { id: project.id, name: "Local-first project" },
+      ]);
+      expect(manualPush).not.toHaveBeenCalled();
+    } finally {
+      localReader.close();
+      await deleteProject(owner, project.id);
+      manualPush.mockRestore();
+    }
   }, 90_000);
 
   it("keeps projects, complete thread histories, and projectless threads scoped to their authenticated owner", async () => {
@@ -45,6 +88,8 @@ describe("Paradox workspace persistence", () => {
       ]);
 
       const ownerAWorkspace = await loadWorkspace(ownerA, linkedThread.chatSlug);
+      const ownerANavigation = await loadWorkspaceNavigation(ownerA);
+      const loadedActiveChat = await loadWorkspaceChat(ownerA, linkedThread.chatSlug);
       const ownerBWorkspace = await loadWorkspace(ownerB);
       const loadedLinked = ownerAWorkspace.threads.find((thread) => thread.id === linkedThread.id);
       const loadedProjectless = ownerAWorkspace.threads.find((thread) => thread.id === projectlessThread.id);
@@ -60,6 +105,12 @@ describe("Paradox workspace persistence", () => {
       expect(loadedProjectless).toMatchObject({ id: projectlessThread.id });
       expect(loadedProjectless?.projectId).toBeUndefined();
       expect(loadedProjectless?.messages).toEqual([]);
+      expect(ownerANavigation.projects).toContainEqual(expect.objectContaining({ id: project.id }));
+      expect(ownerANavigation.threads.find((thread) => thread.id === linkedThread.id)?.messages).toEqual([]);
+      expect(loadedActiveChat?.messages.map((message) => message.content)).toEqual([
+        "Preserve the first history entry.",
+        "The full history is durable.",
+      ]);
       expect(ownerBWorkspace).toEqual({ projects: [], threads: [] });
 
       await assignThreadProject(ownerA, projectlessThread.id, project.id);

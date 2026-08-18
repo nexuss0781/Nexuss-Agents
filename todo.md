@@ -151,4 +151,13 @@
 - [x] Load full message history only for the active chat while retaining lightweight thread/project navigation for performance.
 - [x] Place project selection on the composer’s left, send control on its right, and remove the duplicated top-right account copy while keeping the sign-out icon.
 - [x] Test deep-link selection, single-chat history loading, persistent project assignment, and responsive control placement with server, router, mounted-client, TypeScript, and production-build coverage.
-- [ ] Save and push the focused-chat refinement to `master`.
+- [x] Save and push the focused-chat refinement to `master`.
+
+## Local-First Workspace Saves and Project Hydration
+
+- [x] Review the Paradox-DB local dotdat and sync contract alongside the current server connection lifecycle.
+- [x] Persist every workspace mutation to the local encrypted dotdat snapshot before returning success to the user session.
+- [x] Replace per-action cloud synchronization with the encrypted database daemon’s bounded queued batch sync so project, thread, and message creation do not await cloud I/O.
+- [x] Hydrate saved projects independently from active chat history and display a left-sidebar project skeleton while that data is loading.
+- [x] Test local-first mutation acknowledgment, queued sync behavior, project hydration without a first prompt, project skeleton presentation, TypeScript, and a production build.
+- [ ] Save and push the local-first workspace persistence enhancement to `master`.

@@ -7,6 +7,7 @@ export type WorkspaceProject = { id: string; name: string; description: string; 
 export type WorkspaceMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
 export type WorkspaceThread = { id: string; chatSlug: string; title: string; projectId?: string; updatedAt: string; messages: WorkspaceMessage[] };
 export type DurableWorkspace = { projects: WorkspaceProject[]; threads: WorkspaceThread[] };
+export type WorkspaceNavigation = DurableWorkspace;
 
 export class WorkspaceAccessError extends Error {}
 
@@ -45,6 +46,14 @@ function now() { return new Date().toISOString(); }
 function rows<T>(result: { rows: unknown[] }) { return result.rows as T[]; }
 function chatSlugFor(id: string) { return `chat-${id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}`; }
 
+export function workspaceSyncOptions(environment: NodeJS.ProcessEnv = process.env) {
+  return {
+    autoSync: environment.NODE_ENV !== "test" && environment.PARADOX_TEST_DISABLE_AUTOSYNC !== "1",
+    pushIntervalMs: 2_500,
+    pullIntervalMs: 30_000,
+  };
+}
+
 async function openWorkspaceDb() {
   if (workspaceDb) return workspaceDb;
   if (workspaceDbOpening) return workspaceDbOpening;
@@ -60,15 +69,18 @@ async function openWorkspaceDb() {
 async function openFreshWorkspaceDb() {
   const config = persistenceConfig();
   const gatewayUrl = await resolveGatewayUrl();
+  const syncOptions = workspaceSyncOptions();
   const db = await connect({
     name: "nexuss-agent-workspace",
     project: "nexuss-agent",
-    dbPath: process.env.PARADOX_DB_PATH || join(tmpdir(), "nexuss-agent-workspace.db"),
+    dbPath: process.env.PARADOX_DB_PATH || join(tmpdir(), "nexuss-agent-workspace.dotdat"),
     gatewayUrl,
     apiKey: config.apiKey,
     passphrase: config.passphrase,
-    autoSync: false,
+    autoSync: syncOptions.autoSync,
     pullOnStartup: true,
+    pushIntervalMs: syncOptions.pushIntervalMs,
+    pullIntervalMs: syncOptions.pullIntervalMs,
   });
 
   db.execute("CREATE TABLE IF NOT EXISTS workspace_projects (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, name TEXT NOT NULL, description TEXT NOT NULL, tone TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
@@ -89,8 +101,17 @@ function scheduleWorkspaceDbClose() {
     workspaceDb?.close();
     workspaceDb = undefined;
     workspaceDbCloseTimer = undefined;
-  }, 60_000);
+  }, 90_000);
   workspaceDbCloseTimer.unref?.();
+}
+
+function checkpointLocalSnapshot(db: Db) {
+  // Paradox fsyncs an encrypted journal per statement. Folding that journal into
+  // the encrypted dotdat snapshot here gives mutation callers a durable local
+  // acknowledgement without waiting for the independently scheduled cloud push.
+  const engine = (db as unknown as { engine: { checkpoint?: () => void } }).engine;
+  if (typeof engine.checkpoint !== "function") throw new Error("Paradox-DB local checkpoint is unavailable");
+  engine.checkpoint();
 }
 
 async function withWorkspaceDb<T>(write: boolean, action: (db: Db) => Promise<T> | T) {
@@ -102,7 +123,7 @@ async function withWorkspaceDb<T>(write: boolean, action: (db: Db) => Promise<T>
   try {
     db = await openWorkspaceDb();
     const result = await action(db);
-    if (write && process.env.PARADOX_TEST_SKIP_PUSH !== "1") await db.push();
+    if (write) checkpointLocalSnapshot(db);
     return result;
   } finally {
     scheduleWorkspaceDbClose();
@@ -120,37 +141,60 @@ function assertThreadOwner(db: Db, ownerId: string, threadId: string) {
   if (!thread) throw new WorkspaceAccessError("Thread not found");
 }
 
+function readWorkspaceNavigation(db: Db, ownerId: string): WorkspaceNavigation {
+  const projects = rows<{ id: string; name: string; description: string; tone: string }>(db.execute(
+    "SELECT id, name, description, tone FROM workspace_projects WHERE owner_id = ? ORDER BY updated_at DESC", [ownerId],
+  ));
+  const threadRows = rows<{ id: string; chat_slug: string | null; title: string; project_id: string | null; updated_at: string }>(db.execute(
+    "SELECT id, chat_slug, title, project_id, updated_at FROM workspace_threads WHERE owner_id = ? ORDER BY updated_at DESC", [ownerId],
+  ));
+  return {
+    projects: projects.map((project) => ({ ...project })),
+    threads: threadRows.map((thread) => ({
+      id: thread.id,
+      chatSlug: thread.chat_slug || chatSlugFor(thread.id),
+      title: thread.title,
+      ...(thread.project_id ? { projectId: thread.project_id } : {}),
+      updatedAt: thread.updated_at,
+      messages: [],
+    })),
+  };
+}
+
+function readWorkspaceChat(db: Db, ownerId: string, chatSlug: string): WorkspaceThread | null {
+  const thread = rows<{ id: string; chat_slug: string | null; title: string; project_id: string | null; updated_at: string }>(db.execute(
+    "SELECT id, chat_slug, title, project_id, updated_at FROM workspace_threads WHERE owner_id = ? AND chat_slug = ? LIMIT 1", [ownerId, chatSlug],
+  ))[0];
+  if (!thread) return null;
+  const messageRows = rows<{ id: string; role: "user" | "assistant"; content: string; created_at: string }>(db.execute(
+    "SELECT id, role, content, created_at FROM workspace_messages WHERE owner_id = ? AND thread_id = ? ORDER BY created_at ASC", [ownerId, thread.id],
+  ));
+  return {
+    id: thread.id,
+    chatSlug: thread.chat_slug || chatSlugFor(thread.id),
+    title: thread.title,
+    ...(thread.project_id ? { projectId: thread.project_id } : {}),
+    updatedAt: thread.updated_at,
+    messages: messageRows.map((message) => ({ id: message.id, role: message.role, content: message.content, createdAt: message.created_at })),
+  };
+}
+
+export async function loadWorkspaceNavigation(ownerId: string): Promise<WorkspaceNavigation> {
+  return withWorkspaceDb(false, (db) => {
+    return readWorkspaceNavigation(db, ownerId);
+  });
+}
+
+export async function loadWorkspaceChat(ownerId: string, chatSlug: string): Promise<WorkspaceThread | null> {
+  return withWorkspaceDb(false, (db) => readWorkspaceChat(db, ownerId, chatSlug));
+}
+
 export async function loadWorkspace(ownerId: string, activeChatSlug?: string): Promise<DurableWorkspace> {
   return withWorkspaceDb(false, (db) => {
-    const projects = rows<{ id: string; name: string; description: string; tone: string }>(db.execute(
-      "SELECT id, name, description, tone FROM workspace_projects WHERE owner_id = ? ORDER BY updated_at DESC", [ownerId],
-    ));
-    const threadRows = rows<{ id: string; chat_slug: string | null; title: string; project_id: string | null; updated_at: string }>(db.execute(
-      "SELECT id, chat_slug, title, project_id, updated_at FROM workspace_threads WHERE owner_id = ? ORDER BY updated_at DESC", [ownerId],
-    ));
-    const activeThread = activeChatSlug
-      ? threadRows.find((thread) => thread.chat_slug === activeChatSlug)
-      : threadRows[0];
-    const messageRows = activeThread ? rows<{ id: string; thread_id: string; role: "user" | "assistant"; content: string; created_at: string }>(db.execute(
-      "SELECT id, thread_id, role, content, created_at FROM workspace_messages WHERE owner_id = ? AND thread_id = ? ORDER BY created_at ASC", [ownerId, activeThread.id],
-    )) : [];
-    const messagesByThread = new Map<string, WorkspaceMessage[]>();
-    for (const message of messageRows) {
-      const messages = messagesByThread.get(message.thread_id) || [];
-      messages.push({ id: message.id, role: message.role, content: message.content, createdAt: message.created_at });
-      messagesByThread.set(message.thread_id, messages);
-    }
-    return {
-      projects: projects.map((project) => ({ ...project })),
-      threads: threadRows.map((thread) => ({
-        id: thread.id,
-        chatSlug: thread.chat_slug || chatSlugFor(thread.id),
-        title: thread.title,
-        ...(thread.project_id ? { projectId: thread.project_id } : {}),
-        updatedAt: thread.updated_at,
-        messages: messagesByThread.get(thread.id) || [],
-      })),
-    };
+    const navigation = readWorkspaceNavigation(db, ownerId);
+    const selected = activeChatSlug || navigation.threads[0]?.chatSlug;
+    const activeChat = selected ? readWorkspaceChat(db, ownerId, selected) : null;
+    return { ...navigation, threads: navigation.threads.map((thread) => activeChat?.id === thread.id ? activeChat : thread) };
   });
 }
 
