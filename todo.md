@@ -167,4 +167,4 @@
 - [x] Replace the top-right sign-out control with an accessible settings-gear trigger.
 - [x] Create a polished dark workspace settings panel with account information, local-first persistence context, focused-workspace information, and an intentional sign-out action.
 - [x] Add regression coverage and validate the settings trigger, panel, account sign-out action, Escape dismissal, TypeScript, and the production build.
-- [ ] Save and push the workspace settings enhancement to `master`.
+- [x] Save and push the workspace settings enhancement to `master` (GitHub commit `d5e23dc`).
