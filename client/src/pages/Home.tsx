@@ -1,6 +1,6 @@
 // Design philosophy: Obsidian Console — Swiss precision, monochrome hierarchy, quiet depth.
 // Design philosophy: Obsidian Console — quiet workbench, original AXOLOTL brand, and only the labels needed to work.
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";

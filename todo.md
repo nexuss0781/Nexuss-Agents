@@ -80,3 +80,13 @@
 - [x] Add a larger, visible account area with the real avatar, name, email, and sign-out action.
 - [x] Validate the enlarged account area visually at desktop and mobile sizes; the avatar, name, email, and sign-out action remain visible in the desktop topbar/sidebar and the mobile drawer, with initials as a fallback if the provider avatar fails to load. Profile unit test, TypeScript, and production build also passed.
 - [x] Save and push the account navigation enhancement to `master`.
+
+## Login Portal Visual Redesign
+
+- [x] Audit the current `/login` composition, existing authentication states, and responsive layout constraints.
+- [x] Redesign the login portal with a distinctive AXOLOTL-led dark editorial composition while retaining the established Google and GitHub authentication flows.
+- [x] Add polished interaction, keyboard-focus accessibility, and configuration-feedback states without altering the server-side sign-in contract.
+- [x] Validate the redesigned login view at desktop and mobile sizes, including provider-route unit coverage, safe configuration-feedback rendering, TypeScript, and production build.
+- [ ] Save and push the finished login portal redesign to `master`.
+
+> Visual review note: The desktop entry console keeps a clear asymmetric headline-to-auth-panel hierarchy, while the 390px mobile layout retains readable identity metadata and full-width Google and GitHub actions.
