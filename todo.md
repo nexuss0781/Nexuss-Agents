@@ -118,4 +118,4 @@
 - [x] Verify new project creation, projectless thread creation, message saving, and durable reload behavior through authenticated router and mounted client coverage.
 - [x] Add a mounted client regression test proving Retry recovers from a failed workspace load into an interactive workspace state.
 - [x] Add a mounted client regression test proving project creation is enabled and succeeds after the workspace has recovered.
-- [ ] Save and push the workspace reliability fix to `master`.
+- [x] Save and push the workspace reliability fix to `master`.
