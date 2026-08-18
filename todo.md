@@ -160,4 +160,4 @@
 - [x] Replace per-action cloud synchronization with the encrypted database daemon’s bounded queued batch sync so project, thread, and message creation do not await cloud I/O.
 - [x] Hydrate saved projects independently from active chat history and display a left-sidebar project skeleton while that data is loading.
 - [x] Test local-first mutation acknowledgment, queued sync behavior, project hydration without a first prompt, project skeleton presentation, TypeScript, and a production build.
-- [ ] Save and push the local-first workspace persistence enhancement to `master`.
+- [x] Save and push the local-first workspace persistence enhancement to `master` (GitHub commit `156086b`).
