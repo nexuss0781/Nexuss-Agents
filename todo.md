@@ -183,3 +183,13 @@
 - [x] Validate responsive scroll behavior, TypeScript, and the production build.
 - [x] Save a checkpoint for the validated settings scrollability correction (project version `887a5c01`).
 - [x] Push the settings scrollability correction and checklist record to `master` (GitHub commit `75aca0a`).
+
+## Composer Model and Project Controls
+
+- [x] Display saved selected models in a composer dropdown at the current left-side project-control position.
+- [x] Move project assignment to the composer’s right edge beside the send action while preserving thread assignment behavior.
+- [x] Anchor model and project menus to their respective triggers, then validate TypeScript and the production build.
+- [x] Validate trigger-relative model/project menu structure, mobile anchoring rules, TypeScript, and the production build with focused regression coverage.
+- [ ] Confirm the new composer controls visually in a live authenticated desktop and mobile workspace session.
+- [x] Save a checkpoint for the composer control refinement (project version `60977735`).
+- [ ] Push the composer control refinement and checklist record to `master`.

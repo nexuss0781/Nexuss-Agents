@@ -9,6 +9,7 @@ import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import "katex/dist/katex.min.css";
 import {
   ArrowUp,
+  Bot,
   Check,
   ChevronDown,
   CirclePlus,
@@ -110,11 +111,13 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   }
   const navigationQuery = trpc.workspace.navigation.useQuery(undefined, { retry: false, staleTime: 15_000 });
   const activeChatQuery = trpc.workspace.chat.useQuery({ chatSlug: routeChatSlug || "chat-00000000000000000000000000000000" }, { enabled: Boolean(routeChatSlug), retry: false, staleTime: 15_000 });
-  const modelSettingsQuery = trpc.workspace.modelSettings.useQuery(undefined, { enabled: settingsOpen, retry: false, staleTime: 0 });
+  const modelSettingsQuery = trpc.workspace.modelSettings.useQuery(undefined, { retry: false, staleTime: 30_000 });
   const utils = trpc.useUtils();
   const [activeThreadId, setActiveThreadId] = useState("");
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [activeModel, setActiveModel] = useState<string | null>(null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
   const [projectEditor, setProjectEditor] = useState<{ mode: "create" | "edit"; project?: Project } | null>(null);
@@ -174,11 +177,15 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
 
   useEffect(() => {
     const savedProvider = modelSettingsQuery.data;
-    if (!settingsOpen || !modelSettingsQuery.isSuccess || !savedProvider) return;
+    if (!modelSettingsQuery.isSuccess || !savedProvider) return;
     setModelBaseUrl(savedProvider.baseUrl);
     setSelectedModels(savedProvider.selectedModels);
     setAvailableModels((current) => Array.from(new Set([...current, ...savedProvider.selectedModels])).sort((a, b) => a.localeCompare(b)));
-  }, [settingsOpen, modelSettingsQuery.isSuccess, modelSettingsQuery.data]);
+  }, [modelSettingsQuery.isSuccess, modelSettingsQuery.data]);
+
+  useEffect(() => {
+    setActiveModel((current) => current && selectedModels.includes(current) ? current : selectedModels[0] || null);
+  }, [selectedModels]);
 
   const activeThreadSummary = workspace.threads.find((thread) => thread.chatSlug === routeChatSlug) || workspace.threads.find((thread) => thread.id === activeThreadId) || workspace.threads[0];
   const activeThread = activeThreadSummary ? { ...activeThreadSummary, messages: activeChatQuery.data?.messages || activeThreadSummary.messages } : undefined;
@@ -292,6 +299,12 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     setSelectedModels((current) => current.includes(model) ? current.filter((item) => item !== model) : [...current, model]);
   }
 
+  function chooseProject(projectId: string | null) {
+    if (activeThread) assignThreadProjectMutation.mutate({ id: activeThread.id, projectId });
+    else setPendingProjectId(projectId);
+    setProjectMenuOpen(false);
+  }
+
   return (
     <div className="app-shell">
       <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
@@ -333,7 +346,23 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
           <div className="conversation-heading">{activeThread && <div className="heading-actions"><button className="icon-button" onClick={() => { setThreadEditor(activeThread.id); setThreadName(activeThread.title); }} aria-label="Rename thread"><Pencil size={16} /></button><button className="icon-button danger-hover" onClick={() => deleteThread(activeThread.id)} aria-label="Delete thread"><Trash2 size={16} /></button></div>}</div>
           {navigationQuery.isError || activeChatQuery.isError ? <div className="empty-thread"><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Workspace unavailable.</h2><p>Your saved data is unchanged. Check your connection and try again.</p><button className="empty-create-button" onClick={() => { void navigationQuery.refetch(); if (routeChatSlug) void activeChatQuery.refetch(); }}><ArrowUp size={14} /> Retry loading</button></div> : !workspaceReady || migration.isPending ? <AxolotlLoader label="LOADING YOUR WORKSPACE" /> : activeThread?.messages.length || responsePending ? <div className="message-stack">{activeThread?.messages.map((message, index) => <article className={`message ${message.role}`} key={message.id}><div className="message-meta"><span className={`role-mark ${message.role}`}>{message.role === "assistant" ? <img src={AXOLOTL_ICON} alt="" /> : "You"}</span><span>{message.role === "assistant" ? "Nexuss-Agent" : "You"}</span><span className="message-time">{formatDate(message.createdAt)}</span>{message.role === "assistant" && <button className="copy-button" onClick={() => { navigator.clipboard?.writeText(message.content); toast.success("Copied to clipboard"); }}><Copy size={13} /> Copy</button>}</div><div className="message-content"><MarkdownMessage content={message.content} /></div>{index < (activeThread?.messages.length || 0) - 1 && <div className="message-divider" />}</article>)}{responsePending && <ResponseSkeleton />}</div> : <div className="empty-thread"><div className="orbit-art axolotl-schematic" aria-hidden="true"><span className="axolotl-loop" /><span className="axolotl-eye axolotl-eye-one" /><span className="axolotl-eye axolotl-eye-two" /><span className="axolotl-gill axolotl-gill-one" /><span className="axolotl-gill axolotl-gill-two" /></div><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Start a thread.</h2><p>Give your work a place to begin.</p><button className="empty-create-button" onClick={createThread} disabled={createThreadMutation.isPending}><Plus size={14} /> New thread <ArrowUp size={13} /></button></div>}
         </section>
-        <div className="composer-wrap"><div className="composer" onClick={() => composerRef.current?.focus()}><div className="composer-top"><button className="composer-plus" onClick={(event) => { event.stopPropagation(); toast("Attachments are coming soon"); }} aria-label="Add context"><Plus size={16} /></button><div className="composer-actions"><button className="project-picker" onClick={(event) => { event.stopPropagation(); setProjectMenuOpen(!projectMenuOpen); }} disabled={!workspaceReady || workspace.projects.length === 0}><Folder size={14} /> {activeProject?.name || workspace.projects.find((project) => project.id === pendingProjectId)?.name || "Assign project"}<ChevronDown size={13} /></button>{projectMenuOpen && <div className="project-menu"><button onClick={() => { if (activeThread) assignThreadProjectMutation.mutate({ id: activeThread.id, projectId: null }); else setPendingProjectId(null); setProjectMenuOpen(false); }}>No project</button>{workspace.projects.map((project) => <button key={project.id} onClick={() => { if (activeThread) assignThreadProjectMutation.mutate({ id: activeThread.id, projectId: project.id }); else setPendingProjectId(project.id); setProjectMenuOpen(false); }}><Folder size={14} />{project.name}{project.id === (activeThread?.projectId || pendingProjectId) && <Check size={13} />}</button>)}</div>}</div></div><textarea ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleComposerKey} placeholder="Write your message…" rows={2} disabled={!workspaceReady || appendMessagesMutation.isPending || createThreadMutation.isPending} /><div className="composer-bottom"><button className="send-button" onClick={() => void sendMessage()} disabled={!workspaceReady || !draft.trim() || appendMessagesMutation.isPending || createThreadMutation.isPending} aria-label="Send message"><ArrowUp size={17} /></button></div></div></div><div className="mobile-bottom-bar"><button onClick={() => setMobileNav(true)}><Menu size={16} /><span>Threads</span></button><button onClick={() => setProjectMenuOpen(!projectMenuOpen)} disabled={!workspaceReady || workspace.projects.length === 0}><Folder size={16} /><span>{activeProject?.name || workspace.projects.find((project) => project.id === pendingProjectId)?.name || "Project"}</span></button><button onClick={() => composerRef.current?.focus()} disabled={!workspaceReady}><ArrowUp size={16} /><span>Write</span></button></div>
+        <div className="composer-wrap"><div className="composer" onClick={() => composerRef.current?.focus()}>
+          <div className="composer-top">
+            <button className="composer-plus" onClick={(event) => { event.stopPropagation(); toast("Attachments are coming soon"); }} aria-label="Add context"><Plus size={16} /></button>
+            <div className="composer-menu-anchor composer-model-anchor">
+              <button className="composer-picker model-picker" onClick={(event) => { event.stopPropagation(); setProjectMenuOpen(false); setModelMenuOpen(!modelMenuOpen); }} disabled={!selectedModels.length} aria-label="Select model" aria-expanded={modelMenuOpen}><Bot size={14} /><span>{activeModel || "Select model"}</span><ChevronDown size={13} /></button>
+              {modelMenuOpen && <div className="composer-menu model-menu" role="menu">{selectedModels.map((model) => <button key={model} onClick={(event) => { event.stopPropagation(); setActiveModel(model); setModelMenuOpen(false); }}><Bot size={14} />{model}{activeModel === model && <Check size={13} />}</button>)}</div>}
+            </div>
+          </div>
+          <textarea ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleComposerKey} placeholder="Write your message…" rows={2} disabled={!workspaceReady || appendMessagesMutation.isPending || createThreadMutation.isPending} />
+          <div className="composer-bottom">
+            <div className="composer-menu-anchor composer-project-anchor">
+              <button className="composer-picker project-picker" onClick={(event) => { event.stopPropagation(); setModelMenuOpen(false); setProjectMenuOpen(!projectMenuOpen); }} disabled={!workspaceReady || workspace.projects.length === 0} aria-label="Assign project" aria-expanded={projectMenuOpen}><Folder size={14} /><span>{activeProject?.name || workspace.projects.find((project) => project.id === pendingProjectId)?.name || "Assign project"}</span><ChevronDown size={13} /></button>
+              {projectMenuOpen && <div className="composer-menu project-menu" role="menu"><button onClick={(event) => { event.stopPropagation(); chooseProject(null); }}>No project</button>{workspace.projects.map((project) => <button key={project.id} onClick={(event) => { event.stopPropagation(); chooseProject(project.id); }}><Folder size={14} />{project.name}{project.id === (activeThread?.projectId || pendingProjectId) && <Check size={13} />}</button>)}</div>}
+            </div>
+            <button className="send-button" onClick={() => void sendMessage()} disabled={!workspaceReady || !draft.trim() || appendMessagesMutation.isPending || createThreadMutation.isPending} aria-label="Send message"><ArrowUp size={17} /></button>
+          </div>
+        </div></div><div className="mobile-bottom-bar"><button onClick={() => setMobileNav(true)}><Menu size={16} /><span>Threads</span></button><button onClick={() => { composerRef.current?.focus(); setProjectMenuOpen(true); }} disabled={!workspaceReady || workspace.projects.length === 0}><Folder size={16} /><span>{activeProject?.name || workspace.projects.find((project) => project.id === pendingProjectId)?.name || "Project"}</span></button><button onClick={() => composerRef.current?.focus()} disabled={!workspaceReady}><ArrowUp size={16} /><span>Write</span></button></div>
       </main>
 
       {threadEditor && <div className="modal-backdrop" onMouseDown={() => setThreadEditor(null)}><div className="small-modal" onMouseDown={(event) => event.stopPropagation()}><h3>Rename thread</h3><input autoFocus value={threadName} onChange={(event) => setThreadName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && submitThreadName()} /><div className="modal-actions"><button className="text-button" onClick={() => setThreadEditor(null)}>Cancel</button><button className="primary-button" onClick={submitThreadName}>Save name</button></div></div></div>}

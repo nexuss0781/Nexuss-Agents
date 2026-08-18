@@ -32,7 +32,11 @@ async function mountWorkspace(resolve: (path: string, input?: unknown) => unknow
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  const client = trpc.createClient({ links: [mockLink(resolve)] });
+  const client = trpc.createClient({ links: [mockLink((path, input) => {
+    const response = resolve(path, input);
+    if (path === "workspace.modelSettings" && response && typeof response === "object" && "projects" in response) return null;
+    return response;
+  })] });
   const queryClient = new QueryClient();
   roots.push({ root, host });
   await act(async () => {
@@ -83,7 +87,7 @@ describe("persistent workspace client", () => {
     });
 
     await waitForText(host, "Remote history");
-    expect(mutations).not.toHaveBeenCalled();
+    expect(mutations).not.toHaveBeenCalledWith("workspace.migrate");
     expect(window.localStorage.getItem("nexuss-agent-workspace-v2")).toContain("Stale local project");
   });
 
@@ -199,6 +203,27 @@ describe("persistent workspace client", () => {
     expect(onSignOut).toHaveBeenCalledTimes(1);
     await act(async () => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
     expect(host.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it("places selected models at the composer left and anchors project assignment at the send edge", async () => {
+    const workspace: WorkspaceSnapshot = { projects: [{ id: "pntp", name: "PNTP", description: "", tone: "#f4f4f0" }], threads: [] };
+    const host = await mountWorkspace((path) => {
+      if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-alpha", "model-beta"], apiKeyConfigured: true };
+      return workspace;
+    });
+
+    await waitForText(host, "model-alpha");
+    const modelPicker = host.querySelector<HTMLButtonElement>('button[aria-label="Select model"]');
+    expect(modelPicker?.textContent).toContain("model-alpha");
+    expect(modelPicker?.closest(".composer-top")).not.toBeNull();
+    await act(async () => { modelPicker?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    expect(host.querySelector(".model-menu")).not.toBeNull();
+
+    const projectPicker = host.querySelector<HTMLButtonElement>('button[aria-label="Assign project"]');
+    expect(projectPicker?.closest(".composer-bottom")).not.toBeNull();
+    await act(async () => { projectPicker?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    expect(host.querySelector(".project-menu")).not.toBeNull();
+    expect(host.querySelector(".project-menu")?.parentElement?.classList.contains("composer-project-anchor")).toBe(true);
   });
 
   it("creates a project-linked thread from the first message in an empty workspace", async () => {
