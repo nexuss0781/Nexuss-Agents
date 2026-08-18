@@ -60,6 +60,20 @@ describe("Nexuss Auth OAuth start", () => {
     expect(user).toMatchObject({ id: "user-1", email: "person@example.com" });
   });
 
+  it("names a missing session-signing setting without exposing its value", async () => {
+    configureAuthEnv();
+    delete process.env.JWT_SECRET;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ user: { id: "user-3", email: "person@example.com", name: "Person", avatarUrl: null } }), { status: 200 })));
+    const cookies: unknown[] = [];
+    const redirects: string[] = [];
+    const res = { cookie: (value: unknown) => cookies.push(value), redirect: (value: string) => redirects.push(value) } as unknown as Response;
+
+    await callbackHandler()({ query: { handoff_token: "one-time-token" } } as Request, res);
+
+    expect(cookies).toHaveLength(0);
+    expect(redirects).toEqual(["/login?error=configuration&missing=JWT_SECRET"]);
+  });
+
   it("rejects an invalid handoff without creating an application session", async () => {
     configureAuthEnv();
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "invalid_handoff" }), { status: 401 })));

@@ -65,4 +65,11 @@
 - [x] Correct the server-side handoff exchange handling and callback parsing with safe error categories for configuration, missing, invalid, or expired handoffs.
 - [x] Test successful and rejected handoff behavior, including replay rejection, without exposing sensitive tokens.
 - [ ] Verify the live Google completion flow after the diagnostic callback repair deploys to Render.
-- [ ] Save and push the callback repair to `master`.
+- [x] Save and push the callback repair to `master`.
+
+## Render Auth Configuration Diagnosis
+
+- [x] Identify the exact missing runtime setting from the callback configuration path without exposing values.
+- [x] Show the operator the missing variable name in the sign-in recovery message.
+- [x] Validate both missing-setting and fully configured callback behavior with the full test suite, TypeScript, and production build.
+- [ ] Save and push the configuration-feedback update to `master`.

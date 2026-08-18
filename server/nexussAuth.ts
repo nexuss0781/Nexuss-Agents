@@ -17,7 +17,7 @@ export type NexussAuthUser = {
 type AuthFailureCode = "configuration" | "handoff_required" | "invalid_handoff" | "user_not_found" | "handoff_failed";
 
 class NexussAuthFailure extends Error {
-  constructor(public readonly code: AuthFailureCode, public readonly status?: number) {
+  constructor(public readonly code: AuthFailureCode, public readonly status?: number, public readonly missing: string[] = []) {
     super(code);
   }
 }
@@ -27,16 +27,21 @@ function config() {
   const projectId = process.env.NEXUSS_AUTH_PROJECT_ID;
   const redirectUri = process.env.NEXUSS_AUTH_REDIRECT_URI;
 
-  if (!authUrl || !projectId || !redirectUri) {
-    throw new Error("Nexuss Auth is not configured");
+  const missing = [
+    !authUrl && "NEXUSS_AUTH_URL",
+    !projectId && "NEXUSS_AUTH_PROJECT_ID",
+    !redirectUri && "NEXUSS_AUTH_REDIRECT_URI",
+  ].filter((name): name is string => Boolean(name));
+  if (missing.length > 0) {
+    throw new NexussAuthFailure("configuration", undefined, missing);
   }
 
-  return { authUrl: authUrl.replace(/\/+$/, ""), projectId, redirectUri };
+  return { authUrl: authUrl!.replace(/\/+$/, ""), projectId: projectId!, redirectUri: redirectUri! };
 }
 
 function secret() {
   const value = process.env.JWT_SECRET;
-  if (!value) throw new Error("Application session signing is not configured");
+  if (!value) throw new NexussAuthFailure("configuration", undefined, ["JWT_SECRET"]);
   return new TextEncoder().encode(value);
 }
 
@@ -127,8 +132,11 @@ export function registerNexussAuthRoutes(app: Express) {
       res.redirect("/app");
     } catch (error) {
       const failure = error instanceof NexussAuthFailure ? error : new NexussAuthFailure("configuration");
-      console.error(`[Nexuss Auth] Handoff failed: ${failure.code}${failure.status ? ` (${failure.status})` : ""}`);
-      res.redirect(`/login?error=${failure.code}`);
+      const missing = failure.missing.join(",");
+      console.error(`[Nexuss Auth] Handoff failed: ${failure.code}${failure.status ? ` (${failure.status})` : ""}${missing ? ` [${missing}]` : ""}`);
+      const query = new URLSearchParams({ error: failure.code });
+      if (missing) query.set("missing", missing);
+      res.redirect(`/login?${query.toString()}`);
     }
   });
 
@@ -142,8 +150,11 @@ export function registerNexussAuthRoutes(app: Express) {
       assertSignInReady();
       res.redirect(buildNexussSignInUrl(req.params.provider));
     } catch {
-      console.error("[Nexuss Auth] Sign-in is not configured");
-      res.redirect("/login?error=configuration");
+      const missing = ["NEXUSS_AUTH_URL", "NEXUSS_AUTH_PROJECT_ID", "NEXUSS_AUTH_REDIRECT_URI", "JWT_SECRET"].filter((name) => !process.env[name]);
+      console.error(`[Nexuss Auth] Sign-in is not configured${missing.length ? ` [${missing.join(",")}]` : ""}`);
+      const query = new URLSearchParams({ error: "configuration" });
+      if (missing.length) query.set("missing", missing.join(","));
+      res.redirect(`/login?${query.toString()}`);
     }
   });
 }

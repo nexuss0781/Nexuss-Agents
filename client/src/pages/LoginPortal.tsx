@@ -8,9 +8,13 @@ function beginSignIn(provider: "google" | "github") {
 }
 
 export default function LoginPortal() {
-  const error = new URLSearchParams(window.location.search).get("error");
+  const search = new URLSearchParams(window.location.search);
+  const error = search.get("error");
+  const missing = search.get("missing")?.split(",").filter(Boolean) ?? [];
   const errorMessage = error === "configuration"
-    ? "Sign-in is not fully configured yet. Check the server settings and try again."
+    ? missing.length > 0
+      ? `Add ${missing.join(" and ")} in Render, then redeploy.`
+      : "Sign-in is not fully configured yet. Check the server settings and try again."
     : error === "invalid_handoff"
       ? "That sign-in link expired. Start again with Google or GitHub."
       : error === "handoff_required"
