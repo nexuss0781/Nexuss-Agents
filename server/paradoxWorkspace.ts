@@ -69,13 +69,14 @@ async function withWorkspaceDb<T>(write: boolean, action: (db: Db) => Promise<T>
   const previous = workspaceOperationTail;
   workspaceOperationTail = new Promise<void>((resolve) => { release = resolve; });
   await previous;
-  const db = await openWorkspaceDb();
+  let db: Db | undefined;
   try {
+    db = await openWorkspaceDb();
     const result = await action(db);
     if (write) await db.push();
     return result;
   } finally {
-    db.close();
+    db?.close();
     release?.();
   }
 }

@@ -12,6 +12,18 @@ import {
 } from "./paradoxWorkspace";
 
 describe("Paradox workspace persistence", () => {
+  it("releases the workspace operation queue after an unavailable configuration so a later request can recover", async () => {
+    const apiKey = process.env.PARADOX_API_KEY;
+    const owner = `recovery-owner-${randomUUID()}`;
+    delete process.env.PARADOX_API_KEY;
+    try {
+      await expect(loadWorkspace(owner)).rejects.toThrow("Paradox-DB persistence is not configured");
+    } finally {
+      if (apiKey) process.env.PARADOX_API_KEY = apiKey;
+    }
+    await expect(loadWorkspace(owner)).resolves.toMatchObject({ projects: [], threads: [] });
+  }, 90_000);
+
   it("keeps projects, complete thread histories, and projectless threads scoped to their authenticated owner", async () => {
     const ownerA = `test-owner-${randomUUID()}`;
     const ownerB = `test-owner-${randomUUID()}`;

@@ -114,10 +114,10 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const migrationStarted = useRef(false);
   const workspace = workspaceQuery.data || seed;
   const migration = trpc.workspace.migrate.useMutation({
-    onSuccess: async () => {
+    onSuccess: () => {
       localStorage.removeItem("nexuss-agent-workspace-v2");
-      await utils.workspace.load.invalidate();
       setMigrationSettled(true);
+      void utils.workspace.load.invalidate();
     },
     onError: () => { setMigrationSettled(true); toast.error("Your existing browser history could not be imported. It remains stored locally until the next attempt."); },
   });

@@ -110,3 +110,12 @@
 - [x] Add a client rendering test proving the workspace load failure state presents its recovery message and retry action.
 - [x] Add an explicit fresh-load regression test proving persisted project and complete thread history data reappear after the workspace is reopened.
 - [x] Save and push the finished authenticated workspace persistence feature to `master`.
+
+## Workspace Persistence Reliability Fix
+
+- [x] Reproduce the authenticated workspace becoming stuck on “LOADING YOUR WORKSPACE” and identify the blocked migration-refresh and poisoned operation-queue paths.
+- [x] Fix the migration and loading readiness transitions so retry can recover and workspace actions become available.
+- [x] Verify new project creation, projectless thread creation, message saving, and durable reload behavior through authenticated router and mounted client coverage.
+- [x] Add a mounted client regression test proving Retry recovers from a failed workspace load into an interactive workspace state.
+- [x] Add a mounted client regression test proving project creation is enabled and succeeds after the workspace has recovered.
+- [ ] Save and push the workspace reliability fix to `master`.

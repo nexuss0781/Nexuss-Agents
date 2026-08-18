@@ -63,9 +63,12 @@ const trpcClient = trpc.createClient({
         return {};
       },
       fetch(input, init) {
+        const timeoutSignal = AbortSignal.timeout(15_000);
+        const signal = init?.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
         return globalThis.fetch(input, {
           ...(init ?? {}),
           credentials: "include",
+          signal,
         });
       },
     }),

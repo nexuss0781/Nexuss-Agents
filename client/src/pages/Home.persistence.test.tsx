@@ -16,7 +16,7 @@ type WorkspaceSnapshot = { projects: Array<{ id: string; name: string; descripti
 
 const roots: Array<{ root: Root; host: HTMLDivElement }> = [];
 
-function mockLink(resolve: (path: string) => WorkspaceSnapshot | Error): TRPCLink<AppRouter> {
+function mockLink(resolve: (path: string) => unknown | Error): TRPCLink<AppRouter> {
   return () => ({ op }) => observable((observer) => {
     queueMicrotask(() => {
       const value = resolve(op.path);
@@ -27,7 +27,7 @@ function mockLink(resolve: (path: string) => WorkspaceSnapshot | Error): TRPCLin
   });
 }
 
-async function mountWorkspace(resolve: (path: string) => WorkspaceSnapshot | Error) {
+async function mountWorkspace(resolve: (path: string) => unknown | Error) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -49,8 +49,11 @@ async function waitForText(host: HTMLElement, text: string) {
   throw new Error(`Expected workspace to render: ${text}`);
 }
 
-afterEach(() => {
-  for (const { root, host } of roots.splice(0)) { root.unmount(); host.remove(); }
+afterEach(async () => {
+  for (const { root, host } of roots.splice(0)) {
+    await act(async () => { root.unmount(); });
+    host.remove();
+  }
   window.localStorage.clear();
 });
 
@@ -77,6 +80,67 @@ describe("persistent workspace client", () => {
     const host = await mountWorkspace(() => new Error("Gateway unavailable"));
     await waitForText(host, "Workspace unavailable.");
     expect(host.textContent).toContain("Retry loading");
+  });
+
+  it("recovers after Retry and allows a project to be created from the restored workspace", async () => {
+    let loadAttempts = 0;
+    let createdProject = false;
+    const calls = vi.fn();
+    const restored: WorkspaceSnapshot = { projects: [], threads: [{ id: "restored-thread", title: "Recovered thread", updatedAt: "2026-08-18T00:00:00.000Z", messages: [] }] };
+    const host = await mountWorkspace((path) => {
+      calls(path);
+      if (path === "workspace.load") {
+        loadAttempts += 1;
+        if (loadAttempts === 1) return new Error("Gateway unavailable");
+        return createdProject ? { ...restored, projects: [{ id: "created-project", name: "Recovered project", description: "", tone: "#f4f4f0" }] } : restored;
+      }
+      if (path === "workspace.createProject") {
+        createdProject = true;
+        return { id: "created-project", name: "Recovered project", description: "", tone: "#f4f4f0" };
+      }
+      return restored;
+    });
+
+    await waitForText(host, "Workspace unavailable.");
+    const retry = Array.from(host.querySelectorAll("button")).find((button) => button.textContent?.includes("Retry loading"));
+    await act(async () => {
+      retry?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((resolveTick) => setTimeout(resolveTick, 0));
+    });
+    await waitForText(host, "Recovered thread");
+
+    const addProject = Array.from(host.querySelectorAll("button")).find((button) => button.textContent?.includes("Add project"));
+    expect(addProject?.hasAttribute("disabled")).toBe(false);
+    await act(async () => { addProject?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    const nameInput = host.querySelector<HTMLInputElement>('input[name="name"]');
+    const projectForm = host.querySelector("form");
+    if (!nameInput || !projectForm) throw new Error("Project editor did not open after recovery");
+    await act(async () => {
+      const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setValue?.call(nameInput, "Recovered project");
+      nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+      projectForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      await new Promise((resolveTick) => setTimeout(resolveTick, 0));
+    });
+    await waitForText(host, "Recovered project");
+    expect(calls).toHaveBeenCalledWith("workspace.createProject");
+  });
+
+  it("settles after a successful legacy import without waiting for a background refresh", async () => {
+    window.localStorage.setItem("nexuss-agent-workspace-v2", JSON.stringify({
+      projects: [],
+      threads: [{ id: "legacy-thread", title: "Legacy history", updatedAt: "2026-08-18T00:00:00.000Z", messages: [] }],
+    }));
+    const calls = vi.fn();
+    const empty: WorkspaceSnapshot = { projects: [], threads: [] };
+    const host = await mountWorkspace((path) => {
+      calls(path);
+      if (path === "workspace.migrate") return { imported: true };
+      return empty;
+    });
+
+    await waitForText(host, "Start a thread.");
+    expect(calls).toHaveBeenCalledWith("workspace.migrate");
   });
 
   it("renders complete persisted history again after a fresh workspace mount", async () => {
