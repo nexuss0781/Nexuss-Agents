@@ -193,3 +193,11 @@
 - [ ] Confirm the new composer controls visually in a live authenticated desktop and mobile workspace session.
 - [x] Save a checkpoint for the composer control refinement (project version `60977735`).
 - [x] Push the composer control refinement and checklist record to `master` (GitHub commit `6e7fffe`).
+
+## Research Content Renderer
+
+- [x] Upgrade message rendering for CommonMark/GFM content, mathematical notation, syntax-highlighted code, tables, citations, and Mermaid diagrams with a restrained content-first presentation.
+- [x] Add robust rendering fallbacks for invalid diagram definitions, safe external links, and accessible copyable code blocks.
+- [x] Add regression coverage for research-rich content formats, then validate TypeScript and the production build.
+- [x] Save a checkpoint for the research renderer enhancement (project version `cb6000dd`).
+- [ ] Push the research renderer enhancement and checklist record to `master`.

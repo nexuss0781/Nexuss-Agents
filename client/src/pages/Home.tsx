@@ -2,6 +2,7 @@
 // Design philosophy: Obsidian Console — quiet workbench, original AXOLOTL brand, and only the labels needed to work.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -56,23 +57,72 @@ function formatDate(value: string) {
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-function MarkdownMessage({ content }: { content: string }) {
+function CodeBlock({ language, content }: { language: string; content: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard?.writeText(content);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1_400);
+    } catch {
+      toast.error("Code could not be copied");
+    }
+  }
+
+  return <div className="research-code-block"><div className="research-code-header"><span>{language}</span><button onClick={() => void copyCode()} aria-label={`Copy ${language} code`}>{copied ? <Check size={13} /> : <Copy size={13} />}{copied ? "Copied" : "Copy"}</button></div><SyntaxHighlighter style={vscDarkPlus as any} language={language === "text" ? undefined : language} PreTag="div" className="code-block">{content}</SyntaxHighlighter></div>;
+}
+
+function MermaidDiagram({ definition }: { definition: string }) {
+  const target = useRef<HTMLDivElement>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let disposed = false;
+    setFailed(false);
+    const renderDiagram = async () => {
+      try {
+        const { default: mermaid } = await import("mermaid");
+        mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "dark", themeVariables: { background: "#111113", primaryColor: "#1c1c1f", primaryTextColor: "#e7e7e1", lineColor: "#8a8a84", tertiaryColor: "#151516", fontFamily: "IBM Plex Mono, monospace" } });
+        const id = `nexuss-mermaid-${Math.random().toString(36).slice(2)}`;
+        const { svg } = await mermaid.render(id, definition);
+        if (!disposed && target.current) target.current.innerHTML = svg;
+      } catch {
+        if (!disposed) setFailed(true);
+      }
+    };
+    void renderDiagram();
+    return () => { disposed = true; };
+  }, [definition]);
+
+  if (failed) return <div className="research-diagram-fallback" role="note">This Mermaid diagram could not be rendered. Check its syntax and try again.</div>;
+  return <figure className="research-diagram"><figcaption>Diagram</figcaption><div ref={target} className="research-diagram-canvas" role="img" aria-label="Mermaid diagram" /></figure>;
+}
+
+export function MarkdownMessage({ content }: { content: string }) {
   return (
     <div className="markdown-body">
       <ReactMarkdown
-        remarkPlugins={[remarkMath]}
+        remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
         components={{
           code({ className, children, ...props }) {
-            const match = /language-(\w+)/.exec(className || "");
-            return match ? (
-              <SyntaxHighlighter style={vscDarkPlus as any} language={match[1]} PreTag="div" className="code-block">
-                {String(children).replace(/\n$/, "")}
-              </SyntaxHighlighter>
-            ) : (
-              <code className="inline-code">{children}</code>
-            );
+            const match = /language-([a-z0-9_+-]+)/i.exec(className || "");
+            const raw = String(children).replace(/\n$/, "");
+            const isBlock = Boolean(match) || String(children).includes("\n");
+            if (match?.[1] === "mermaid") return <MermaidDiagram definition={raw} />;
+            if (isBlock) return <CodeBlock language={match?.[1] || "text"} content={raw} />;
+            return <code className="inline-code" {...props}>{children}</code>;
           },
+          a({ href, children }) {
+            const isSafe = Boolean(href && (/^(https?:|mailto:)/i.test(href) || href.startsWith("/") || href.startsWith("#")));
+            if (!isSafe) return <span>{children}</span>;
+            const external = /^https?:/i.test(href || "");
+            return <a href={href} {...(external ? { target: "_blank", rel: "noreferrer noopener" } : {})}>{children}</a>;
+          },
+          table({ children }) { return <div className="markdown-table-scroll"><table>{children}</table></div>; },
+          input({ checked, ...props }) { return <input {...props} type="checkbox" checked={checked} disabled aria-label={checked ? "Complete" : "Incomplete"} />; },
+          img({ src, alt }) { return <img className="research-image" src={src} alt={alt || ""} loading="lazy" />; },
         }}
       >
         {content}
