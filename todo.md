@@ -133,4 +133,13 @@
 - [x] Allow an authenticated user to enter a first message immediately, creating a durable thread on send when none exists.
 - [x] Keep the assignment dropdown enabled for saved projects and apply the selected project to the created or active thread.
 - [x] Test immediate compose, automatic thread creation, project selection, assignment persistence, and message saving through mounted client coverage, full tests, TypeScript, and production build.
-- [ ] Save and push the composer interaction fix to `master`.
+- [x] Save and push the composer interaction fix to `master`.
+
+## Durable Thread Identity and Response States
+
+- [x] Audit the persisted thread schema, new-thread flow, and current loading presentation.
+- [x] Add a stable unique chat slug to durable threads and show it as a usable identifier in the workspace.
+- [x] Prevent redundant empty threads so a user retains one clean starting thread instead of duplicate blank histories.
+- [x] Add a professional future-response skeleton that can represent long-running generated output without blocking the workspace.
+- [x] Test unique thread identity, single empty-thread creation, and response loading states with server and client coverage, TypeScript, and a production build.
+- [ ] Save and push the thread identity and response-state improvements to `master`.

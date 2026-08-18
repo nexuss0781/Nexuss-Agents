@@ -19,9 +19,10 @@ const roots: Array<{ root: Root; host: HTMLDivElement }> = [];
 function mockLink(resolve: (path: string, input?: unknown) => unknown | Error): TRPCLink<AppRouter> {
   return () => ({ op }) => observable((observer) => {
     queueMicrotask(() => {
-      const value = resolve(op.path, op.input);
-      if (value instanceof Error) observer.error(value as never);
-      else { observer.next({ result: { data: value } } as never); observer.complete(); }
+      Promise.resolve(resolve(op.path, op.input)).then((value) => {
+        if (value instanceof Error) observer.error(value as never);
+        else { observer.next({ result: { data: value } } as never); observer.complete(); }
+      }).catch((error) => observer.error(error));
     });
     return () => undefined;
   });
@@ -176,6 +177,26 @@ describe("persistent workspace client", () => {
 
     expect(inputs).toHaveBeenCalledWith("workspace.createThread", { projectId: "pntp" });
     expect(inputs).toHaveBeenCalledWith("workspace.appendMessages", expect.objectContaining({ threadId: "first-thread" }));
+  });
+
+  it("reserves a response skeleton while a future long-running message save is pending", async () => {
+    let completeAppend: ((value: unknown) => void) | undefined;
+    const workspace: WorkspaceSnapshot = { projects: [], threads: [{ id: "long-thread", title: "Long story", updatedAt: "2026-08-18T00:00:00.000Z", messages: [] }] };
+    const host = await mountWorkspace((path) => {
+      if (path === "workspace.appendMessages") return new Promise((resolve) => { completeAppend = resolve; });
+      return workspace;
+    });
+    await waitForText(host, "Start a thread.");
+    const composer = host.querySelector<HTMLTextAreaElement>("textarea");
+    if (!composer) throw new Error("Composer was not rendered");
+    await act(async () => {
+      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+      setValue?.call(composer, "A long story");
+      composer.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Send message"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    await waitForText(host, "Preparing an extended response");
+    await act(async () => { completeAppend?.({ threadId: "long-thread" }); });
   });
 
   it("renders complete persisted history again after a fresh workspace mount", async () => {

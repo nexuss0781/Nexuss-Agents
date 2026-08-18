@@ -11,6 +11,8 @@ import {
   migrateWorkspace,
 } from "./paradoxWorkspace";
 
+process.env.PARADOX_TEST_SKIP_PUSH = "1";
+
 describe("Paradox workspace persistence", () => {
   it("releases the workspace operation queue after an unavailable configuration so a later request can recover", async () => {
     const apiKey = process.env.PARADOX_API_KEY;
@@ -29,13 +31,15 @@ describe("Paradox workspace persistence", () => {
     const ownerB = `test-owner-${randomUUID()}`;
     const project = await createProject(ownerA, { name: "Durable context", description: "Persistence test", tone: "#f4f4f0" });
     const linkedThread = await createThread(ownerA, project.id);
-    const projectlessThread = await createThread(ownerA);
+    const duplicateEmptyThread = await createThread(ownerA, project.id);
+    let projectlessThread: Awaited<ReturnType<typeof createThread>> | null = null;
 
     try {
       await appendThreadMessages(ownerA, linkedThread.id, [
         { role: "user", content: "Preserve the first history entry." },
         { role: "assistant", content: "The full history is durable." },
       ], "Durable history");
+      projectlessThread = await createThread(ownerA);
       await appendThreadMessages(ownerA, projectlessThread.id, [
         { role: "user", content: "This thread has no project." },
       ]);
@@ -46,7 +50,9 @@ describe("Paradox workspace persistence", () => {
       const loadedProjectless = ownerAWorkspace.threads.find((thread) => thread.id === projectlessThread.id);
 
       expect(ownerAWorkspace.projects).toContainEqual(expect.objectContaining({ id: project.id, name: "Durable context" }));
-      expect(loadedLinked).toMatchObject({ projectId: project.id, title: "Durable history" });
+      expect(linkedThread.chatSlug).toMatch(/^chat-[a-z0-9]{32}$/);
+      expect(duplicateEmptyThread).toMatchObject({ id: linkedThread.id, chatSlug: linkedThread.chatSlug, created: false });
+      expect(loadedLinked).toMatchObject({ projectId: project.id, title: "Durable history", chatSlug: linkedThread.chatSlug });
       expect(loadedLinked?.messages.map((message) => message.content)).toEqual([
         "Preserve the first history entry.",
         "The full history is durable.",
@@ -61,7 +67,7 @@ describe("Paradox workspace persistence", () => {
       expect(afterProjectDeletion.threads.find((thread) => thread.id === projectlessThread.id)?.projectId).toBeUndefined();
     } finally {
       await deleteThread(ownerA, linkedThread.id);
-      await deleteThread(ownerA, projectlessThread.id);
+      if (projectlessThread) await deleteThread(ownerA, projectlessThread.id);
     }
   }, 90_000);
 
@@ -90,6 +96,7 @@ describe("Paradox workspace persistence", () => {
       expect(loaded.projects).toContainEqual(expect.objectContaining({ id: projectId, name: "Imported project" }));
       expect(loaded.threads).toContainEqual(expect.objectContaining({
         id: threadId,
+        chatSlug: `chat-${threadId.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}`,
         projectId,
         messages: [expect.objectContaining({ id: messageId, content: "Preserve every existing message." })],
       }));

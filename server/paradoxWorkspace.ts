@@ -5,15 +5,18 @@ import { connect } from "parad";
 
 export type WorkspaceProject = { id: string; name: string; description: string; tone: string };
 export type WorkspaceMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
-export type WorkspaceThread = { id: string; title: string; projectId?: string; updatedAt: string; messages: WorkspaceMessage[] };
+export type WorkspaceThread = { id: string; chatSlug: string; title: string; projectId?: string; updatedAt: string; messages: WorkspaceMessage[] };
 export type DurableWorkspace = { projects: WorkspaceProject[]; threads: WorkspaceThread[] };
 
 export class WorkspaceAccessError extends Error {}
 
 type Db = Awaited<ReturnType<typeof connect>>;
-type LegacyWorkspace = { projects: WorkspaceProject[]; threads: WorkspaceThread[] };
+type LegacyWorkspace = { projects: WorkspaceProject[]; threads: Array<Omit<WorkspaceThread, "chatSlug"> & { chatSlug?: string }> };
 let workspaceOperationTail: Promise<void> = Promise.resolve();
 let activeGateway: { url: string; expiresAt: number } | null = null;
+let workspaceDb: Db | undefined;
+let workspaceDbOpening: Promise<Db> | undefined;
+let workspaceDbCloseTimer: ReturnType<typeof setTimeout> | undefined;
 
 function persistenceConfig() {
   const apiKey = process.env.PARADOX_API_KEY;
@@ -40,8 +43,21 @@ async function resolveGatewayUrl() {
 
 function now() { return new Date().toISOString(); }
 function rows<T>(result: { rows: unknown[] }) { return result.rows as T[]; }
+function chatSlugFor(id: string) { return `chat-${id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}`; }
 
 async function openWorkspaceDb() {
+  if (workspaceDb) return workspaceDb;
+  if (workspaceDbOpening) return workspaceDbOpening;
+  workspaceDbOpening = openFreshWorkspaceDb();
+  try {
+    workspaceDb = await workspaceDbOpening;
+    return workspaceDb;
+  } finally {
+    workspaceDbOpening = undefined;
+  }
+}
+
+async function openFreshWorkspaceDb() {
   const config = persistenceConfig();
   const gatewayUrl = await resolveGatewayUrl();
   const db = await connect({
@@ -56,12 +72,25 @@ async function openWorkspaceDb() {
   });
 
   db.execute("CREATE TABLE IF NOT EXISTS workspace_projects (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, name TEXT NOT NULL, description TEXT NOT NULL, tone TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
-  db.execute("CREATE TABLE IF NOT EXISTS workspace_threads (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, title TEXT NOT NULL, project_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
+  db.execute("CREATE TABLE IF NOT EXISTS workspace_threads (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, chat_slug TEXT, title TEXT NOT NULL, project_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_messages (id TEXT PRIMARY KEY, thread_id TEXT NOT NULL, owner_id TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_imports (owner_id TEXT PRIMARY KEY, imported_at TEXT NOT NULL)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_threads_owner_updated ON workspace_threads(owner_id, updated_at DESC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_messages_thread_created ON workspace_messages(thread_id, created_at ASC)");
+  try { db.execute("ALTER TABLE workspace_threads ADD COLUMN chat_slug TEXT"); } catch { /* Existing encrypted workspaces already have the column. */ }
+  db.execute("UPDATE workspace_threads SET chat_slug = 'chat-' || lower(replace(id, '-', '')) WHERE chat_slug IS NULL OR chat_slug = '' OR length(chat_slug) < 37");
+  db.execute("CREATE UNIQUE INDEX IF NOT EXISTS workspace_threads_chat_slug_unique ON workspace_threads(chat_slug)");
   return db;
+}
+
+function scheduleWorkspaceDbClose() {
+  if (workspaceDbCloseTimer) clearTimeout(workspaceDbCloseTimer);
+  workspaceDbCloseTimer = setTimeout(() => {
+    workspaceDb?.close();
+    workspaceDb = undefined;
+    workspaceDbCloseTimer = undefined;
+  }, 60_000);
+  workspaceDbCloseTimer.unref?.();
 }
 
 async function withWorkspaceDb<T>(write: boolean, action: (db: Db) => Promise<T> | T) {
@@ -73,10 +102,10 @@ async function withWorkspaceDb<T>(write: boolean, action: (db: Db) => Promise<T>
   try {
     db = await openWorkspaceDb();
     const result = await action(db);
-    if (write) await db.push();
+    if (write && process.env.PARADOX_TEST_SKIP_PUSH !== "1") await db.push();
     return result;
   } finally {
-    db?.close();
+    scheduleWorkspaceDbClose();
     release?.();
   }
 }
@@ -96,8 +125,8 @@ export async function loadWorkspace(ownerId: string): Promise<DurableWorkspace> 
     const projects = rows<{ id: string; name: string; description: string; tone: string }>(db.execute(
       "SELECT id, name, description, tone FROM workspace_projects WHERE owner_id = ? ORDER BY updated_at DESC", [ownerId],
     ));
-    const threadRows = rows<{ id: string; title: string; project_id: string | null; updated_at: string }>(db.execute(
-      "SELECT id, title, project_id, updated_at FROM workspace_threads WHERE owner_id = ? ORDER BY updated_at DESC", [ownerId],
+    const threadRows = rows<{ id: string; chat_slug: string | null; title: string; project_id: string | null; updated_at: string }>(db.execute(
+      "SELECT id, chat_slug, title, project_id, updated_at FROM workspace_threads WHERE owner_id = ? ORDER BY updated_at DESC", [ownerId],
     ));
     const messageRows = rows<{ id: string; thread_id: string; role: "user" | "assistant"; content: string; created_at: string }>(db.execute(
       "SELECT id, thread_id, role, content, created_at FROM workspace_messages WHERE owner_id = ? ORDER BY created_at ASC", [ownerId],
@@ -112,6 +141,7 @@ export async function loadWorkspace(ownerId: string): Promise<DurableWorkspace> 
       projects: projects.map((project) => ({ ...project })),
       threads: threadRows.map((thread) => ({
         id: thread.id,
+        chatSlug: thread.chat_slug || chatSlugFor(thread.id),
         title: thread.title,
         ...(thread.project_id ? { projectId: thread.project_id } : {}),
         updatedAt: thread.updated_at,
@@ -150,9 +180,22 @@ export async function deleteProject(ownerId: string, id: string) {
 export async function createThread(ownerId: string, projectId?: string | null) {
   return withWorkspaceDb(true, (db) => {
     if (projectId) assertProjectOwner(db, ownerId, projectId);
+    const existing = rows<{ id: string; chat_slug: string | null; title: string; project_id: string | null; updated_at: string }>(db.execute(
+      "SELECT t.id, t.chat_slug, t.title, t.project_id, t.updated_at FROM workspace_threads t WHERE t.owner_id = ? AND NOT EXISTS (SELECT 1 FROM workspace_messages m WHERE m.thread_id = t.id AND m.owner_id = t.owner_id) ORDER BY t.updated_at DESC LIMIT 1",
+      [ownerId],
+    ))[0];
+    if (existing) {
+      let resolvedProjectId = existing.project_id;
+      if (projectId && projectId !== existing.project_id) {
+        db.execute("UPDATE workspace_threads SET project_id = ?, updated_at = ? WHERE id = ? AND owner_id = ?", [projectId, now(), existing.id, ownerId]);
+        resolvedProjectId = projectId;
+      }
+      return { id: existing.id, chatSlug: existing.chat_slug || chatSlugFor(existing.id), title: existing.title, ...(resolvedProjectId ? { projectId: resolvedProjectId } : {}), updatedAt: existing.updated_at, messages: [], created: false };
+    }
     const id = randomUUID(); const timestamp = now();
-    db.execute("INSERT INTO workspace_threads (id, owner_id, title, project_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)", [id, ownerId, "Untitled exploration", projectId || null, timestamp, timestamp]);
-    return { id, title: "Untitled exploration", ...(projectId ? { projectId } : {}), updatedAt: timestamp, messages: [] } satisfies WorkspaceThread;
+    const chatSlug = chatSlugFor(id);
+    db.execute("INSERT INTO workspace_threads (id, owner_id, chat_slug, title, project_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", [id, ownerId, chatSlug, "Untitled exploration", projectId || null, timestamp, timestamp]);
+    return { id, chatSlug, title: "Untitled exploration", ...(projectId ? { projectId } : {}), updatedAt: timestamp, messages: [], created: true } satisfies WorkspaceThread & { created: boolean };
   });
 }
 
@@ -206,7 +249,7 @@ export async function migrateWorkspace(ownerId: string, workspace: LegacyWorkspa
     }
     for (const thread of workspace.threads) {
       const timestamp = thread.updatedAt || now();
-      db.execute("INSERT OR IGNORE INTO workspace_threads (id, owner_id, title, project_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)", [thread.id, ownerId, thread.title, thread.projectId || null, timestamp, timestamp]);
+      db.execute("INSERT OR IGNORE INTO workspace_threads (id, owner_id, chat_slug, title, project_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", [thread.id, ownerId, chatSlugFor(thread.id), thread.title, thread.projectId || null, timestamp, timestamp]);
       for (const message of thread.messages) db.execute("INSERT OR IGNORE INTO workspace_messages (id, thread_id, owner_id, role, content, created_at) VALUES (?, ?, ?, ?, ?, ?)", [message.id, thread.id, ownerId, message.role, message.content, message.createdAt || timestamp]);
     }
     db.execute("INSERT INTO workspace_imports (owner_id, imported_at) VALUES (?, ?)", [ownerId, now()]);

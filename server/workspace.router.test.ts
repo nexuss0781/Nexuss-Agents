@@ -25,7 +25,7 @@ describe("authenticated workspace router", () => {
     const caller = await authenticatedCaller(`router-owner-${randomUUID()}`);
     const project = await caller.workspace.createProject({ name: "Router project", description: "Authenticated persistence", tone: "#f4f4f0" });
     const linkedThread = await caller.workspace.createThread({ projectId: project.id });
-    const projectlessThread = await caller.workspace.createThread({});
+    let projectlessThread: Awaited<ReturnType<typeof caller.workspace.createThread>> | null = null;
 
     try {
       await caller.workspace.appendMessages({
@@ -36,6 +36,7 @@ describe("authenticated workspace router", () => {
           { role: "assistant", content: "Every message is retained." },
         ],
       });
+      projectlessThread = await caller.workspace.createThread({});
       const workspace = await caller.workspace.load();
       const loadedThread = workspace.threads.find((thread) => thread.id === linkedThread.id);
 
@@ -44,14 +45,15 @@ describe("authenticated workspace router", () => {
         "Keep my whole history.",
         "Every message is retained.",
       ]);
-      expect(workspace.threads.find((thread) => thread.id === projectlessThread.id)?.projectId).toBeUndefined();
+      expect(projectlessThread).not.toBeNull();
+      expect(workspace.threads.find((thread) => thread.id === projectlessThread!.id)?.projectId).toBeUndefined();
 
       await caller.workspace.deleteProject({ id: project.id });
       const unassigned = await caller.workspace.load();
       expect(unassigned.threads.find((thread) => thread.id === linkedThread.id)?.projectId).toBeUndefined();
     } finally {
       await caller.workspace.deleteThread({ id: linkedThread.id });
-      await caller.workspace.deleteThread({ id: projectlessThread.id });
+      if (projectlessThread) await caller.workspace.deleteThread({ id: projectlessThread.id });
     }
   }, 90_000);
 });
