@@ -21,7 +21,13 @@ function WorkspaceGate() {
   if (session.isLoading) return <main className="auth-loading"><Loader2 size={22} aria-label="Checking sign-in" /></main>;
   if (!session.data) return <main className="auth-loading"><Loader2 size={22} aria-label="Redirecting to sign in" /></main>;
 
-  return <Home profileName={session.data.name || session.data.email || "Nexuss user"} onSignOut={() => logout.mutate()} signOutPending={logout.isPending} />;
+  return <Home
+    profileName={session.data.name || session.data.email || "Nexuss user"}
+    profileEmail={session.data.email || undefined}
+    profileAvatarUrl={session.data.avatarUrl || undefined}
+    onSignOut={() => logout.mutate()}
+    signOutPending={logout.isPending}
+  />;
 }
 
 function App() {

@@ -281,6 +281,25 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .profile-copy span { color: #77787c; font: 8px "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
 @media (max-width: 800px) { .profile-row { margin-top: 8px; } }
 
+/* Authenticated account presence: make the real person behind the workspace easy to recognize. */
+.profile-row { gap: 11px; margin: 0; padding: 14px 8px 4px; border-top: 0; }
+.profile-avatar { width: 46px; height: 46px; overflow: hidden; border-color: rgba(167,123,93,.7); background: #211c1a; font-size: 12px; }
+.profile-avatar img, .avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.profile-copy { gap: 5px; }
+.profile-copy strong { font-size: 12px; }
+.profile-copy span { overflow: hidden; max-width: 150px; color: #9b9ca0; font-size: 9px; letter-spacing: .015em; text-overflow: ellipsis; text-transform: none; white-space: nowrap; }
+.profile-signout { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; padding: 7px 0 7px 7px; border: 0; background: transparent; color: #a3a3a1; font-size: 10px; }
+.profile-signout:hover { color: #fffaf5; }
+.profile-signout:disabled { opacity: .5; cursor: wait; }
+.topbar-right { gap: 12px; }
+.topbar-account { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.topbar .avatar { width: 38px; height: 38px; overflow: hidden; border-color: rgba(167,123,93,.64); background: #211c1a; color: #fffaf5; font-size: 10px; font-weight: 700; }
+.topbar-account-copy { display: grid; min-width: 0; gap: 3px; max-width: 190px; }
+.topbar-account-copy strong { overflow: hidden; color: #f4f4f0; font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-account-copy span { overflow: hidden; color: #929397; font: 9px "IBM Plex Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 800px) { .profile-row { padding-bottom: 12px; }.topbar-account-copy { max-width: 132px; }.topbar .avatar { width: 36px; height: 36px; } }
+@media (max-width: 500px) { .topbar-account-copy { display: none; }.topbar .avatar { width: 34px; height: 34px; } }
+
 
 /* Landing page — editorial stealth: graphite surfaces, warm-white hierarchy, espresso signal accents, and instrument-panel geometry. */
 .landing-page { min-height: 100vh; overflow-x: hidden; background: #090a0a; color: #f4f1ec; font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif; }

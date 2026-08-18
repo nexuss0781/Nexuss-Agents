@@ -64,7 +64,7 @@
 - [x] Re-read the Nexuss Auth handoff contract and capture the failure details without retaining one-time tokens; the prior callback masked the service response and now emits only safe failure categories and status codes.
 - [x] Correct the server-side handoff exchange handling and callback parsing with safe error categories for configuration, missing, invalid, or expired handoffs.
 - [x] Test successful and rejected handoff behavior, including replay rejection, without exposing sensitive tokens.
-- [ ] Verify the live Google completion flow after the diagnostic callback repair deploys to Render.
+- [x] Verify the live Google completion flow after the diagnostic callback repair deploys to Render.
 - [x] Save and push the callback repair to `master`.
 
 ## Render Auth Configuration Diagnosis
@@ -72,4 +72,11 @@
 - [x] Identify the exact missing runtime setting from the callback configuration path without exposing values.
 - [x] Show the operator the missing variable name in the sign-in recovery message.
 - [x] Validate both missing-setting and fully configured callback behavior with the full test suite, TypeScript, and production build.
-- [ ] Save and push the configuration-feedback update to `master`.
+- [x] Save and push the configuration-feedback update to `master`.
+
+## Signed-In Account Navigation
+
+- [x] Inspect the current authenticated user data passed into the workspace and the existing account presentation.
+- [x] Add a larger, visible account area with the real avatar, name, email, and sign-out action.
+- [x] Validate the enlarged account area visually at desktop and mobile sizes; the avatar, name, email, and sign-out action remain visible in the desktop topbar/sidebar and the mobile drawer, with initials as a fallback if the provider avatar fails to load. Profile unit test, TypeScript, and production build also passed.
+- [ ] Save and push the account navigation enhancement to `master`.
