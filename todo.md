@@ -87,6 +87,6 @@
 - [x] Redesign the login portal with a distinctive AXOLOTL-led dark editorial composition while retaining the established Google and GitHub authentication flows.
 - [x] Add polished interaction, keyboard-focus accessibility, and configuration-feedback states without altering the server-side sign-in contract.
 - [x] Validate the redesigned login view at desktop and mobile sizes, including provider-route unit coverage, safe configuration-feedback rendering, TypeScript, and production build.
-- [ ] Save and push the finished login portal redesign to `master`.
+- [x] Save and push the finished login portal redesign to `master`.
 
 > Visual review note: The desktop entry console keeps a clear asymmetric headline-to-auth-panel hierarchy, while the 390px mobile layout retains readable identity metadata and full-width Google and GitHub actions.
