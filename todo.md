@@ -161,3 +161,10 @@
 - [x] Hydrate saved projects independently from active chat history and display a left-sidebar project skeleton while that data is loading.
 - [x] Test local-first mutation acknowledgment, queued sync behavior, project hydration without a first prompt, project skeleton presentation, TypeScript, and a production build.
 - [x] Save and push the local-first workspace persistence enhancement to `master` (GitHub commit `156086b`).
+
+## Workspace Settings Surface
+
+- [x] Replace the top-right sign-out control with an accessible settings-gear trigger.
+- [x] Create a polished dark workspace settings panel with account information, local-first persistence context, focused-workspace information, and an intentional sign-out action.
+- [x] Add regression coverage and validate the settings trigger, panel, account sign-out action, Escape dismissal, TypeScript, and the production build.
+- [ ] Save and push the workspace settings enhancement to `master`.

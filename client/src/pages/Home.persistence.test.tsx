@@ -28,7 +28,7 @@ function mockLink(resolve: (path: string, input?: unknown) => unknown | Error): 
   });
 }
 
-async function mountWorkspace(resolve: (path: string, input?: unknown) => unknown | Error) {
+async function mountWorkspace(resolve: (path: string, input?: unknown) => unknown | Error, props: Partial<React.ComponentProps<typeof Home>> = {}) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -36,7 +36,7 @@ async function mountWorkspace(resolve: (path: string, input?: unknown) => unknow
   const queryClient = new QueryClient();
   roots.push({ root, host });
   await act(async () => {
-    root.render(<trpc.Provider client={client} queryClient={queryClient}><QueryClientProvider client={queryClient}><Home profileName="Persistence Test" /></QueryClientProvider></trpc.Provider>);
+    root.render(<trpc.Provider client={client} queryClient={queryClient}><QueryClientProvider client={queryClient}><Home profileName="Persistence Test" {...props} /></QueryClientProvider></trpc.Provider>);
     await new Promise((resolveTick) => setTimeout(resolveTick, 0));
   });
   return host;
@@ -152,6 +152,23 @@ describe("persistent workspace client", () => {
     expect(host.querySelector('[aria-label="Loading saved projects"]')).not.toBeNull();
     await act(async () => { resolveNavigation?.({ projects: [{ id: "hydrated-project", name: "Saved before prompting", description: "", tone: "#f4f4f0" }], threads: [] }); });
     await waitForText(host, "Saved before prompting");
+  });
+
+  it("replaces the topbar sign-out control with a settings gear and keeps sign-out inside the settings panel", async () => {
+    const onSignOut = vi.fn();
+    const host = await mountWorkspace(() => ({ projects: [], threads: [] }), { profileName: "Settings Tester", profileEmail: "settings@example.com", onSignOut });
+    await waitForText(host, "Start a thread.");
+    expect(host.querySelector('.topbar button[aria-label="Sign out"]')).toBeNull();
+    const settings = host.querySelector<HTMLButtonElement>('button[aria-label="Open settings"]');
+    expect(settings).not.toBeNull();
+    await act(async () => { settings?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    await waitForText(host, "Encrypted local saving");
+    expect(host.textContent).toContain("settings@example.com");
+    const signOut = Array.from(host.querySelectorAll(".settings-signout")).find((button) => button.textContent?.includes("Sign out"));
+    await act(async () => { signOut?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    expect(onSignOut).toHaveBeenCalledTimes(1);
+    await act(async () => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+    expect(host.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it("creates a project-linked thread from the first message in an empty workspace", async () => {
