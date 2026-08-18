@@ -50,6 +50,15 @@ async function waitForText(host: HTMLElement, text: string) {
   throw new Error(`Expected workspace to render: ${text}`);
 }
 
+async function waitForInputPlaceholder(host: HTMLElement, selector: string, text: string) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const input = host.querySelector<HTMLInputElement>(selector);
+    if (input?.placeholder.includes(text)) return input;
+    await act(async () => { await new Promise((resolveTick) => setTimeout(resolveTick, 10)); });
+  }
+  throw new Error(`Expected input ${selector} to include placeholder: ${text}`);
+}
+
 afterEach(async () => {
   for (const { root, host } of roots.splice(0)) {
     await act(async () => { root.unmount(); });
@@ -154,16 +163,35 @@ describe("persistent workspace client", () => {
     await waitForText(host, "Saved before prompting");
   });
 
-  it("replaces the topbar sign-out control with a settings gear and keeps sign-out inside the settings panel", async () => {
+  it("replaces topbar sign-out with secure provider settings and saves multiple selected models", async () => {
     const onSignOut = vi.fn();
-    const host = await mountWorkspace(() => ({ projects: [], threads: [] }), { profileName: "Settings Tester", profileEmail: "settings@example.com", onSignOut });
+    const savedSettings = { baseUrl: "https://models.example.com/v1", selectedModels: ["model-alpha"], apiKeyConfigured: true };
+    const calls = vi.fn();
+    const host = await mountWorkspace((path, input) => {
+      calls(path, input);
+      if (path === "workspace.modelSettings") return savedSettings;
+      if (path === "workspace.saveModelSettings") return { ...savedSettings, selectedModels: (input as { selectedModels: string[] }).selectedModels };
+      if (path === "workspace.discoverModels") return { models: ["model-alpha", "model-beta"] };
+      return { projects: [], threads: [] };
+    }, { profileName: "Settings Tester", profileEmail: "settings@example.com", onSignOut });
     await waitForText(host, "Start a thread.");
     expect(host.querySelector('.topbar button[aria-label="Sign out"]')).toBeNull();
-    const settings = host.querySelector<HTMLButtonElement>('button[aria-label="Open settings"]');
-    expect(settings).not.toBeNull();
-    await act(async () => { settings?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-    await waitForText(host, "Encrypted local saving");
+    const settingsButton = host.querySelector<HTMLButtonElement>('button[aria-label="Open settings"]');
+    expect(settingsButton).not.toBeNull();
+    await act(async () => { settingsButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    await waitForText(host, "Base model API");
     expect(host.textContent).toContain("settings@example.com");
+    expect(host.textContent).not.toContain("Encrypted local saving");
+    const apiKey = await waitForInputPlaceholder(host, 'input[aria-label="Model provider API key"]', "Saved securely");
+    expect(apiKey.placeholder).toContain("Saved securely");
+    const refreshModels = Array.from(host.querySelectorAll("button")).find((button) => button.textContent?.includes("Refresh models"));
+    await act(async () => { refreshModels?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+    await waitForText(host, "model-beta");
+    const beta = Array.from(host.querySelectorAll<HTMLButtonElement>(".model-choice")).find((button) => button.textContent?.includes("model-beta"));
+    await act(async () => { beta?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    const saveProvider = Array.from(host.querySelectorAll("button")).find((button) => button.textContent?.includes("Save provider"));
+    await act(async () => { saveProvider?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+    expect(calls).toHaveBeenCalledWith("workspace.saveModelSettings", expect.objectContaining({ selectedModels: ["model-alpha", "model-beta"] }));
     const signOut = Array.from(host.querySelectorAll(".settings-signout")).find((button) => button.textContent?.includes("Sign out"));
     await act(async () => { signOut?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
     expect(onSignOut).toHaveBeenCalledTimes(1);

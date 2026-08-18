@@ -8,12 +8,16 @@ import {
   createThread,
   deleteProject,
   deleteThread,
+  discoverModelProviderModels,
+  loadModelProviderSettings,
   loadWorkspaceChat,
   loadWorkspaceNavigation,
   loadWorkspace,
   migrateWorkspace,
   renameThread,
+  saveModelProviderSettings,
   updateProject,
+  ModelProviderError,
   WorkspaceAccessError,
 } from "./paradoxWorkspace";
 import { systemRouter } from "./_core/systemRouter";
@@ -36,6 +40,7 @@ async function workspaceOwner(ctx: { req: Parameters<typeof getNexussSession>[0]
 
 function workspaceFailure(error: unknown): never {
   if (error instanceof WorkspaceAccessError) throw new TRPCError({ code: "NOT_FOUND", message: error.message });
+  if (error instanceof ModelProviderError) throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
   throw error;
 }
 
@@ -84,6 +89,13 @@ export const appRouter = router({
     }),
     appendMessages: publicProcedure.input(z.object({ threadId: z.string().min(1).max(128), messages: z.array(messageInput).min(1).max(20), title: z.string().trim().min(1).max(240).optional() })).mutation(async ({ ctx, input }) => {
       try { return await appendThreadMessages(await workspaceOwner(ctx), input.threadId, input.messages, input.title); } catch (error) { return workspaceFailure(error); }
+    }),
+    modelSettings: publicProcedure.query(async ({ ctx }) => loadModelProviderSettings(await workspaceOwner(ctx))),
+    saveModelSettings: publicProcedure.input(z.object({ baseUrl: z.string().trim().min(8).max(500), apiKey: z.string().trim().min(1).max(1_024).optional(), selectedModels: z.array(z.string().trim().min(1).max(256)).max(32) })).mutation(async ({ ctx, input }) => {
+      try { return await saveModelProviderSettings(await workspaceOwner(ctx), input); } catch (error) { return workspaceFailure(error); }
+    }),
+    discoverModels: publicProcedure.mutation(async ({ ctx }) => {
+      try { return await discoverModelProviderModels(await workspaceOwner(ctx)); } catch (error) { return workspaceFailure(error); }
     }),
     migrate: publicProcedure.input(legacyWorkspaceInput).mutation(async ({ ctx, input }) => migrateWorkspace(await workspaceOwner(ctx), input)),
   }),

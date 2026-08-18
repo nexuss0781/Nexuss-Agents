@@ -168,3 +168,10 @@
 - [x] Create a polished dark workspace settings panel with account information, local-first persistence context, focused-workspace information, and an intentional sign-out action.
 - [x] Add regression coverage and validate the settings trigger, panel, account sign-out action, Escape dismissal, TypeScript, and the production build.
 - [x] Save and push the workspace settings enhancement to `master` (GitHub commit `d5e23dc`).
+
+## Provider and Model Preferences
+
+- [x] Replace informational workspace settings rows with encrypted user-scoped API key and OpenAI-compatible base endpoint configuration.
+- [x] Add guarded server-side dynamic model discovery and persistent multi-select model preferences without exposing the API key to the browser.
+- [x] Build and test a streamlined responsive settings form with refreshable model choices, select/unselect controls, recovery feedback, TypeScript, and a production build.
+- [ ] Save and push the provider and model preferences enhancement to `master`.

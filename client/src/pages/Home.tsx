@@ -21,7 +21,6 @@ import {
   Plus,
   Search,
   Settings,
-  ShieldCheck,
   Trash2,
   X,
 } from "lucide-react";
@@ -101,6 +100,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const [location, setLocation] = useLocation();
   const routeChatSlug = /^\/app\/chat\/(chat-[a-z0-9]{32})$/.exec(location)?.[1];
   const workspaceInput = useMemo(() => routeChatSlug ? { chatSlug: routeChatSlug } : undefined, [routeChatSlug]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const legacyWorkspace = useRef<Workspace | null>(null);
   if (legacyWorkspace.current === null && typeof window !== "undefined") {
     try {
@@ -110,6 +110,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   }
   const navigationQuery = trpc.workspace.navigation.useQuery(undefined, { retry: false, staleTime: 15_000 });
   const activeChatQuery = trpc.workspace.chat.useQuery({ chatSlug: routeChatSlug || "chat-00000000000000000000000000000000" }, { enabled: Boolean(routeChatSlug), retry: false, staleTime: 15_000 });
+  const modelSettingsQuery = trpc.workspace.modelSettings.useQuery(undefined, { enabled: settingsOpen, retry: false, staleTime: 0 });
   const utils = trpc.useUtils();
   const [activeThreadId, setActiveThreadId] = useState("");
   const [query, setQuery] = useState("");
@@ -120,7 +121,10 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const [threadEditor, setThreadEditor] = useState<string | null>(null);
   const [threadName, setThreadName] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [modelApiKey, setModelApiKey] = useState("");
+  const [modelBaseUrl, setModelBaseUrl] = useState("");
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [migrationSettled, setMigrationSettled] = useState(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -143,6 +147,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const deleteThreadMutation = trpc.workspace.deleteThread.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Thread could not be deleted") });
   const assignThreadProjectMutation = trpc.workspace.assignThreadProject.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Project assignment could not be saved") });
   const appendMessagesMutation = trpc.workspace.appendMessages.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Message could not be saved") });
+  const saveModelSettingsMutation = trpc.workspace.saveModelSettings.useMutation({ onError: (error) => toast.error(error.message || "Provider settings could not be saved") });
+  const discoverModelsMutation = trpc.workspace.discoverModels.useMutation({ onError: (error) => toast.error(error.message || "Models could not be refreshed") });
 
   useEffect(() => {
     if (!navigationQuery.isSuccess || migrationStarted.current) return;
@@ -165,6 +171,14 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [settingsOpen]);
+
+  useEffect(() => {
+    const savedProvider = modelSettingsQuery.data;
+    if (!settingsOpen || !modelSettingsQuery.isSuccess || !savedProvider) return;
+    setModelBaseUrl(savedProvider.baseUrl);
+    setSelectedModels(savedProvider.selectedModels);
+    setAvailableModels((current) => Array.from(new Set([...current, ...savedProvider.selectedModels])).sort((a, b) => a.localeCompare(b)));
+  }, [settingsOpen, modelSettingsQuery.isSuccess, modelSettingsQuery.data]);
 
   const activeThreadSummary = workspace.threads.find((thread) => thread.chatSlug === routeChatSlug) || workspace.threads.find((thread) => thread.id === activeThreadId) || workspace.threads[0];
   const activeThread = activeThreadSummary ? { ...activeThreadSummary, messages: activeChatQuery.data?.messages || activeThreadSummary.messages } : undefined;
@@ -250,6 +264,34 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); }
   }
 
+  function saveProviderSettings(afterSave?: () => void) {
+    const apiKey = modelApiKey.trim();
+    if (!modelBaseUrl.trim()) return toast.error("Enter a model API base URL.");
+    if (!apiKey && !modelSettingsQuery.data?.apiKeyConfigured) return toast.error("Enter an API key before saving your first provider.");
+    saveModelSettingsMutation.mutate({ baseUrl: modelBaseUrl, ...(apiKey ? { apiKey } : {}), selectedModels }, {
+      onSuccess: (settings) => {
+        setModelBaseUrl(settings.baseUrl);
+        setModelApiKey("");
+        void utils.workspace.modelSettings.invalidate();
+        toast.success("Provider settings saved");
+        afterSave?.();
+      },
+    });
+  }
+
+  function refreshModels() {
+    saveProviderSettings(() => discoverModelsMutation.mutate(undefined, {
+      onSuccess: ({ models }) => {
+        setAvailableModels((current) => Array.from(new Set([...current, ...models])).sort((a, b) => a.localeCompare(b)));
+        toast.success(`${models.length} models available`);
+      },
+    }));
+  }
+
+  function toggleModel(model: string) {
+    setSelectedModels((current) => current.includes(model) ? current.filter((item) => item !== model) : [...current, model]);
+  }
+
   return (
     <div className="app-shell">
       <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
@@ -296,7 +338,25 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
 
       {threadEditor && <div className="modal-backdrop" onMouseDown={() => setThreadEditor(null)}><div className="small-modal" onMouseDown={(event) => event.stopPropagation()}><h3>Rename thread</h3><input autoFocus value={threadName} onChange={(event) => setThreadName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && submitThreadName()} /><div className="modal-actions"><button className="text-button" onClick={() => setThreadEditor(null)}>Cancel</button><button className="primary-button" onClick={submitThreadName}>Save name</button></div></div></div>}
       {projectEditor && <div className="modal-backdrop" onMouseDown={() => setProjectEditor(null)}><form className="small-modal" onSubmit={saveProject} onMouseDown={(event) => event.stopPropagation()}><h3>{projectEditor.mode === "edit" ? "Edit project" : "New project"}</h3><label>Name<input name="name" defaultValue={projectEditor.project?.name || ""} autoFocus placeholder="e.g. Product systems" /></label><label>Description<input name="description" defaultValue={projectEditor.project?.description || ""} placeholder="What belongs here?" /></label><div className="modal-actions">{projectEditor.mode === "edit" && projectEditor.project && <button type="button" className="delete-project" onClick={() => { deleteProject(projectEditor.project!.id); setProjectEditor(null); }}><Trash2 size={14} /> Delete</button>}<span className="modal-spacer" /><button type="button" className="text-button" onClick={() => setProjectEditor(null)}>Cancel</button><button className="primary-button" type="submit">{projectEditor.mode === "edit" ? "Save changes" : "Create project"}</button></div></form></div>}
-      {settingsOpen && <div className="modal-backdrop settings-backdrop" onMouseDown={() => setSettingsOpen(false)}><section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="workspace-settings-title" onMouseDown={(event) => event.stopPropagation()}><header className="settings-modal-header"><div><span className="modal-eyebrow">Account & workspace</span><h2 id="workspace-settings-title">Settings</h2></div><button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="Close settings" autoFocus><X size={17} /></button></header><div className="settings-account"><div className="settings-profile-avatar">{profileAvatar ? <img src={profileAvatar} alt="" referrerPolicy="no-referrer" onError={() => setAvatarFailed(true)} /> : profileInitials}</div><div><strong>{profileName}</strong>{profileEmail && <span>{profileEmail}</span>}<small>Signed in to Nexuss-Agent</small></div></div><div className="settings-section"><div className="settings-section-label">Workspace</div><div className="settings-row"><span className="settings-row-icon"><ShieldCheck size={16} /></span><div><strong>Encrypted local saving</strong><span>Your projects and threads are checkpointed locally before they sync.</span></div><b>Active</b></div><div className="settings-row"><span className="settings-row-icon"><Settings size={16} /></span><div><strong>Focused dark workspace</strong><span>The interface is tuned for a calm, distraction-free working surface.</span></div><b>On</b></div></div><div className="settings-section"><div className="settings-section-label">Session</div><div className="settings-row"><span className="settings-row-icon"><Check size={16} /></span><div><strong>Secure account session</strong><span>Provider access is managed through the Nexuss Auth handoff.</span></div></div></div><footer className="settings-footer"><button className="text-button" onClick={() => setSettingsOpen(false)}>Done</button>{onSignOut && <button className="settings-signout" onClick={onSignOut} disabled={signOutPending}><LogOut size={15} /> {signOutPending ? "Signing out…" : "Sign out"}</button>}</footer></section></div>}
+      {settingsOpen && <div className="modal-backdrop settings-backdrop" onMouseDown={() => setSettingsOpen(false)}>
+        <section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="workspace-settings-title" onMouseDown={(event) => event.stopPropagation()}>
+          <header className="settings-modal-header"><div><span className="modal-eyebrow">Account & models</span><h2 id="workspace-settings-title">Settings</h2></div><button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="Close settings" autoFocus><X size={17} /></button></header>
+          <div className="settings-account"><div className="settings-profile-avatar">{profileAvatar ? <img src={profileAvatar} alt="" referrerPolicy="no-referrer" onError={() => setAvatarFailed(true)} /> : profileInitials}</div><div><strong>{profileName}</strong>{profileEmail && <span>{profileEmail}</span>}<small>Model preferences stay with this account</small></div></div>
+          <div className="settings-section model-provider-section">
+            <div className="settings-section-label">Model provider</div>
+            <label className="settings-field">Base model API<input value={modelBaseUrl} onChange={(event) => setModelBaseUrl(event.target.value)} placeholder="https://api.openai.com/v1" autoComplete="url" aria-label="Base model API" /></label>
+            <label className="settings-field">API key<input type="password" value={modelApiKey} onChange={(event) => setModelApiKey(event.target.value)} placeholder={modelSettingsQuery.data?.apiKeyConfigured ? "Saved securely — enter a new key to replace it" : "Paste provider API key"} autoComplete="off" aria-label="Model provider API key" /></label>
+            <p className="settings-field-hint">Use an OpenAI-compatible public HTTPS endpoint. Your key is saved encrypted and never shown again.</p>
+            <div className="model-provider-actions"><button className="primary-button" onClick={() => saveProviderSettings()} disabled={saveModelSettingsMutation.isPending}>{saveModelSettingsMutation.isPending ? "Saving…" : "Save provider"}</button><button className="model-refresh-button" onClick={refreshModels} disabled={saveModelSettingsMutation.isPending || discoverModelsMutation.isPending}>{discoverModelsMutation.isPending ? "Refreshing…" : "Refresh models"}</button></div>
+          </div>
+          <div className="settings-section model-selection-section">
+            <div className="model-selection-heading"><div><div className="settings-section-label">Available models</div><span>Select every model you want ready in this workspace.</span></div><b>{selectedModels.length} selected</b></div>
+            <div className="model-selection-toolbar"><button className="text-button" onClick={() => setSelectedModels(availableModels)} disabled={!availableModels.length}>Select all</button><button className="text-button" onClick={() => setSelectedModels([])} disabled={!selectedModels.length}>Clear selection</button></div>
+            {modelSettingsQuery.isLoading ? <div className="model-list-loading" role="status">Loading saved model preferences…</div> : availableModels.length ? <div className="model-list" role="listbox" aria-label="Available models" aria-multiselectable="true">{availableModels.map((model) => <button key={model} className={`model-choice ${selectedModels.includes(model) ? "selected" : ""}`} onClick={() => toggleModel(model)} aria-pressed={selectedModels.includes(model)}><span>{model}</span>{selectedModels.includes(model) && <Check size={14} />}</button>)}</div> : <div className="model-list-empty">Save your provider, then refresh to load the models it makes available.</div>}
+          </div>
+          <footer className="settings-footer"><button className="text-button" onClick={() => setSettingsOpen(false)}>Done</button>{onSignOut && <button className="settings-signout" onClick={onSignOut} disabled={signOutPending}><LogOut size={15} /> {signOutPending ? "Signing out…" : "Sign out"}</button>}</footer>
+        </section>
+      </div>}
     </div>
   );
 }

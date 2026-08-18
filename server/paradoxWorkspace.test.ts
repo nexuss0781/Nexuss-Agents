@@ -11,10 +11,14 @@ import {
   createThread,
   deleteProject,
   deleteThread,
+  discoverModelProviderModels,
   loadWorkspaceChat,
   loadWorkspaceNavigation,
   loadWorkspace,
+  loadModelProviderSettings,
   migrateWorkspace,
+  ModelProviderError,
+  saveModelProviderSettings,
   workspaceSyncOptions,
 } from "./paradoxWorkspace";
 
@@ -37,6 +41,26 @@ describe("Paradox workspace persistence", () => {
       if (apiKey) process.env.PARADOX_API_KEY = apiKey;
     }
     await expect(loadWorkspace(owner)).resolves.toMatchObject({ projects: [], threads: [] });
+  }, 90_000);
+
+  it("stores provider credentials only in the encrypted workspace and discovers a normalized model list", async () => {
+    const owner = `model-provider-owner-${randomUUID()}`;
+    const settings = await saveModelProviderSettings(owner, {
+      baseUrl: "https://models.example.com/v1/",
+      apiKey: "provider-secret-key",
+      selectedModels: ["gpt-4.1", "gpt-4.1", "  claude-sonnet  "],
+    });
+    const requester = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [{ id: "gpt-4.1" }, { id: "claude-sonnet" }, { id: "gpt-4.1" }, { id: 42 }] }),
+    } as Response);
+
+    expect(settings).toEqual({ baseUrl: "https://models.example.com/v1", selectedModels: ["gpt-4.1", "claude-sonnet"], apiKeyConfigured: true });
+    expect(await loadModelProviderSettings(owner)).toEqual(settings);
+    expect(JSON.stringify(await loadModelProviderSettings(owner))).not.toContain("provider-secret-key");
+    await expect(discoverModelProviderModels(owner, requester)).resolves.toEqual({ models: ["claude-sonnet", "gpt-4.1"] });
+    expect(requester).toHaveBeenCalledWith("https://models.example.com/v1/models", expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer provider-secret-key" }) }));
+    await expect(saveModelProviderSettings(owner, { baseUrl: "http://127.0.0.1:11434/v1", apiKey: "nope", selectedModels: [] })).rejects.toBeInstanceOf(ModelProviderError);
   }, 90_000);
 
   it("acknowledges a mutation only after its encrypted dotdat snapshot can be reopened locally", async () => {
