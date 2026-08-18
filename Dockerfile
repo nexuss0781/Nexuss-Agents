@@ -1,34 +1,15 @@
-# Nexuss-Agent frontend — production static SPA image.
-# Build with: docker build -t nexuss-agent-frontend .
-# Run with:   docker run --rm -p 8080:80 nexuss-agent-frontend
-
-FROM node:22-alpine AS builder
+# Nexuss-Agent — full application image with server-side authentication callbacks.
+FROM node:22-slim
 
 WORKDIR /app
 
-# Keep dependency installation reproducible and cache-friendly.
-RUN corepack enable && corepack prepare pnpm@10.4.1 --activate
-COPY package.json pnpm-lock.yaml ./
-# The lockfile references this local patched dependency, so it must exist before install.
-COPY patches ./patches
-RUN pnpm install --frozen-lockfile
-
+# The full source is copied before installation because the lockfile references local patches.
 COPY . .
+RUN npm install -g corepack@latest \
+  && corepack pnpm install --frozen-lockfile \
+  && corepack pnpm run build
 
-# Vite is configured with client/ as the source root and dist/public as output.
-RUN pnpm exec vite build
+ENV NODE_ENV=production
+EXPOSE 3000
 
-FROM nginx:1.27-alpine AS runtime
-
-LABEL org.opencontainers.image.title="Nexuss-Agent Frontend"
-LABEL org.opencontainers.image.description="Dark-mode Nexuss-Agent static frontend playground"
-
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=builder /app/dist/public /usr/share/nginx/html
-
-EXPOSE 80
-
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1
-
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "dist/index.js"]

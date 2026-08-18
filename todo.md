@@ -29,4 +29,23 @@
 - [x] Remove landing-page readouts, micro-labels, and nonessential jargon while preserving headings, brand, and navigation.
 - [x] Remove workspace decorative labels while retaining the labels required to use threads, projects, and the composer.
 - [x] Validate the simplified layout at desktop and mobile sizes.
-- [ ] Save and push the label-free revision to `master`.
+- [x] Save and push the label-free revision to `master`.
+
+## External Skill Review
+
+- [x] Clone the requested repository and locate only `SKILL/SKILL.md`.
+- [x] Review the skill instructions in full without modifying any files.
+- [x] Deliver a concise assessment of the skill.
+
+## Simple Sign-In Portal
+
+- [x] Confirm the cross-site server-handoff session model and configure the active Nexuss Auth project with the exact Render origin, callback, Google, and GitHub providers.
+- [x] Upgrade the app for secure server-side authentication handling with cross-site handoff exchange and signed HTTP-only application sessions.
+- [x] Test the callback success path, session cookie creation, and workspace redirect with a mocked one-time handoff exchange.
+- [x] Test invalid or replayed handoff rejection and verify that no session cookie is created.
+- [x] Test signed session recovery and Nexuss-Agent logout cookie clearing.
+- [x] Test explicit handoff-token replay rejection without a second session cookie.
+- [x] Create a dedicated login portal with Google and GitHub entry; first-time users are created by the selected provider flow.
+- [x] Configure automatic account creation and route signed-in users into the protected workspace.
+- [x] Verify callback success, invalid/replayed handoff rejection, session recovery, logout, and protected access with automated tests; the user will complete the live provider test on Render.
+- [ ] Save and push the authentication-enabled project to `master`.

@@ -23,6 +23,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 
 const AXOLOTL_ICON = "/axolotl-only.png";
@@ -80,7 +81,13 @@ function AxolotlLoader({ label = "NEXUSS-AGENT IS THINKING" }: { label?: string 
   return <div className="axolotl-loader" role="status" aria-live="polite"><div className="loader-mark"><img src={AXOLOTL_ICON} alt="" /></div><span>{label}</span><i /><i /><i /></div>;
 }
 
-export default function Home() {
+type HomeProps = {
+  profileName?: string;
+  onSignOut?: () => void;
+  signOutPending?: boolean;
+};
+
+export default function Home({ profileName = "Nexuss Operator", onSignOut, signOutPending = false }: HomeProps) {
   const [workspace, setWorkspace] = useState<Workspace>(() => {
     try {
       const stored = JSON.parse(localStorage.getItem("nexuss-agent-workspace-v2") || "null") as Workspace | null;
@@ -193,11 +200,11 @@ export default function Home() {
             <button className="add-project" onClick={() => setProjectEditor({ mode: "create" })}><FolderPlus size={15} /> Add project</button>
           </div>
         </div>
-        <div className="sidebar-footer"><div className="profile-row"><div className="profile-avatar">NA</div><div className="profile-copy"><strong>Nexuss Operator</strong></div><MoreHorizontal size={15} /></div></div>
+        <div className="sidebar-footer"><div className="profile-row"><div className="profile-avatar">{profileName.slice(0, 2).toUpperCase()}</div><div className="profile-copy"><strong>{profileName}</strong></div>{onSignOut && <button className="item-more" onClick={onSignOut} disabled={signOutPending} aria-label="Sign out"><LogOut size={15} /></button>}</div></div>
       </aside>
 
       <main className="main-stage">
-        <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="topbar-thread-title">{activeThread?.title || "New thread"}</div></div><div className="topbar-right"><div className="avatar">NA</div></div></header>
+        <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="topbar-thread-title">{activeThread?.title || "New thread"}</div></div><div className="topbar-right">{onSignOut && <button className="icon-button" onClick={onSignOut} disabled={signOutPending} aria-label="Sign out"><LogOut size={16} /></button>}<div className="avatar">{profileName.slice(0, 2).toUpperCase()}</div></div></header>
         <div className="mobile-context-strip"><button className="mobile-context-button" onClick={() => setMobileNav(true)}><Menu size={15} /><span>Threads</span></button><div className="mobile-context-title"><strong>{activeThread?.title || "New thread"}</strong></div><button className="mobile-context-button" onClick={createThread}><Plus size={15} /><span>New</span></button></div><section className="conversation-area">
           <div className="conversation-heading">{activeThread && <div className="heading-actions"><button className="icon-button" onClick={() => { setThreadEditor(activeThread.id); setThreadName(activeThread.title); }} aria-label="Rename thread"><Pencil size={16} /></button><button className="icon-button danger-hover" onClick={() => deleteThread(activeThread.id)} aria-label="Delete thread"><Trash2 size={16} /></button></div>}</div>
           {activeThread?.messages.length ? <div className="message-stack">{activeThread.messages.map((message, index) => <article className={`message ${message.role}`} key={message.id}><div className="message-meta"><span className={`role-mark ${message.role}`}>{message.role === "assistant" ? <img src={AXOLOTL_ICON} alt="" /> : "You"}</span><span>{message.role === "assistant" ? "Nexuss-Agent" : "You"}</span><span className="message-time">{formatDate(message.createdAt)}</span>{message.role === "assistant" && <button className="copy-button" onClick={() => { navigator.clipboard?.writeText(message.content); toast.success("Copied to clipboard"); }}><Copy size={13} /> Copy</button>}</div><div className="message-content"><MarkdownMessage content={message.content} /></div>{index < activeThread.messages.length - 1 && <div className="message-divider" />}</article>)}</div> : <div className="empty-thread"><div className="orbit-art axolotl-schematic" aria-hidden="true"><span className="axolotl-loop" /><span className="axolotl-eye axolotl-eye-one" /><span className="axolotl-eye axolotl-eye-two" /><span className="axolotl-gill axolotl-gill-one" /><span className="axolotl-gill axolotl-gill-two" /></div><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Start a thread.</h2><p>Give your work a place to begin.</p><button className="empty-create-button" onClick={createThread}><Plus size={14} /> New thread <ArrowUp size={13} /></button></div>}

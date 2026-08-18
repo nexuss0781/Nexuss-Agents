@@ -1,27 +1,25 @@
 # Serving Nexuss-Agent with Docker
 
-The repository includes a production multi-stage `Dockerfile` and root-level `nginx.conf` for the frontend. The builder stage installs the locked pnpm dependencies and runs the Vite frontend build. The runtime stage serves the generated static files with Nginx.
+The root `Dockerfile` builds and runs the complete Node application. This matters because Nexuss-Agent now handles sign-in callbacks on the server before serving the protected workspace.
 
 ## Build the image
 
 ```bash
-docker build -t nexuss-agent-frontend .
+docker build -t nexuss-agent .
 ```
 
 ## Run locally
 
+Provide the authentication routing values and a session-signing secret at runtime:
+
 ```bash
-docker run --rm --name nexuss-agent -p 8080:80 nexuss-agent-frontend
+docker run --rm --name nexuss-agent -p 8080:3000 \
+  -e PORT=3000 \
+  -e JWT_SECRET="replace-with-a-long-random-secret" \
+  -e NEXUSS_AUTH_URL="https://nexuss-auth.vercel.app" \
+  -e NEXUSS_AUTH_PROJECT_ID="nexuss-agent-v2" \
+  -e NEXUSS_AUTH_REDIRECT_URI="http://localhost:8080/auth/callback" \
+  nexuss-agent
 ```
 
-Open [http://localhost:8080](http://localhost:8080). Change the host-side port if `8080` is already in use; the container continues to listen on port `80`.
-
-## SPA routing
-
-Nginx is configured with a fallback to `/index.html`, so client-side navigation continues to work when a route is loaded directly or refreshed.
-
-## Production notes
-
-Hashed JavaScript, CSS, font, and image assets receive long-lived immutable cache headers. The HTML shell is explicitly not cached so a new deployment is discovered promptly. The image also includes a lightweight HTTP health check against the Nginx root.
-
-The current sandbox does not include the Docker CLI, so the frontend type-check and Vite production build were validated locally; run the two Docker commands above in a Docker-enabled environment to build and start the image.
+For production, register the exact production callback URL in Nexuss Auth and inject the same public routing values through the host's environment-variable configuration. Do not put provider secrets, project tokens, handoff tokens, or OAuth codes in the image, repository, or browser bundle.

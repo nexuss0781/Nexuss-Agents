@@ -10,7 +10,7 @@ const FINAL_VISUAL = "https://files.manuscdn.com/user_upload_by_module/session_f
 
 const navigation = [{ id: "system", label: "About" }, { id: "workbench", label: "Workspace" }, { id: "method", label: "How it works" }];
 
-function enterWorkspace() { window.location.href = "/app"; }
+function enterWorkspace() { window.location.href = "/login"; }
 
 function Mark() {
   return <span className="nexus-brand-mark" aria-hidden="true"><img src={AXOLOTL_ICON} alt="" /></span>;

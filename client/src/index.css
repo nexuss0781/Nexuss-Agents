@@ -380,3 +380,5 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .landing-page .landing-orchestration { background-color: #0d0e0e; }
 .landing-page .landing-access { background-blend-mode: screen; }
 @media (max-width: 800px) { .landing-hero-schematic { top: 19%; right: -18%; width: 78vw; opacity: .48; } .landing-page .landing-hero { background-position: 64% center; } }
+
+.auth-loading { display: grid; min-height: 100svh; place-items: center; background: #080909; color: #f4f1ec; }
