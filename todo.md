@@ -109,4 +109,4 @@
 - [x] Add an application-level regression test proving stale local history is skipped when the signed-in user already has durable remote projects or threads.
 - [x] Add a client rendering test proving the workspace load failure state presents its recovery message and retry action.
 - [x] Add an explicit fresh-load regression test proving persisted project and complete thread history data reappear after the workspace is reopened.
-- [ ] Save and push the finished authenticated workspace persistence feature to `master`.
+- [x] Save and push the finished authenticated workspace persistence feature to `master`.
