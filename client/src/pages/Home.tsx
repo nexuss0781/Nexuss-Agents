@@ -230,7 +230,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     if (!modelSettingsQuery.isSuccess || !savedProvider) return;
     setModelBaseUrl(savedProvider.baseUrl);
     setSelectedModels(savedProvider.selectedModels);
-    setAvailableModels((current) => Array.from(new Set([...current, ...savedProvider.selectedModels])).sort((a, b) => a.localeCompare(b)));
+    const persistedModels = savedProvider.availableModels || [];
+    setAvailableModels(persistedModels.length ? persistedModels : savedProvider.selectedModels);
   }, [modelSettingsQuery.isSuccess, modelSettingsQuery.data]);
 
   useEffect(() => {
@@ -328,6 +329,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     saveModelSettingsMutation.mutate({ baseUrl: modelBaseUrl, ...(apiKey ? { apiKey } : {}), selectedModels }, {
       onSuccess: (settings) => {
         setModelBaseUrl(settings.baseUrl);
+        setAvailableModels(settings.availableModels || []);
         setModelApiKey("");
         void utils.workspace.modelSettings.invalidate();
         toast.success("Provider settings saved");
@@ -427,6 +429,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
               <label className="settings-field">Base model API<input value={modelBaseUrl} onChange={(event) => setModelBaseUrl(event.target.value)} placeholder="https://api.openai.com/v1" autoComplete="url" aria-label="Base model API" /></label>
               <label className="settings-field">API key<input type="password" value={modelApiKey} onChange={(event) => setModelApiKey(event.target.value)} placeholder={modelSettingsQuery.data?.apiKeyConfigured ? "Saved securely — enter a new key to replace it" : "Paste provider API key"} autoComplete="off" aria-label="Model provider API key" /></label>
               <p className="settings-field-hint">Use an OpenAI-compatible public HTTPS endpoint. Your key is saved encrypted and never shown again.</p>
+              <div className={`provider-secret-status ${modelSettingsQuery.data?.apiKeyConfigured ? "configured" : "not-configured"}`} role="status"><span className="provider-secret-status-dot" aria-hidden="true" />{modelSettingsQuery.data?.apiKeyConfigured ? "API secret stored securely in your encrypted workspace" : "No API secret saved yet"}</div>
               <div className="model-provider-actions"><button className="primary-button" onClick={() => saveProviderSettings()} disabled={saveModelSettingsMutation.isPending}>{saveModelSettingsMutation.isPending ? "Saving…" : "Save provider"}</button><button className="model-refresh-button" onClick={refreshModels} disabled={saveModelSettingsMutation.isPending || discoverModelsMutation.isPending}>{discoverModelsMutation.isPending ? "Refreshing…" : "Refresh models"}</button></div>
             </div>
             <div className="settings-section model-selection-section">

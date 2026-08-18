@@ -25,7 +25,7 @@ describe("authenticated workspace router", () => {
     const caller = await authenticatedCaller(`router-model-owner-${randomUUID()}`);
     const saved = await caller.workspace.saveModelSettings({ baseUrl: "https://models.example.com/v1", apiKey: "router-provider-secret", selectedModels: ["model-a", "model-b"] });
 
-    expect(saved).toEqual({ baseUrl: "https://models.example.com/v1", selectedModels: ["model-a", "model-b"], apiKeyConfigured: true });
+    expect(saved).toEqual({ baseUrl: "https://models.example.com/v1", selectedModels: ["model-a", "model-b"], availableModels: [], apiKeyConfigured: true });
     expect(await caller.workspace.modelSettings()).toEqual(saved);
     expect(JSON.stringify(await caller.workspace.modelSettings())).not.toContain("router-provider-secret");
   }, 90_000);

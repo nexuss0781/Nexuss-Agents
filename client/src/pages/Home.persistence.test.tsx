@@ -169,7 +169,7 @@ describe("persistent workspace client", () => {
 
   it("replaces topbar sign-out with secure provider settings and saves multiple selected models", async () => {
     const onSignOut = vi.fn();
-    const savedSettings = { baseUrl: "https://models.example.com/v1", selectedModels: ["model-alpha"], apiKeyConfigured: true };
+    const savedSettings = { baseUrl: "https://models.example.com/v1", selectedModels: ["model-alpha"], availableModels: ["model-alpha", "model-beta"], apiKeyConfigured: true };
     const calls = vi.fn();
     const host = await mountWorkspace((path, input) => {
       calls(path, input);
@@ -189,6 +189,9 @@ describe("persistent workspace client", () => {
     expect(host.querySelector(".settings-scroll-body")).not.toBeNull();
     const apiKey = await waitForInputPlaceholder(host, 'input[aria-label="Model provider API key"]', "Saved securely");
     expect(apiKey.placeholder).toContain("Saved securely");
+    expect(host.textContent).toContain("API secret stored securely in your encrypted workspace");
+    expect(host.textContent).toContain("model-alpha");
+    expect(host.textContent).toContain("model-beta");
     const refreshModels = Array.from(host.querySelectorAll("button")).find((button) => button.textContent?.includes("Refresh models"));
     await act(async () => { refreshModels?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
     await waitForText(host, "model-beta");

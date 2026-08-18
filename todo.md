@@ -201,3 +201,17 @@
 - [x] Add regression coverage for research-rich content formats, then validate TypeScript and the production build.
 - [x] Save a checkpoint for the research renderer enhancement (project version `cb6000dd`).
 - [x] Push the research renderer enhancement and checklist record to `master` (GitHub commit `9bab791`).
+
+## Durable Provider Secret and Model Catalog Persistence
+
+- [x] Keep provider API secrets in the encrypted, user-scoped Paradox workspace and never return them to the browser.
+- [x] Persist the discovered model catalog alongside selected-model preferences so Settings rehydrates after refresh or restart.
+- [x] Show a non-revealing configured-secret status in Settings and authenticate model discovery from the durable server-side secret.
+- [x] Add regression coverage for secret-status hydration, catalog persistence, TypeScript, and the production build.
+- [ ] Save and push the durable provider persistence enhancement to `master`.
+
+## Release Verification Notes
+
+- The local frontend persistence suite passes and the TypeScript check and production build pass.
+- Full server integration tests require the deployment’s configured `PARADOX_API_KEY`, `PARADOX_PASSPHRASE`, and gateway access; those credentials are not present in this shell.
+- Live authenticated Render verification remains pending: refresh the workspace, reopen Settings, confirm the non-revealing configured-secret status and persisted model list, then run Refresh models without re-entering the key.

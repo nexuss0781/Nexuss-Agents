@@ -55,10 +55,12 @@ describe("Paradox workspace persistence", () => {
       json: async () => ({ data: [{ id: "gpt-4.1" }, { id: "claude-sonnet" }, { id: "gpt-4.1" }, { id: 42 }] }),
     } as Response);
 
-    expect(settings).toEqual({ baseUrl: "https://models.example.com/v1", selectedModels: ["gpt-4.1", "claude-sonnet"], apiKeyConfigured: true });
+    expect(settings).toEqual({ baseUrl: "https://models.example.com/v1", selectedModels: ["gpt-4.1", "claude-sonnet"], availableModels: [], apiKeyConfigured: true });
     expect(await loadModelProviderSettings(owner)).toEqual(settings);
     expect(JSON.stringify(await loadModelProviderSettings(owner))).not.toContain("provider-secret-key");
     await expect(discoverModelProviderModels(owner, requester)).resolves.toEqual({ models: ["claude-sonnet", "gpt-4.1"] });
+    await expect(loadModelProviderSettings(owner)).resolves.toEqual({ baseUrl: "https://models.example.com/v1", selectedModels: ["gpt-4.1", "claude-sonnet"], availableModels: ["claude-sonnet", "gpt-4.1"], apiKeyConfigured: true });
+    expect(JSON.stringify(await loadModelProviderSettings(owner))).not.toContain("provider-secret-key");
     expect(requester).toHaveBeenCalledWith("https://models.example.com/v1/models", expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer provider-secret-key" }) }));
     await expect(saveModelProviderSettings(owner, { baseUrl: "http://127.0.0.1:11434/v1", apiKey: "nope", selectedModels: [] })).rejects.toBeInstanceOf(ModelProviderError);
   }, 90_000);

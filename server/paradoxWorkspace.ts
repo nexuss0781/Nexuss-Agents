@@ -8,7 +8,7 @@ export type WorkspaceMessage = { id: string; role: "user" | "assistant"; content
 export type WorkspaceThread = { id: string; chatSlug: string; title: string; projectId?: string; updatedAt: string; messages: WorkspaceMessage[] };
 export type DurableWorkspace = { projects: WorkspaceProject[]; threads: WorkspaceThread[] };
 export type WorkspaceNavigation = DurableWorkspace;
-export type ModelProviderSettings = { baseUrl: string; selectedModels: string[]; apiKeyConfigured: boolean };
+export type ModelProviderSettings = { baseUrl: string; selectedModels: string[]; availableModels: string[]; apiKeyConfigured: boolean };
 
 export class WorkspaceAccessError extends Error {}
 export class ModelProviderError extends Error {}
@@ -47,6 +47,16 @@ async function resolveGatewayUrl() {
 function now() { return new Date().toISOString(); }
 function rows<T>(result: { rows: unknown[] }) { return result.rows as T[]; }
 function chatSlugFor(id: string) { return `chat-${id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}`; }
+
+function parseModelList(value: string | null | undefined, sort = false) {
+  try {
+    const decoded = JSON.parse(value || "[]");
+    const models = Array.from(new Set(Array.isArray(decoded) ? decoded.filter((model): model is string => typeof model === "string").map((model) => model.trim()).filter(Boolean) : [])).slice(0, 500);
+    return sort ? models.sort((a, b) => a.localeCompare(b)) : models;
+  } catch {
+    return [];
+  }
+}
 
 function normalizeProviderBaseUrl(value: string) {
   let url: URL;
@@ -101,7 +111,8 @@ async function openFreshWorkspaceDb() {
   db.execute("CREATE TABLE IF NOT EXISTS workspace_threads (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, chat_slug TEXT, title TEXT NOT NULL, project_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_messages (id TEXT PRIMARY KEY, thread_id TEXT NOT NULL, owner_id TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_imports (owner_id TEXT PRIMARY KEY, imported_at TEXT NOT NULL)");
-  db.execute("CREATE TABLE IF NOT EXISTS workspace_model_providers (owner_id TEXT PRIMARY KEY, base_url TEXT NOT NULL, api_key TEXT NOT NULL, selected_models_json TEXT NOT NULL, updated_at TEXT NOT NULL)");
+  db.execute("CREATE TABLE IF NOT EXISTS workspace_model_providers (owner_id TEXT PRIMARY KEY, base_url TEXT NOT NULL, api_key TEXT NOT NULL, selected_models_json TEXT NOT NULL, available_models_json TEXT NOT NULL DEFAULT '[]', updated_at TEXT NOT NULL)");
+  try { db.execute("ALTER TABLE workspace_model_providers ADD COLUMN available_models_json TEXT NOT NULL DEFAULT '[]'"); } catch { /* Existing encrypted workspaces already have the catalog column. */ }
   db.execute("CREATE INDEX IF NOT EXISTS workspace_threads_owner_updated ON workspace_threads(owner_id, updated_at DESC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_messages_thread_created ON workspace_messages(thread_id, created_at ASC)");
   try { db.execute("ALTER TABLE workspace_threads ADD COLUMN chat_slug TEXT"); } catch { /* Existing encrypted workspaces already have the column. */ }
@@ -215,14 +226,9 @@ export async function loadWorkspace(ownerId: string, activeChatSlug?: string): P
 
 export async function loadModelProviderSettings(ownerId: string): Promise<ModelProviderSettings | null> {
   return withWorkspaceDb(false, (db) => {
-    const provider = rows<{ base_url: string; selected_models_json: string }>(db.execute("SELECT base_url, selected_models_json FROM workspace_model_providers WHERE owner_id = ? LIMIT 1", [ownerId]))[0];
+    const provider = rows<{ base_url: string; selected_models_json: string; available_models_json: string; api_key: string }>(db.execute("SELECT base_url, selected_models_json, available_models_json, api_key FROM workspace_model_providers WHERE owner_id = ? LIMIT 1", [ownerId]))[0];
     if (!provider) return null;
-    let selectedModels: string[] = [];
-    try {
-      const decoded = JSON.parse(provider.selected_models_json);
-      if (Array.isArray(decoded)) selectedModels = decoded.filter((model): model is string => typeof model === "string").slice(0, 32);
-    } catch { /* A malformed legacy selection is safely presented as empty. */ }
-    return { baseUrl: provider.base_url, selectedModels, apiKeyConfigured: true };
+    return { baseUrl: provider.base_url, selectedModels: parseModelList(provider.selected_models_json).slice(0, 32), availableModels: parseModelList(provider.available_models_json, true), apiKeyConfigured: provider.api_key.length > 0 };
   });
 }
 
@@ -230,11 +236,12 @@ export async function saveModelProviderSettings(ownerId: string, input: { baseUr
   return withWorkspaceDb(true, (db) => {
     const baseUrl = normalizeProviderBaseUrl(input.baseUrl);
     const selectedModels = Array.from(new Set(input.selectedModels.map((model) => model.trim()).filter(Boolean))).slice(0, 32);
-    const existing = rows<{ api_key: string }>(db.execute("SELECT api_key FROM workspace_model_providers WHERE owner_id = ? LIMIT 1", [ownerId]))[0];
+    const existing = rows<{ api_key: string; available_models_json: string }>(db.execute("SELECT api_key, available_models_json FROM workspace_model_providers WHERE owner_id = ? LIMIT 1", [ownerId]))[0];
     const apiKey = input.apiKey?.trim() || existing?.api_key;
     if (!apiKey) throw new ModelProviderError("Enter an API key before saving your first model provider.");
-    db.execute("INSERT INTO workspace_model_providers (owner_id, base_url, api_key, selected_models_json, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(owner_id) DO UPDATE SET base_url = excluded.base_url, api_key = excluded.api_key, selected_models_json = excluded.selected_models_json, updated_at = excluded.updated_at", [ownerId, baseUrl, apiKey, JSON.stringify(selectedModels), now()]);
-    return { baseUrl, selectedModels, apiKeyConfigured: true };
+    const availableModels = parseModelList(existing?.available_models_json, true);
+    db.execute("INSERT INTO workspace_model_providers (owner_id, base_url, api_key, selected_models_json, available_models_json, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(owner_id) DO UPDATE SET base_url = excluded.base_url, api_key = excluded.api_key, selected_models_json = excluded.selected_models_json, available_models_json = excluded.available_models_json, updated_at = excluded.updated_at", [ownerId, baseUrl, apiKey, JSON.stringify(selectedModels), JSON.stringify(availableModels), now()]);
+    return { baseUrl, selectedModels, availableModels, apiKeyConfigured: true };
   });
 }
 
@@ -249,6 +256,9 @@ export async function discoverModelProviderModels(ownerId: string, requester: ty
   let payload: { data?: Array<{ id?: unknown }> };
   try { payload = await response.json() as { data?: Array<{ id?: unknown }> }; } catch { throw new ModelProviderError("The model API returned an invalid model list."); }
   const models = Array.from(new Set((payload.data || []).map((model) => typeof model.id === "string" ? model.id.trim() : "").filter(Boolean))).slice(0, 500).sort((a, b) => a.localeCompare(b));
+  await withWorkspaceDb(true, (db) => {
+    db.execute("UPDATE workspace_model_providers SET available_models_json = ?, updated_at = ? WHERE owner_id = ?", [JSON.stringify(models), now(), ownerId]);
+  });
   return { models };
 }
 
