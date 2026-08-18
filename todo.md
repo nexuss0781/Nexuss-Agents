@@ -192,4 +192,4 @@
 - [x] Validate trigger-relative model/project menu structure, mobile anchoring rules, TypeScript, and the production build with focused regression coverage.
 - [ ] Confirm the new composer controls visually in a live authenticated desktop and mobile workspace session.
 - [x] Save a checkpoint for the composer control refinement (project version `60977735`).
-- [ ] Push the composer control refinement and checklist record to `master`.
+- [x] Push the composer control refinement and checklist record to `master` (GitHub commit `6e7fffe`).
