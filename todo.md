@@ -98,3 +98,15 @@
 - [x] Generate a separate high-entropy database passphrase and retain the generated API key and passphrase in a restricted local credential record until application persistence is explicitly wired.
 - [x] Verify encrypted Paradox-DB connectivity with a minimal server-side database operation, remote encrypted sync, and clean shutdown.
 - [x] Document the successful connection and persistence implementation constraints before adding application data models.
+
+## Authenticated Workspace Persistence
+
+- [x] Audit the existing local thread/project/message data structures and define the durable, user-scoped Paradox-DB schema.
+- [x] Wire and validate protected server-side Paradox-DB configuration through the shared server-only workspace store without exposing API credentials or encryption passphrases to the browser.
+- [x] Implement and test authenticated persistence APIs for projects, project-assigned threads, projectless threads, every message in each thread history, and one-time legacy imports.
+- [x] Replace the workspace’s browser-only data path with durable server data and one-time safe migration of existing local histories.
+- [x] Test user isolation, complete history round trips, project assignment and removal, projectless threads, reload persistence, safe migration, and recoverable failure handling.
+- [x] Add an application-level regression test proving stale local history is skipped when the signed-in user already has durable remote projects or threads.
+- [x] Add a client rendering test proving the workspace load failure state presents its recovery message and retry action.
+- [x] Add an explicit fresh-load regression test proving persisted project and complete thread history data reappear after the workspace is reopened.
+- [ ] Save and push the finished authenticated workspace persistence feature to `master`.

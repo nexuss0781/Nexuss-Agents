@@ -1,6 +1,8 @@
 import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it } from "vitest";
+import { trpc } from "../lib/trpc";
 import Home from "./Home";
 
 describe("workspace account navigation", () => {
@@ -15,13 +17,19 @@ describe("workspace account navigation", () => {
   });
 
   it("renders the signed-in user's real account details in the workspace navigation", () => {
+    const queryClient = new QueryClient();
+    const client = trpc.createClient({ links: [] });
     const html = renderToStaticMarkup(
-      <Home
-        profileName="Tadi Ivhu"
-        profileEmail="tadi@example.com"
-        profileAvatarUrl="https://images.example.com/tadi.png"
-        onSignOut={() => undefined}
-      />,
+      <trpc.Provider client={client} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <Home
+            profileName="Tadi Ivhu"
+            profileEmail="tadi@example.com"
+            profileAvatarUrl="https://images.example.com/tadi.png"
+            onSignOut={() => undefined}
+          />
+        </QueryClientProvider>
+      </trpc.Provider>,
     );
 
     expect(html).toContain("Tadi Ivhu");

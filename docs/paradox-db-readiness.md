@@ -9,3 +9,7 @@ The verification resolved the active gateway through the provider’s discovery 
 No Nexuss-Agent data model, UI persistence behavior, or production request handler has been added yet. Before application data is written to Paradox-DB, the API key and passphrase must be supplied to the deployed server as protected project secrets, the active gateway resolver must be honored, and every short-lived connection must close cleanly so the local encrypted snapshot is re-encrypted.
 
 Future persistence code must keep API keys and passphrases out of source code, browser bundles, URLs, logs, and client-side storage. The project should use the encrypted database only from server-side code, treat connectivity failures as offline-retry conditions, and surface sync conflicts according to the provider’s local-wins model.
+
+## Reference
+
+The persistence integration follows the approved Paradox-DB skill: https://github.com/nexuss0781/Paradox-DB/blob/main/SKILL/parad-db/SKILL.md
