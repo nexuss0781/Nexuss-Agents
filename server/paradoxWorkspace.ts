@@ -120,7 +120,7 @@ function assertThreadOwner(db: Db, ownerId: string, threadId: string) {
   if (!thread) throw new WorkspaceAccessError("Thread not found");
 }
 
-export async function loadWorkspace(ownerId: string): Promise<DurableWorkspace> {
+export async function loadWorkspace(ownerId: string, activeChatSlug?: string): Promise<DurableWorkspace> {
   return withWorkspaceDb(false, (db) => {
     const projects = rows<{ id: string; name: string; description: string; tone: string }>(db.execute(
       "SELECT id, name, description, tone FROM workspace_projects WHERE owner_id = ? ORDER BY updated_at DESC", [ownerId],
@@ -128,9 +128,12 @@ export async function loadWorkspace(ownerId: string): Promise<DurableWorkspace> 
     const threadRows = rows<{ id: string; chat_slug: string | null; title: string; project_id: string | null; updated_at: string }>(db.execute(
       "SELECT id, chat_slug, title, project_id, updated_at FROM workspace_threads WHERE owner_id = ? ORDER BY updated_at DESC", [ownerId],
     ));
-    const messageRows = rows<{ id: string; thread_id: string; role: "user" | "assistant"; content: string; created_at: string }>(db.execute(
-      "SELECT id, thread_id, role, content, created_at FROM workspace_messages WHERE owner_id = ? ORDER BY created_at ASC", [ownerId],
-    ));
+    const activeThread = activeChatSlug
+      ? threadRows.find((thread) => thread.chat_slug === activeChatSlug)
+      : threadRows[0];
+    const messageRows = activeThread ? rows<{ id: string; thread_id: string; role: "user" | "assistant"; content: string; created_at: string }>(db.execute(
+      "SELECT id, thread_id, role, content, created_at FROM workspace_messages WHERE owner_id = ? AND thread_id = ? ORDER BY created_at ASC", [ownerId, activeThread.id],
+    )) : [];
     const messagesByThread = new Map<string, WorkspaceMessage[]>();
     for (const message of messageRows) {
       const messages = messagesByThread.get(message.thread_id) || [];

@@ -7,6 +7,10 @@ import Home from "./Home";
 
 describe("workspace account navigation", () => {
   beforeEach(() => {
+    Object.defineProperty(globalThis, "location", {
+      configurable: true,
+      value: { pathname: "/app", search: "", hash: "" },
+    });
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
       value: {
@@ -35,6 +39,6 @@ describe("workspace account navigation", () => {
     expect(html).toContain("Tadi Ivhu");
     expect(html).toContain("tadi@example.com");
     expect(html).toContain("https://images.example.com/tadi.png");
-    expect(html).toContain("Sign out");
+    expect(html).toContain('aria-label="Sign out"');
   });
 });

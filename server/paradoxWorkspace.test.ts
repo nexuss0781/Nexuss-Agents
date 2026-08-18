@@ -44,7 +44,7 @@ describe("Paradox workspace persistence", () => {
         { role: "user", content: "This thread has no project." },
       ]);
 
-      const ownerAWorkspace = await loadWorkspace(ownerA);
+      const ownerAWorkspace = await loadWorkspace(ownerA, linkedThread.chatSlug);
       const ownerBWorkspace = await loadWorkspace(ownerB);
       const loadedLinked = ownerAWorkspace.threads.find((thread) => thread.id === linkedThread.id);
       const loadedProjectless = ownerAWorkspace.threads.find((thread) => thread.id === projectlessThread.id);
@@ -59,11 +59,12 @@ describe("Paradox workspace persistence", () => {
       ]);
       expect(loadedProjectless).toMatchObject({ id: projectlessThread.id });
       expect(loadedProjectless?.projectId).toBeUndefined();
+      expect(loadedProjectless?.messages).toEqual([]);
       expect(ownerBWorkspace).toEqual({ projects: [], threads: [] });
 
       await assignThreadProject(ownerA, projectlessThread.id, project.id);
       await deleteProject(ownerA, project.id);
-      const afterProjectDeletion = await loadWorkspace(ownerA);
+      const afterProjectDeletion = await loadWorkspace(ownerA, projectlessThread.chatSlug);
       expect(afterProjectDeletion.threads.find((thread) => thread.id === projectlessThread.id)?.projectId).toBeUndefined();
     } finally {
       await deleteThread(ownerA, linkedThread.id);

@@ -58,7 +58,7 @@ export const appRouter = router({
     }),
   }),
   workspace: router({
-    load: publicProcedure.query(async ({ ctx }) => loadWorkspace(await workspaceOwner(ctx))),
+    load: publicProcedure.input(z.object({ chatSlug: z.string().regex(/^chat-[a-z0-9]{32}$/).max(40) }).optional()).query(async ({ ctx, input }) => loadWorkspace(await workspaceOwner(ctx), input?.chatSlug)),
     createProject: publicProcedure.input(projectInput).mutation(async ({ ctx, input }) => createProject(await workspaceOwner(ctx), input)),
     updateProject: publicProcedure.input(z.object({ id: z.string().min(1).max(128), project: projectInput.pick({ name: true, description: true }) })).mutation(async ({ ctx, input }) => {
       try { return await updateProject(await workspaceOwner(ctx), input.id, input.project); } catch (error) { return workspaceFailure(error); }

@@ -26,6 +26,7 @@ import {
 import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "../lib/trpc";
+import { useLocation } from "wouter";
 
 const AXOLOTL_ICON = "/axolotl-only.png";
 
@@ -95,6 +96,9 @@ type HomeProps = {
 };
 
 export default function Home({ profileName = "Nexuss Operator", profileEmail, profileAvatarUrl, onSignOut, signOutPending = false }: HomeProps) {
+  const [location, setLocation] = useLocation();
+  const routeChatSlug = /^\/app\/chat\/(chat-[a-z0-9]{32})$/.exec(location)?.[1];
+  const workspaceInput = useMemo(() => routeChatSlug ? { chatSlug: routeChatSlug } : undefined, [routeChatSlug]);
   const legacyWorkspace = useRef<Workspace | null>(null);
   if (legacyWorkspace.current === null && typeof window !== "undefined") {
     try {
@@ -102,7 +106,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       legacyWorkspace.current = stored && Array.isArray(stored.projects) && Array.isArray(stored.threads) ? { projects: stored.projects, threads: stored.threads } : seed;
     } catch { legacyWorkspace.current = seed; }
   }
-  const workspaceQuery = trpc.workspace.load.useQuery(undefined, { retry: false, staleTime: 15_000 });
+  const workspaceQuery = trpc.workspace.load.useQuery(workspaceInput, { retry: false, staleTime: 15_000 });
   const utils = trpc.useUtils();
   const [activeThreadId, setActiveThreadId] = useState("");
   const [query, setQuery] = useState("");
@@ -129,7 +133,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const createProjectMutation = trpc.workspace.createProject.useMutation({ onSuccess: () => utils.workspace.load.invalidate(), onError: () => toast.error("Project could not be saved") });
   const updateProjectMutation = trpc.workspace.updateProject.useMutation({ onSuccess: () => utils.workspace.load.invalidate(), onError: () => toast.error("Project could not be updated") });
   const deleteProjectMutation = trpc.workspace.deleteProject.useMutation({ onSuccess: () => utils.workspace.load.invalidate(), onError: () => toast.error("Project could not be removed") });
-  const createThreadMutation = trpc.workspace.createThread.useMutation({ onSuccess: (thread) => { setActiveThreadId(thread.id); setPendingProjectId(null); void utils.workspace.load.invalidate(); toast.success(thread.created === false ? "Existing empty thread selected" : "New thread created"); }, onError: () => toast.error("Thread could not be created") });
+  const createThreadMutation = trpc.workspace.createThread.useMutation({ onSuccess: (thread) => { setActiveThreadId(thread.id); setPendingProjectId(null); setLocation(`/app/chat/${thread.chatSlug}`); void utils.workspace.load.invalidate(); toast.success(thread.created === false ? "Existing empty thread selected" : "New thread created"); }, onError: () => toast.error("Thread could not be created") });
   const renameThreadMutation = trpc.workspace.renameThread.useMutation({ onSuccess: () => utils.workspace.load.invalidate(), onError: () => toast.error("Thread could not be renamed") });
   const deleteThreadMutation = trpc.workspace.deleteThread.useMutation({ onSuccess: () => utils.workspace.load.invalidate(), onError: () => toast.error("Thread could not be deleted") });
   const assignThreadProjectMutation = trpc.workspace.assignThreadProject.useMutation({ onSuccess: () => utils.workspace.load.invalidate(), onError: () => toast.error("Project assignment could not be saved") });
@@ -145,10 +149,12 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
 
   useEffect(() => {
     if (!workspace.threads.length) { setActiveThreadId(""); return; }
-    if (!workspace.threads.some((thread) => thread.id === activeThreadId)) setActiveThreadId(workspace.threads[0].id);
-  }, [workspace.threads, activeThreadId]);
+    const selected = workspace.threads.find((thread) => thread.chatSlug === routeChatSlug) || workspace.threads.find((thread) => thread.id === activeThreadId) || workspace.threads[0];
+    if (selected.id !== activeThreadId) setActiveThreadId(selected.id);
+    if (selected.chatSlug && selected.chatSlug !== routeChatSlug) setLocation(`/app/chat/${selected.chatSlug}`, { replace: true });
+  }, [workspace.threads, activeThreadId, routeChatSlug, setLocation]);
 
-  const activeThread = workspace.threads.find((thread) => thread.id === activeThreadId) || workspace.threads[0];
+  const activeThread = workspace.threads.find((thread) => thread.chatSlug === routeChatSlug) || workspace.threads.find((thread) => thread.id === activeThreadId) || workspace.threads[0];
   const workspaceReady = workspaceQuery.isSuccess && migrationSettled;
   const activeProject = workspace.projects.find((project) => project.id === activeThread?.projectId);
   const activeThreadSlug = activeThread?.chatSlug || (activeThread ? `chat-${activeThread.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}` : undefined);
@@ -161,6 +167,12 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     if (!workspaceReady) return;
     createThreadMutation.mutate({ projectId: pendingProjectId });
     setMobileNav(false);
+  }
+
+  function openThread(thread: Thread) {
+    setActiveThreadId(thread.id);
+    setMobileNav(false);
+    if (thread.chatSlug) setLocation(`/app/chat/${thread.chatSlug}`);
   }
 
   function deleteThread(id: string) {
@@ -213,6 +225,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         ...(targetThread.messages.length === 0 ? { title: content.slice(0, 42) } : {}),
       });
       setActiveThreadId(targetThread.id);
+      setLocation(`/app/chat/${targetThread.chatSlug}`);
       setPendingProjectId(null);
       setDraft("");
     } catch {
@@ -238,7 +251,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
           <div className="search-field"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter threads" /></div>
           <div className="thread-list">
             {filteredThreads.map((thread) => (
-              <div key={thread.id} className={`thread-item ${thread.id === activeThread?.id ? "active" : ""}`} onClick={() => { setActiveThreadId(thread.id); setMobileNav(false); }}>
+              <div key={thread.id} className={`thread-item ${thread.id === activeThread?.id ? "active" : ""}`} onClick={() => openThread(thread)}>
                 <div className="thread-item-main"><span className="thread-dot" /> <span className="thread-title">{thread.title}</span></div>
                 <div className="thread-item-sub"><span className="thread-slug">{thread.chatSlug || `chat-${thread.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}`}</span><span>{formatDate(thread.updatedAt)}</span><button className="item-more" onClick={(event) => { event.stopPropagation(); setThreadEditor(thread.id); setThreadName(thread.title); }} aria-label="Thread actions"><MoreHorizontal size={15} /></button></div>
               </div>
@@ -255,11 +268,11 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
             <button className="add-project" onClick={() => setProjectEditor({ mode: "create" })} disabled={!workspaceReady}><FolderPlus size={15} /> Add project</button>
           </div>
         </div>
-        <div className="sidebar-footer"><div className="profile-row"><div className="profile-avatar">{profileAvatar ? <img src={profileAvatar} alt="" referrerPolicy="no-referrer" onError={() => setAvatarFailed(true)} /> : profileInitials}</div><div className="profile-copy"><strong>{profileName}</strong>{profileEmail && <span>{profileEmail}</span>}</div>{onSignOut && <button className="profile-signout" onClick={onSignOut} disabled={signOutPending} aria-label="Sign out"><LogOut size={16} /><span>{signOutPending ? "Signing out" : "Sign out"}</span></button>}</div></div>
+        <div className="sidebar-footer"><div className="profile-row"><div className="profile-avatar">{profileAvatar ? <img src={profileAvatar} alt="" referrerPolicy="no-referrer" onError={() => setAvatarFailed(true)} /> : profileInitials}</div><div className="profile-copy"><strong>{profileName}</strong>{profileEmail && <span>{profileEmail}</span>}</div>{onSignOut && <button className="profile-signout" onClick={onSignOut} disabled={signOutPending} aria-label="Sign out"><LogOut size={16} /></button>}</div></div>
       </aside>
 
       <main className="main-stage">
-        <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="topbar-thread-copy"><div className="topbar-thread-title">{activeThread?.title || "New thread"}</div>{activeThreadSlug && <span className="topbar-thread-slug">{activeThreadSlug}</span>}</div></div><div className="topbar-right"><div className="topbar-account"><div className="avatar">{profileAvatar ? <img src={profileAvatar} alt="" referrerPolicy="no-referrer" onError={() => setAvatarFailed(true)} /> : profileInitials}</div><div className="topbar-account-copy"><strong>{profileName}</strong>{profileEmail && <span>{profileEmail}</span>}</div></div>{onSignOut && <button className="icon-button" onClick={onSignOut} disabled={signOutPending} aria-label="Sign out"><LogOut size={16} /></button>}</div></header>
+        <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="topbar-thread-copy"><div className="topbar-thread-title">{activeThread?.title || "New thread"}</div>{activeThreadSlug && <span className="topbar-thread-slug">{activeThreadSlug}</span>}</div></div><div className="topbar-right">{onSignOut && <button className="icon-button" onClick={onSignOut} disabled={signOutPending} aria-label="Sign out"><LogOut size={16} /></button>}</div></header>
         <div className="mobile-context-strip"><button className="mobile-context-button" onClick={() => setMobileNav(true)}><Menu size={15} /><span>Threads</span></button><div className="mobile-context-title"><strong>{activeThread?.title || "New thread"}</strong></div><button className="mobile-context-button" onClick={createThread} disabled={!workspaceReady || createThreadMutation.isPending}><Plus size={15} /><span>New</span></button></div><section className="conversation-area">
           <div className="conversation-heading">{activeThread && <div className="heading-actions"><button className="icon-button" onClick={() => { setThreadEditor(activeThread.id); setThreadName(activeThread.title); }} aria-label="Rename thread"><Pencil size={16} /></button><button className="icon-button danger-hover" onClick={() => deleteThread(activeThread.id)} aria-label="Delete thread"><Trash2 size={16} /></button></div>}</div>
           {workspaceQuery.isError ? <div className="empty-thread"><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Workspace unavailable.</h2><p>Your saved data is unchanged. Check your connection and try again.</p><button className="empty-create-button" onClick={() => workspaceQuery.refetch()}><ArrowUp size={14} /> Retry loading</button></div> : !workspaceReady || migration.isPending ? <AxolotlLoader label="LOADING YOUR WORKSPACE" /> : activeThread?.messages.length || responsePending ? <div className="message-stack">{activeThread?.messages.map((message, index) => <article className={`message ${message.role}`} key={message.id}><div className="message-meta"><span className={`role-mark ${message.role}`}>{message.role === "assistant" ? <img src={AXOLOTL_ICON} alt="" /> : "You"}</span><span>{message.role === "assistant" ? "Nexuss-Agent" : "You"}</span><span className="message-time">{formatDate(message.createdAt)}</span>{message.role === "assistant" && <button className="copy-button" onClick={() => { navigator.clipboard?.writeText(message.content); toast.success("Copied to clipboard"); }}><Copy size={13} /> Copy</button>}</div><div className="message-content"><MarkdownMessage content={message.content} /></div>{index < (activeThread?.messages.length || 0) - 1 && <div className="message-divider" />}</article>)}{responsePending && <ResponseSkeleton />}</div> : <div className="empty-thread"><div className="orbit-art axolotl-schematic" aria-hidden="true"><span className="axolotl-loop" /><span className="axolotl-eye axolotl-eye-one" /><span className="axolotl-eye axolotl-eye-two" /><span className="axolotl-gill axolotl-gill-one" /><span className="axolotl-gill axolotl-gill-two" /></div><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Start a thread.</h2><p>Give your work a place to begin.</p><button className="empty-create-button" onClick={createThread} disabled={createThreadMutation.isPending}><Plus size={14} /> New thread <ArrowUp size={13} /></button></div>}

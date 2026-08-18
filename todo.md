@@ -142,4 +142,13 @@
 - [x] Prevent redundant empty threads so a user retains one clean starting thread instead of duplicate blank histories.
 - [x] Add a professional future-response skeleton that can represent long-running generated output without blocking the workspace.
 - [x] Test unique thread identity, single empty-thread creation, and response loading states with server and client coverage, TypeScript, and a production build.
-- [ ] Save and push the thread identity and response-state improvements to `master`.
+- [x] Save and push the thread identity and response-state improvements to `master`.
+
+## Focused Chat Workspace Refinement
+
+- [x] Audit the current client route, thread query, composer placement, and repeated account presentation.
+- [x] Put the active thread’s unique chat slug in the browser address and support opening that chat directly.
+- [x] Load full message history only for the active chat while retaining lightweight thread/project navigation for performance.
+- [x] Place project selection on the composer’s left, send control on its right, and remove the duplicated top-right account copy while keeping the sign-out icon.
+- [x] Test deep-link selection, single-chat history loading, persistent project assignment, and responsive control placement with server, router, mounted-client, TypeScript, and production-build coverage.
+- [ ] Save and push the focused-chat refinement to `master`.

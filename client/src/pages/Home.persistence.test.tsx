@@ -12,7 +12,7 @@ import Home from "./Home";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-type WorkspaceSnapshot = { projects: Array<{ id: string; name: string; description: string; tone: string }>; threads: Array<{ id: string; title: string; projectId?: string; updatedAt: string; messages: Array<{ id: string; role: "user" | "assistant"; content: string; createdAt: string }> }> };
+type WorkspaceSnapshot = { projects: Array<{ id: string; name: string; description: string; tone: string }>; threads: Array<{ id: string; chatSlug?: string; title: string; projectId?: string; updatedAt: string; messages: Array<{ id: string; role: "user" | "assistant"; content: string; createdAt: string }> }> };
 
 const roots: Array<{ root: Root; host: HTMLDivElement }> = [];
 
@@ -56,6 +56,7 @@ afterEach(async () => {
     host.remove();
   }
   window.localStorage.clear();
+  window.history.replaceState({}, "", "/app");
 });
 
 describe("persistent workspace client", () => {
@@ -150,7 +151,7 @@ describe("persistent workspace client", () => {
     const empty: WorkspaceSnapshot = { projects: [project], threads: [] };
     const host = await mountWorkspace((path, input) => {
       inputs(path, input);
-      if (path === "workspace.createThread") return { id: "first-thread", title: "New thread", projectId: "pntp", updatedAt: "2026-08-18T00:00:00.000Z", messages: [] };
+      if (path === "workspace.createThread") return { id: "first-thread", chatSlug: "chat-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", title: "New thread", projectId: "pntp", updatedAt: "2026-08-18T00:00:00.000Z", messages: [] };
       if (path === "workspace.appendMessages") return { id: "first-thread" };
       return empty;
     });
@@ -177,6 +178,17 @@ describe("persistent workspace client", () => {
 
     expect(inputs).toHaveBeenCalledWith("workspace.createThread", { projectId: "pntp" });
     expect(inputs).toHaveBeenCalledWith("workspace.appendMessages", expect.objectContaining({ threadId: "first-thread" }));
+    expect(window.location.pathname).toBe("/app/chat/chat-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+  });
+
+  it("requests full message history only for the browser-selected chat slug", async () => {
+    window.history.replaceState({}, "", "/app/chat/chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    const calls = vi.fn();
+    const active: WorkspaceSnapshot = { projects: [], threads: [{ id: "focused-thread", chatSlug: "chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", title: "Focused history", updatedAt: "2026-08-18T00:00:00.000Z", messages: [{ id: "focus-message", role: "user", content: "Only this history is loaded", createdAt: "2026-08-18T00:00:00.000Z" }] }, { id: "other-thread", chatSlug: "chat-cccccccccccccccccccccccccccccccc", title: "Other history", updatedAt: "2026-08-17T00:00:00.000Z", messages: [] }] };
+    const host = await mountWorkspace((path, input) => { calls(path, input); return active; });
+    await waitForText(host, "Only this history is loaded");
+    expect(calls).toHaveBeenCalledWith("workspace.load", { chatSlug: "chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" });
+    expect(host.textContent).toContain("chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
   });
 
   it("reserves a response skeleton while a future long-running message save is pending", async () => {

@@ -37,7 +37,7 @@ describe("authenticated workspace router", () => {
         ],
       });
       projectlessThread = await caller.workspace.createThread({});
-      const workspace = await caller.workspace.load();
+      const workspace = await caller.workspace.load({ chatSlug: linkedThread.chatSlug });
       const loadedThread = workspace.threads.find((thread) => thread.id === linkedThread.id);
 
       expect(loadedThread).toMatchObject({ projectId: project.id, title: "Saved through the router" });
@@ -49,7 +49,7 @@ describe("authenticated workspace router", () => {
       expect(workspace.threads.find((thread) => thread.id === projectlessThread!.id)?.projectId).toBeUndefined();
 
       await caller.workspace.deleteProject({ id: project.id });
-      const unassigned = await caller.workspace.load();
+      const unassigned = await caller.workspace.load({ chatSlug: projectlessThread!.chatSlug });
       expect(unassigned.threads.find((thread) => thread.id === linkedThread.id)?.projectId).toBeUndefined();
     } finally {
       await caller.workspace.deleteThread({ id: linkedThread.id });
