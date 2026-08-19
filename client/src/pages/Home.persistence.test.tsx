@@ -336,6 +336,16 @@ describe("persistent workspace client", () => {
     expect(events).toEqual(["start", "Hello ", "world", "done"]);
   });
 
+  it("keeps rejected stream details in the console and exposes a concise error", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      await expect(consumePlaygroundStream(new Response(JSON.stringify({ error: "Provider overloaded: retry-after=2" }), { status: 429, statusText: "Too Many Requests", headers: { "Content-Type": "application/json" } }), new AbortController().signal, () => undefined)).rejects.toThrow("The model request could not be completed.");
+      expect(consoleError).toHaveBeenCalledWith("[Playground] stream request rejected", expect.objectContaining({ status: 429, detail: "Provider overloaded: retry-after=2" }));
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("switches to Stop during streaming and exposes immediate and after-queue send choices", async () => {
     window.history.replaceState({}, "", "/app/chat/chat-dddddddddddddddddddddddddddddddd");
     const workspace: WorkspaceSnapshot = { projects: [], threads: [{ id: "stream-thread", chatSlug: "chat-dddddddddddddddddddddddddddddddd", title: "Streaming thread", updatedAt: "2026-08-18T00:00:00.000Z", messages: [] }] };

@@ -19,6 +19,41 @@ describe("playground model stream", () => {
     expect(result).toEqual({ content: "Hello world", stopped: false, finished: true });
   });
 
+  it("flushes a final SSE frame even when the provider closes without a trailing newline", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("data: {\"choices\":[{\"delta\":{\"content\":\"Final token\"}}]}"));
+        controller.close();
+      },
+    });
+    const tokens: string[] = [];
+    const result = await readOpenAICompatibleStream(new Response(stream), new AbortController().signal, token => tokens.push(token));
+    expect(tokens).toEqual(["Final token"]);
+    expect(result.content).toBe("Final token");
+  });
+
+  it("supports text and reasoning-content variants", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"Reasoned\"}}]}\n\n"));
+        controller.enqueue(new TextEncoder().encode("data: {\"text\":\" answer\"}\n\ndata: [DONE]\n\n"));
+        controller.close();
+      },
+    });
+    const result = await readOpenAICompatibleStream(new Response(stream), new AbortController().signal, () => undefined);
+    expect(result).toMatchObject({ content: "Reasoned answer", finished: true });
+  });
+
+  it("surfaces provider error events", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("data: {\"error\":{\"message\":\"Provider overloaded\"}}\n\n"));
+        controller.close();
+      },
+    });
+    await expect(readOpenAICompatibleStream(new Response(stream), new AbortController().signal, () => undefined)).rejects.toThrow("Provider overloaded");
+  });
+
   it("marks a provider stream stopped when its AbortSignal is cancelled", async () => {
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {

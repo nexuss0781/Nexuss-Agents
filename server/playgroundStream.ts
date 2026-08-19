@@ -18,6 +18,11 @@ function sendEvent(res: Response, event: StreamEvent) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
 }
 
+function describeStreamError(error: unknown) {
+  if (error instanceof Error) return { name: error.name, message: error.message.slice(0, 500) };
+  return { name: "UnknownError", message: String(error).slice(0, 500) };
+}
+
 export function registerPlaygroundStreamRoute(app: Express) {
   app.post("/api/playground/stream", async (req, res) => {
     const user = await getNexussSession(req as unknown as Request);
@@ -28,6 +33,7 @@ export function registerPlaygroundStreamRoute(app: Express) {
 
     const parsed = streamInput.safeParse(req.body);
     if (!parsed.success) {
+      console.warn("[Playground] rejected invalid stream input", { issues: parsed.error.issues.map((issue) => issue.path.join(".")).slice(0, 8) });
       res.status(400).json({ error: "The playground request is invalid." });
       return;
     }
@@ -57,10 +63,14 @@ export function registerPlaygroundStreamRoute(app: Express) {
       if (controller.signal.aborted || res.writableEnded) return;
       sendEvent(res, { type: "done", stopped: result.stopped, finished: result.finished, content: result.content });
       res.end();
-    } catch {
+    } catch (error) {
       settled = true;
-      if (controller.signal.aborted || res.writableEnded) return;
-      sendEvent(res, { type: "error", message: "The model could not complete this response." });
+      if (controller.signal.aborted || res.writableEnded) {
+        console.debug("[Playground] stream cancelled", { userId: user.id, threadId: parsed.data.threadId, model: parsed.data.model });
+        return;
+      }
+      console.error("[Playground] stream failed", { userId: user.id, threadId: parsed.data.threadId, model: parsed.data.model, error: describeStreamError(error) });
+      sendEvent(res, { type: "error", message: "The model request failed. Check the server console for details." });
       res.end();
     }
   });

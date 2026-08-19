@@ -238,3 +238,13 @@ The playground now keeps the initial composer minimal: there is no queue chevron
 Duplicate live/persisted user and assistant turns are suppressed with timestamp-aware checks. Stop clears pending queue work when no new prompt is written and carries a transient hidden stop instruction into the next model request without persisting it in the visible conversation. The project selector now sits beside the model selector in the composer’s top row, and the model menu has an explicit Saved models header, left-to-right model-name rendering, and clearer active-state styling.
 
 Focused verification passes: TypeScript, 15 frontend/server streaming tests, production build, and diff hygiene. The local browser reached the authenticated login screen; live playground visual verification remains dependent on a signed-in workspace session.
+
+## Empty Response and Console-First Error Management
+
+- [x] Flush unterminated final provider SSE frames so the last token is not lost when a provider closes without a trailing newline.
+- [x] Support common `delta.content`, `message.content`, `reasoning_content`, `thinking`, and text-completion payload variants.
+- [x] Surface provider error events to the server console and keep browser-facing messages concise.
+- [x] Log safe request status, malformed-frame, cancellation, and empty-output diagnostics without logging prompts or credentials.
+- [x] Separate JSON parsing failures from provider event failures so error events are not swallowed as malformed frames.
+- [x] Add regression coverage for empty final frames, payload variants, provider errors, and concise client error handling.
+- [ ] Build, commit, and push the error-management hardening.

@@ -266,8 +266,9 @@ async function loadThreadMessagesForPlayground(ownerId: string, threadId: string
   });
 }
 
-function extractStreamText(payload: { choices?: Array<{ delta?: { content?: unknown }; message?: { content?: unknown }; finish_reason?: unknown }> }) {
-  const content = payload.choices?.[0]?.delta?.content ?? payload.choices?.[0]?.message?.content;
+function extractStreamText(payload: { text?: unknown; choices?: Array<{ text?: unknown; delta?: { content?: unknown; reasoning_content?: unknown; thinking?: unknown }; message?: { content?: unknown } ; finish_reason?: unknown }> }) {
+  const choice = payload.choices?.[0];
+  const content = choice?.delta?.content ?? choice?.message?.content ?? choice?.delta?.reasoning_content ?? choice?.delta?.thinking ?? choice?.text ?? payload.text;
   if (typeof content === "string") return content;
   if (Array.isArray(content)) return content.map((part) => typeof part === "string" ? part : (part && typeof part === "object" && "text" in part && typeof part.text === "string" ? part.text : "")).join("");
   return "";
@@ -286,12 +287,14 @@ export async function readOpenAICompatibleStream(response: Response, signal: Abo
     if (!data) return;
     if (data === "[DONE]") { finished = true; return; }
     try {
-      const payload = JSON.parse(data) as { choices?: Array<{ delta?: { content?: unknown }; message?: { content?: unknown }; finish_reason?: unknown }> };
+      const payload = JSON.parse(data) as { error?: { message?: unknown }; text?: unknown; choices?: Array<{ text?: unknown; delta?: { content?: unknown; reasoning_content?: unknown; thinking?: unknown }; message?: { content?: unknown }; finish_reason?: unknown }> };
+      if (payload.error?.message) throw new ModelProviderError(String(payload.error.message));
       if (payload.choices?.[0]?.finish_reason) finished = true;
       const token = extractStreamText(payload);
       if (token) { content += token; onToken(token); }
-    } catch {
-      // Ignore provider keep-alives and malformed non-content events.
+    } catch (error) {
+      if (error instanceof ModelProviderError) throw error;
+      console.warn("[Playground] ignored malformed provider SSE frame", { detail: data.slice(0, 240), error: error instanceof Error ? { name: error.name, message: error.message } : String(error) });
     }
   };
 
@@ -306,6 +309,7 @@ export async function readOpenAICompatibleStream(response: Response, signal: Abo
       buffer = lines.pop() || "";
       for (const line of lines) consume(line);
     }
+    if (buffer.trim() && !signal.aborted) consume(buffer);
     if (signal.aborted) stopped = true;
   } finally {
     signal.removeEventListener("abort", cancelReader);

@@ -146,10 +146,16 @@ type PlaygroundStreamEvent = { type: "start" | "token" | "done" | "error"; text?
 
 export async function consumePlaygroundStream(response: Response, signal: AbortSignal, onEvent: (event: PlaygroundStreamEvent) => void) {
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(payload.error || "The model playground could not be reached.");
+    const raw = await response.text().catch(() => "");
+    let detail = "";
+    try { detail = String((JSON.parse(raw) as { error?: unknown }).error || ""); } catch { detail = raw.slice(0, 240); }
+    console.error("[Playground] stream request rejected", { status: response.status, statusText: response.statusText, detail });
+    throw new Error("The model request could not be completed.");
   }
-  if (!response.body) throw new Error("The model playground returned an empty stream.");
+  if (!response.body) {
+    console.error("[Playground] provider returned an empty response body");
+    throw new Error("The model request returned no stream.");
+  }
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -166,8 +172,16 @@ export async function consumePlaygroundStream(response: Response, signal: AbortS
         if (!line.startsWith("data:")) continue;
         const data = line.slice(5).trim();
         if (!data) continue;
-        try { onEvent(JSON.parse(data) as PlaygroundStreamEvent); } catch { /* Ignore malformed keep-alive frames. */ }
+        let event: PlaygroundStreamEvent;
+        try { event = JSON.parse(data) as PlaygroundStreamEvent; } catch (error) { console.warn("[Playground] ignored malformed SSE frame", { detail: data.slice(0, 240), error }); continue; }
+        onEvent(event);
       }
+    }
+    if (buffer.trim() && !signal.aborted && buffer.startsWith("data:")) {
+      const data = buffer.slice(5).trim();
+      let event: PlaygroundStreamEvent | undefined;
+      try { event = JSON.parse(data) as PlaygroundStreamEvent; } catch (error) { console.warn("[Playground] ignored malformed final SSE frame", { detail: data.slice(0, 240), error }); }
+      if (event) onEvent(event);
     }
   } finally {
     signal.removeEventListener("abort", cancelReader);
@@ -404,9 +418,12 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         }
         if (event.type === "error") throw new Error(event.message || "The model could not complete this response.");
       });
-      if (!controller.signal.aborted && !streamedContent) toast("The model returned no text.");
+      if (!controller.signal.aborted && !streamedContent) console.warn("[Playground] provider completed without text", { model: activeModel, threadId: targetThread.id, finished });
     } catch (error) {
-      if (!controller.signal.aborted) toast.error(error instanceof Error ? error.message : "The model could not complete this response.");
+      if (!controller.signal.aborted) {
+        console.error("[Playground] prompt stream failed", { model: activeModel, threadId: targetThread.id, error });
+        toast.error(error instanceof Error ? error.message : "The model request failed.");
+      }
     } finally {
       if (streamAbortRef.current === controller) streamAbortRef.current = null;
       if (streamThreadRef.current === targetThread.id) streamThreadRef.current = null;
