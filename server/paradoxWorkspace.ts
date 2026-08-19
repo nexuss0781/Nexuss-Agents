@@ -11,7 +11,17 @@ export type WorkspaceNavigation = DurableWorkspace;
 export type ModelProviderSettings = { baseUrl: string; selectedModels: string[]; availableModels: string[]; apiKeyConfigured: boolean };
 
 export class WorkspaceAccessError extends Error {}
-export class ModelProviderError extends Error {}
+export class ModelProviderError extends Error {
+  readonly code: string;
+  readonly status?: number;
+
+  constructor(message: string, options: { code?: string; status?: number } = {}) {
+    super(message);
+    this.name = "ModelProviderError";
+    this.code = options.code || "MODEL_PROVIDER_ERROR";
+    this.status = options.status;
+  }
+}
 
 type Db = Awaited<ReturnType<typeof connect>>;
 type LegacyWorkspace = { projects: WorkspaceProject[]; threads: Array<Omit<WorkspaceThread, "chatSlug"> & { chatSlug?: string }> };
@@ -56,6 +66,24 @@ function parseModelList(value: string | null | undefined, sort = false) {
   } catch {
     return [];
   }
+}
+
+function redactProviderDetail(value: string) {
+  return value.replace(/Bearer\s+[A-Za-z0-9._~-]+/gi, "Bearer [redacted]").replace(/(api[_-]?key|token|secret)[=:"\s]+[A-Za-z0-9._~-]+/gi, "$1=[redacted]").slice(0, 320);
+}
+
+function providerErrorDetail(raw: string) {
+  const trimmed = raw.trim();
+  if (!trimmed) return "The provider returned no error detail.";
+  try {
+    const payload = JSON.parse(trimmed) as { error?: { message?: unknown; type?: unknown; code?: unknown } | string; message?: unknown; detail?: unknown };
+    const error = payload.error;
+    const message = typeof error === "string" ? error : error && typeof error === "object" ? error.message : payload.message ?? payload.detail;
+    if (typeof message === "string" && message.trim()) return redactProviderDetail(message.trim());
+  } catch {
+    // Fall back to a bounded text excerpt below.
+  }
+  return redactProviderDetail(trimmed);
 }
 
 function normalizeProviderBaseUrl(value: string) {
@@ -251,9 +279,9 @@ export type PlaygroundStreamResult = { content: string; stopped: boolean; finish
 async function loadProviderForPlayground(ownerId: string, model: string) {
   return withWorkspaceDb(false, (db) => {
     const provider = rows<{ base_url: string; api_key: string; selected_models_json: string; available_models_json: string }>(db.execute("SELECT base_url, api_key, selected_models_json, available_models_json FROM workspace_model_providers WHERE owner_id = ? LIMIT 1", [ownerId]))[0];
-    if (!provider?.api_key) throw new ModelProviderError("Save a model API key before using the playground.");
+    if (!provider?.api_key) throw new ModelProviderError("Save a model API key before using the playground.", { code: "PROVIDER_KEY_MISSING" });
     const allowedModels = new Set(parseModelList(provider.selected_models_json));
-    if (!allowedModels.has(model)) throw new ModelProviderError("Select a saved model before sending a playground prompt.");
+    if (!allowedModels.has(model)) throw new ModelProviderError(`Model '${model}' is not selected in Settings.`, { code: "MODEL_NOT_SELECTED" });
     return provider;
   });
 }
@@ -342,7 +370,7 @@ export async function streamWorkspacePrompt(ownerId: string, input: PlaygroundPr
   }
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    throw new ModelProviderError(`The model API rejected the request: ${response.status}${detail ? ` — ${detail.slice(0, 240)}` : ""}`);
+    throw new ModelProviderError(`The model API rejected the request: ${response.status} — ${providerErrorDetail(detail)}`, { code: "PROVIDER_HTTP_ERROR", status: response.status });
   }
   const result = await readOpenAICompatibleStream(response, signal, onToken);
   if (result.content) await appendThreadMessages(ownerId, input.threadId, [{ role: "assistant", content: result.content }]);

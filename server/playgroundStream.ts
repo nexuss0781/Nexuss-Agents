@@ -1,7 +1,8 @@
 import type { Express, Request, Response } from "express";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getNexussSession } from "./nexussAuth";
-import { streamWorkspacePrompt } from "./paradoxWorkspace";
+import { ModelProviderError, streamWorkspacePrompt } from "./paradoxWorkspace";
 
 const streamInput = z.object({
   threadId: z.string().min(1).max(128),
@@ -19,8 +20,9 @@ function sendEvent(res: Response, event: StreamEvent) {
 }
 
 function describeStreamError(error: unknown) {
-  if (error instanceof Error) return { name: error.name, message: error.message.slice(0, 500) };
-  return { name: "UnknownError", message: String(error).slice(0, 500) };
+  if (error instanceof ModelProviderError) return { name: error.name, code: error.code, status: error.status, message: error.message.slice(0, 500) };
+  if (error instanceof Error) return { name: error.name, code: "STREAM_ERROR", message: error.message.slice(0, 500) };
+  return { name: "UnknownError", code: "STREAM_ERROR", message: String(error).slice(0, 500) };
 }
 
 export function registerPlaygroundStreamRoute(app: Express) {
@@ -38,6 +40,7 @@ export function registerPlaygroundStreamRoute(app: Express) {
       return;
     }
 
+    const requestId = randomUUID();
     const controller = new AbortController();
     let settled = false;
     res.on("close", () => {
@@ -52,7 +55,7 @@ export function registerPlaygroundStreamRoute(app: Express) {
     res.flushHeaders?.();
 
     try {
-      sendEvent(res, { type: "start", model: parsed.data.model });
+      sendEvent(res, { type: "start", model: parsed.data.model, requestId });
       const result = await streamWorkspacePrompt(
         user.id,
         parsed.data,
@@ -69,8 +72,9 @@ export function registerPlaygroundStreamRoute(app: Express) {
         console.debug("[Playground] stream cancelled", { userId: user.id, threadId: parsed.data.threadId, model: parsed.data.model });
         return;
       }
-      console.error("[Playground] stream failed", { userId: user.id, threadId: parsed.data.threadId, model: parsed.data.model, error: describeStreamError(error) });
-      sendEvent(res, { type: "error", message: "The model request failed. Check the server console for details." });
+      const diagnostic = describeStreamError(error);
+      console.error("[Playground] stream failed", { requestId, userId: user.id, threadId: parsed.data.threadId, model: parsed.data.model, error: diagnostic });
+      sendEvent(res, { type: "error", requestId, code: diagnostic.code, status: diagnostic.status, message: "The model request failed.", diagnostic: diagnostic.message });
       res.end();
     }
   });

@@ -248,3 +248,9 @@ Focused verification passes: TypeScript, 15 frontend/server streaming tests, pro
 - [x] Separate JSON parsing failures from provider event failures so error events are not swallowed as malformed frames.
 - [x] Add regression coverage for empty final frames, payload variants, provider errors, and concise client error handling.
 - [ ] Build, commit, and push the error-management hardening.
+
+## Deployed Provider Failure Diagnostics
+
+The playground stream now returns a safe request ID, provider error code, HTTP status, and bounded redacted diagnostic for failed model requests. `big-pickle` failures such as an unselected model, missing key, provider HTTP rejection, invalid endpoint, and transport error are classified in the server console and surfaced in the browser console without exposing prompts or credentials. The visible UI remains concise and non-disruptive.
+
+Focused TypeScript and streaming/error tests pass. The remaining release action is the production build and push of the diagnostic contract.

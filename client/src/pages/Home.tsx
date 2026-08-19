@@ -142,7 +142,23 @@ function ResponseSkeleton() {
   return <article className="response-skeleton" role="status" aria-live="polite"><div className="response-skeleton-meta"><span className="role-mark assistant"><img src={AXOLOTL_ICON} alt="" /></span><span>Nexuss-Agent</span><span>Preparing an extended response</span></div><div className="response-skeleton-lines" aria-hidden="true"><i /><i /><i /></div></article>;
 }
 
-type PlaygroundStreamEvent = { type: "start" | "token" | "done" | "error"; text?: string; content?: string; stopped?: boolean; finished?: boolean; message?: string };
+type PlaygroundStreamEvent = { type: "start" | "token" | "done" | "error"; text?: string; content?: string; stopped?: boolean; finished?: boolean; message?: string; requestId?: string; code?: string; status?: number; diagnostic?: string };
+
+class PlaygroundRequestError extends Error {
+  readonly requestId?: string;
+  readonly code?: string;
+  readonly status?: number;
+  readonly diagnostic?: string;
+
+  constructor(event: PlaygroundStreamEvent) {
+    super(event.message || "The model request failed.");
+    this.name = "PlaygroundRequestError";
+    this.requestId = event.requestId;
+    this.code = event.code;
+    this.status = event.status;
+    this.diagnostic = event.diagnostic;
+  }
+}
 
 export async function consumePlaygroundStream(response: Response, signal: AbortSignal, onEvent: (event: PlaygroundStreamEvent) => void) {
   if (!response.ok) {
@@ -416,13 +432,14 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
           streamedContent = event.content;
           setStreamingTurn((current) => current ? { ...current, content: streamedContent } : current);
         }
-        if (event.type === "error") throw new Error(event.message || "The model could not complete this response.");
+        if (event.type === "error") throw new PlaygroundRequestError(event);
       });
       if (!controller.signal.aborted && !streamedContent) console.warn("[Playground] provider completed without text", { model: activeModel, threadId: targetThread.id, finished });
     } catch (error) {
       if (!controller.signal.aborted) {
-        console.error("[Playground] prompt stream failed", { model: activeModel, threadId: targetThread.id, error });
-        toast.error(error instanceof Error ? error.message : "The model request failed.");
+        const diagnostic = error instanceof PlaygroundRequestError ? { name: error.name, requestId: error.requestId, code: error.code, status: error.status, detail: error.diagnostic } : error;
+        console.error("[Playground] prompt stream failed", { model: activeModel, threadId: targetThread.id, error: diagnostic });
+        toast.error(error instanceof PlaygroundRequestError ? "The model request failed. Check the console for details." : error instanceof Error ? error.message : "The model request failed.");
       }
     } finally {
       if (streamAbortRef.current === controller) streamAbortRef.current = null;
