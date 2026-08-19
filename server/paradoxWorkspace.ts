@@ -245,6 +245,99 @@ export async function saveModelProviderSettings(ownerId: string, input: { baseUr
   });
 }
 
+export type PlaygroundPrompt = { threadId: string; model: string; prompt: string; title?: string };
+export type PlaygroundStreamResult = { content: string; stopped: boolean };
+
+async function loadProviderForPlayground(ownerId: string, model: string) {
+  return withWorkspaceDb(false, (db) => {
+    const provider = rows<{ base_url: string; api_key: string; selected_models_json: string; available_models_json: string }>(db.execute("SELECT base_url, api_key, selected_models_json, available_models_json FROM workspace_model_providers WHERE owner_id = ? LIMIT 1", [ownerId]))[0];
+    if (!provider?.api_key) throw new ModelProviderError("Save a model API key before using the playground.");
+    const allowedModels = new Set(parseModelList(provider.selected_models_json));
+    if (!allowedModels.has(model)) throw new ModelProviderError("Select a saved model before sending a playground prompt.");
+    return provider;
+  });
+}
+
+async function loadThreadMessagesForPlayground(ownerId: string, threadId: string) {
+  return withWorkspaceDb(false, (db) => {
+    assertThreadOwner(db, ownerId, threadId);
+    const messages = rows<{ role: "user" | "assistant"; content: string }>(db.execute("SELECT role, content FROM workspace_messages WHERE owner_id = ? AND thread_id = ? ORDER BY created_at ASC", [ownerId, threadId]));
+    return messages;
+  });
+}
+
+function extractStreamText(payload: { choices?: Array<{ delta?: { content?: unknown }; message?: { content?: unknown } }> }) {
+  const content = payload.choices?.[0]?.delta?.content ?? payload.choices?.[0]?.message?.content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.map((part) => typeof part === "string" ? part : (part && typeof part === "object" && "text" in part && typeof part.text === "string" ? part.text : "")).join("");
+  return "";
+}
+
+export async function readOpenAICompatibleStream(response: Response, signal: AbortSignal, onToken: (token: string) => void) {
+  if (!response.body) throw new ModelProviderError("The model API returned an empty stream.");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let content = "";
+  let stopped = false;
+  const consume = (line: string) => {
+    const data = line.startsWith("data:") ? line.slice(5).trim() : "";
+    if (!data) return;
+    if (data === "[DONE]") { stopped = true; return; }
+    try {
+      const token = extractStreamText(JSON.parse(data) as { choices?: Array<{ delta?: { content?: unknown }; message?: { content?: unknown } }> });
+      if (token) { content += token; onToken(token); }
+    } catch {
+      // Ignore provider keep-alives and malformed non-content events.
+    }
+  };
+
+  const cancelReader = () => { void reader.cancel(); };
+  signal.addEventListener("abort", cancelReader, { once: true });
+  try {
+    while (!signal.aborted) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() || "";
+      for (const line of lines) consume(line);
+    }
+    if (signal.aborted) stopped = true;
+  } finally {
+    signal.removeEventListener("abort", cancelReader);
+    await reader.cancel().catch(() => undefined);
+  }
+  return { content, stopped };
+}
+
+export async function streamWorkspacePrompt(ownerId: string, input: PlaygroundPrompt, signal: AbortSignal, onToken: (token: string) => void): Promise<PlaygroundStreamResult> {
+  const provider = await loadProviderForPlayground(ownerId, input.model);
+  const history = await loadThreadMessagesForPlayground(ownerId, input.threadId);
+  const title = history.length === 0 ? (input.title || input.prompt.slice(0, 42)) : undefined;
+  await appendThreadMessages(ownerId, input.threadId, [{ role: "user", content: input.prompt }], title);
+  const messages = [...history, { role: "user" as const, content: input.prompt }];
+  let response: Response;
+  try {
+    response = await fetch(`${normalizeProviderBaseUrl(provider.base_url)}/chat/completions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${provider.api_key}`, Accept: "text/event-stream", "Content-Type": "application/json" },
+      body: JSON.stringify({ model: input.model, messages, stream: true }),
+      signal,
+    });
+  } catch (error) {
+    if (signal.aborted) return { content: "", stopped: true };
+    throw error;
+  }
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new ModelProviderError(`The model API rejected the request: ${response.status}${detail ? ` — ${detail.slice(0, 240)}` : ""}`);
+  }
+  const result = await readOpenAICompatibleStream(response, signal, onToken);
+  if (result.content) await appendThreadMessages(ownerId, input.threadId, [{ role: "assistant", content: result.content }]);
+  return result;
+}
+
 export async function discoverModelProviderModels(ownerId: string, requester: typeof fetch = fetch): Promise<{ models: string[] }> {
   const provider = await withWorkspaceDb(false, (db) => rows<{ base_url: string; api_key: string }>(db.execute("SELECT base_url, api_key FROM workspace_model_providers WHERE owner_id = ? LIMIT 1", [ownerId]))[0]);
   if (!provider) throw new ModelProviderError("Save a model API key and base URL before refreshing models.");

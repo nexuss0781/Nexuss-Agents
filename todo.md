@@ -215,3 +215,18 @@
 - The local frontend persistence suite passes and the TypeScript check and production build pass.
 - Full server integration tests require the deployment’s configured `PARADOX_API_KEY`, `PARADOX_PASSPHRASE`, and gateway access; those credentials are not present in this shell.
 - Live authenticated Render verification remains pending: refresh the workspace, reopen Settings, confirm the non-revealing configured-secret status and persisted model list, then run Refresh models without re-entering the key.
+
+## Playground Model Streaming and Prompt Queue
+
+- [x] Connect the selected encrypted provider model to an authenticated OpenAI-compatible streaming endpoint.
+- [x] Render assistant output token by token and persist the completed or stopped partial response in the user-scoped Paradox workspace.
+- [x] Change Send into a forceful Stop control during generation and abort the upstream provider reader immediately.
+- [x] Add a subtle Send dropdown for sending the current draft after the active response or after all queued prompts, with completion notifications.
+- [x] Add regression coverage for chunked SSE parsing, cancellation, live output, Stop state, and queue controls.
+- [ ] Save and push the playground streaming integration to `master`.
+
+## Playground Verification Notes
+
+- TypeScript validation, the frontend persistence/streaming suite, the isolated server SSE parser suite, production build, and diff hygiene checks pass.
+- Full server integration tests still require the deployment’s configured Paradox credentials and a live provider endpoint.
+- Live authenticated verification remains pending: select a saved model, send a prompt, confirm token-by-token output, test Send after this response and Send after queued prompts, then click Stop and verify the partial response persists after refresh.

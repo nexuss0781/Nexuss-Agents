@@ -23,6 +23,7 @@ import {
   Plus,
   Search,
   Settings,
+  Square,
   Trash2,
   X,
 } from "lucide-react";
@@ -38,6 +39,8 @@ type Message = { id: string; role: "user" | "assistant"; content: string; create
 type Thread = { id: string; chatSlug?: string; title: string; projectId?: string; updatedAt: string; messages: Message[] };
 
 type Workspace = { projects: Project[]; threads: Thread[] };
+type StreamingTurn = { threadId: string; prompt: string; content: string; startedAt: string };
+type QueuedPrompt = { id: string; content: string; mode: "next" | "later" };
 
 const seed: Workspace = {
   projects: [],
@@ -139,6 +142,39 @@ function ResponseSkeleton() {
   return <article className="response-skeleton" role="status" aria-live="polite"><div className="response-skeleton-meta"><span className="role-mark assistant"><img src={AXOLOTL_ICON} alt="" /></span><span>Nexuss-Agent</span><span>Preparing an extended response</span></div><div className="response-skeleton-lines" aria-hidden="true"><i /><i /><i /></div></article>;
 }
 
+type PlaygroundStreamEvent = { type: "start" | "token" | "done" | "error"; text?: string; content?: string; stopped?: boolean; message?: string };
+
+export async function consumePlaygroundStream(response: Response, signal: AbortSignal, onEvent: (event: PlaygroundStreamEvent) => void) {
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(payload.error || "The model playground could not be reached.");
+  }
+  if (!response.body) throw new Error("The model playground returned an empty stream.");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  const cancelReader = () => { void reader.cancel(); };
+  signal.addEventListener("abort", cancelReader, { once: true });
+  try {
+    while (!signal.aborted) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim();
+        if (!data) continue;
+        try { onEvent(JSON.parse(data) as PlaygroundStreamEvent); } catch { /* Ignore malformed keep-alive frames. */ }
+      }
+    }
+  } finally {
+    signal.removeEventListener("abort", cancelReader);
+    await reader.cancel().catch(() => undefined);
+  }
+}
+
 type HomeProps = {
   profileName?: string;
   profileEmail?: string;
@@ -178,9 +214,15 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const [modelBaseUrl, setModelBaseUrl] = useState("");
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [streamingTurn, setStreamingTurn] = useState<StreamingTurn | null>(null);
+  const [promptQueue, setPromptQueue] = useState<QueuedPrompt[]>([]);
+  const [queueMenuOpen, setQueueMenuOpen] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [migrationSettled, setMigrationSettled] = useState(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const streamAbortRef = useRef<AbortController | null>(null);
+  const streamThreadRef = useRef<string | null>(null);
+  const promptQueueRef = useRef<QueuedPrompt[]>([]);
   const migrationStarted = useRef(false);
   const workspace = navigationQuery.data || seed;
   const migration = trpc.workspace.migrate.useMutation({
@@ -235,6 +277,10 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   }, [modelSettingsQuery.isSuccess, modelSettingsQuery.data]);
 
   useEffect(() => {
+    return () => streamAbortRef.current?.abort();
+  }, []);
+
+  useEffect(() => {
     setActiveModel((current) => current && selectedModels.includes(current) ? current : selectedModels[0] || null);
   }, [selectedModels]);
 
@@ -243,6 +289,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const workspaceReady = navigationQuery.isSuccess && migrationSettled;
   const activeProject = workspace.projects.find((project) => project.id === activeThread?.projectId);
   const activeThreadSlug = activeThread?.chatSlug || (activeThread ? `chat-${activeThread.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}` : undefined);
+  const liveStreaming = streamingTurn?.threadId === activeThread?.id ? streamingTurn : null;
   const responsePending = createThreadMutation.isPending || appendMessagesMutation.isPending;
   const filteredThreads = useMemo(() => workspace.threads.filter((thread) => thread.title.toLowerCase().includes(query.toLowerCase())), [workspace.threads, query]);
   const profileInitials = profileName.slice(0, 2).toUpperCase();
@@ -296,30 +343,98 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     toast.success("Project removed; threads are still safe");
   }
 
+  function updatePromptQueue(next: QueuedPrompt[]) {
+    promptQueueRef.current = next;
+    setPromptQueue(next);
+  }
+
+  function queuePrompt(mode: "next" | "later") {
+    const content = draft.trim();
+    if (!content || !streamingTurn) return;
+    const item = { id: crypto.randomUUID(), content, mode } satisfies QueuedPrompt;
+    updatePromptQueue(mode === "next" ? [item, ...promptQueueRef.current] : [...promptQueueRef.current, item]);
+    setDraft("");
+    setQueueMenuOpen(false);
+    toast.success(mode === "next" ? "Prompt queued next" : "Prompt queued after the current work");
+  }
+
+  function stopStreaming() {
+    if (!streamAbortRef.current) return;
+    streamAbortRef.current.abort();
+    toast("Stopping the current response…");
+  }
+
+  async function runPrompt(content: string, targetThread: Thread) {
+    if (!activeModel) {
+      toast.error("Select a model in Settings before sending a prompt.");
+      return;
+    }
+    const controller = new AbortController();
+    streamAbortRef.current = controller;
+    streamThreadRef.current = targetThread.id;
+    setStreamingTurn({ threadId: targetThread.id, prompt: content, content: "", startedAt: new Date().toISOString() });
+    let streamedContent = "";
+    try {
+      const response = await fetch("/api/playground/stream", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+        body: JSON.stringify({ threadId: targetThread.id, model: activeModel, prompt: content, ...(targetThread.messages.length === 0 ? { title: content.slice(0, 42) } : {}) }),
+        signal: controller.signal,
+      });
+      await consumePlaygroundStream(response, controller.signal, (event) => {
+        if (event.type === "token") {
+          streamedContent += event.text || "";
+          setStreamingTurn((current) => current ? { ...current, content: streamedContent } : current);
+        }
+        if (event.type === "done" && typeof event.content === "string") {
+          streamedContent = event.content;
+          setStreamingTurn((current) => current ? { ...current, content: streamedContent } : current);
+        }
+        if (event.type === "error") throw new Error(event.message || "The model could not complete this response.");
+      });
+      if (!controller.signal.aborted && !streamedContent) toast("The model returned no text.");
+    } catch (error) {
+      if (!controller.signal.aborted) toast.error(error instanceof Error ? error.message : "The model could not complete this response.");
+    } finally {
+      if (streamAbortRef.current === controller) streamAbortRef.current = null;
+      if (streamThreadRef.current === targetThread.id) streamThreadRef.current = null;
+      setStreamingTurn(null);
+      void utils.workspace.navigation.invalidate();
+      void utils.workspace.chat.invalidate();
+      const next = promptQueueRef.current.shift();
+      setPromptQueue([...promptQueueRef.current]);
+      if (next) {
+        toast.success("Starting the next queued prompt");
+        window.setTimeout(() => void runPrompt(next.content, targetThread), 0);
+      } else if (!controller.signal.aborted && streamedContent) {
+        toast.success("Response ready");
+      }
+    }
+  }
+
   async function sendMessage() {
     const content = draft.trim();
-    if (!workspaceReady || !content || createThreadMutation.isPending || appendMessagesMutation.isPending) return;
+    if (!workspaceReady || !content || streamingTurn || createThreadMutation.isPending) return;
+    if (!activeModel) return toast.error("Select a model in Settings before sending a prompt.");
     try {
       const targetThread = activeThread || await createThreadMutation.mutateAsync({ projectId: pendingProjectId });
-      await appendMessagesMutation.mutateAsync({
-        threadId: targetThread.id,
-        messages: [
-          { role: "user", content },
-          { role: "assistant", content: "Your message is saved here. Start another thought whenever you’re ready." },
-        ],
-        ...(targetThread.messages.length === 0 ? { title: content.slice(0, 42) } : {}),
-      });
       setActiveThreadId(targetThread.id);
       setLocation(`/app/chat/${targetThread.chatSlug}`);
       setPendingProjectId(null);
       setDraft("");
+      await runPrompt(content, targetThread);
     } catch {
-      // Individual mutation error handlers provide the operator-facing feedback.
+      // The mutation's error handler provides operator-facing feedback.
     }
   }
 
   function handleComposerKey(event: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); }
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      if (streamingTurn) queuePrompt("next");
+      else void sendMessage();
+    }
   }
 
   function saveProviderSettings(afterSave?: () => void) {
@@ -396,7 +511,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="topbar-thread-copy"><div className="topbar-thread-title">{activeThread?.title || "New thread"}</div>{activeThreadSlug && <span className="topbar-thread-slug">{activeThreadSlug}</span>}</div></div><div className="topbar-right"><button className="icon-button settings-trigger" onClick={() => setSettingsOpen(true)} aria-label="Open settings" aria-haspopup="dialog" aria-expanded={settingsOpen}><Settings size={16} /></button></div></header>
         <div className="mobile-context-strip"><button className="mobile-context-button" onClick={() => setMobileNav(true)}><Menu size={15} /><span>Threads</span></button><div className="mobile-context-title"><strong>{activeThread?.title || "New thread"}</strong></div><button className="mobile-context-button" onClick={createThread} disabled={!workspaceReady || createThreadMutation.isPending}><Plus size={15} /><span>New</span></button></div><section className="conversation-area">
           <div className="conversation-heading">{activeThread && <div className="heading-actions"><button className="icon-button" onClick={() => { setThreadEditor(activeThread.id); setThreadName(activeThread.title); }} aria-label="Rename thread"><Pencil size={16} /></button><button className="icon-button danger-hover" onClick={() => deleteThread(activeThread.id)} aria-label="Delete thread"><Trash2 size={16} /></button></div>}</div>
-          {navigationQuery.isError || activeChatQuery.isError ? <div className="empty-thread"><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Workspace unavailable.</h2><p>Your saved data is unchanged. Check your connection and try again.</p><button className="empty-create-button" onClick={() => { void navigationQuery.refetch(); if (routeChatSlug) void activeChatQuery.refetch(); }}><ArrowUp size={14} /> Retry loading</button></div> : !workspaceReady || migration.isPending ? <AxolotlLoader label="LOADING YOUR WORKSPACE" /> : activeThread?.messages.length || responsePending ? <div className="message-stack">{activeThread?.messages.map((message, index) => <article className={`message ${message.role}`} key={message.id}><div className="message-meta"><span className={`role-mark ${message.role}`}>{message.role === "assistant" ? <img src={AXOLOTL_ICON} alt="" /> : "You"}</span><span>{message.role === "assistant" ? "Nexuss-Agent" : "You"}</span><span className="message-time">{formatDate(message.createdAt)}</span>{message.role === "assistant" && <button className="copy-button" onClick={() => { navigator.clipboard?.writeText(message.content); toast.success("Copied to clipboard"); }}><Copy size={13} /> Copy</button>}</div><div className="message-content"><MarkdownMessage content={message.content} /></div>{index < (activeThread?.messages.length || 0) - 1 && <div className="message-divider" />}</article>)}{responsePending && <ResponseSkeleton />}</div> : <div className="empty-thread"><div className="orbit-art axolotl-schematic" aria-hidden="true"><span className="axolotl-loop" /><span className="axolotl-eye axolotl-eye-one" /><span className="axolotl-eye axolotl-eye-two" /><span className="axolotl-gill axolotl-gill-one" /><span className="axolotl-gill axolotl-gill-two" /></div><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Start a thread.</h2><p>Give your work a place to begin.</p><button className="empty-create-button" onClick={createThread} disabled={createThreadMutation.isPending}><Plus size={14} /> New thread <ArrowUp size={13} /></button></div>}
+          {navigationQuery.isError || activeChatQuery.isError ? <div className="empty-thread"><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Workspace unavailable.</h2><p>Your saved data is unchanged. Check your connection and try again.</p><button className="empty-create-button" onClick={() => { void navigationQuery.refetch(); if (routeChatSlug) void activeChatQuery.refetch(); }}><ArrowUp size={14} /> Retry loading</button></div> : !workspaceReady || migration.isPending ? <AxolotlLoader label="LOADING YOUR WORKSPACE" /> : activeThread?.messages.length || responsePending || liveStreaming ? <div className="message-stack">{liveStreaming && <article className="message user live-prompt"><div className="message-meta"><span className="role-mark user">You</span><span>You</span><span className="message-time">{formatDate(liveStreaming.startedAt)}</span></div><div className="message-content"><MarkdownMessage content={liveStreaming.prompt} /></div><div className="message-divider" /></article>}{activeThread?.messages.map((message, index) => <article className={`message ${message.role}`} key={message.id}><div className="message-meta"><span className={`role-mark ${message.role}`}>{message.role === "assistant" ? <img src={AXOLOTL_ICON} alt="" /> : "You"}</span><span>{message.role === "assistant" ? "Nexuss-Agent" : "You"}</span><span className="message-time">{formatDate(message.createdAt)}</span>{message.role === "assistant" && <button className="copy-button" onClick={() => { navigator.clipboard?.writeText(message.content); toast.success("Copied to clipboard"); }}><Copy size={13} /> Copy</button>}</div><div className="message-content"><MarkdownMessage content={message.content} /></div>{index < (activeThread?.messages.length || 0) - 1 && <div className="message-divider" />}</article>)}{liveStreaming && <article className="message assistant live-response"><div className="message-meta"><span className="role-mark assistant"><img src={AXOLOTL_ICON} alt="" /></span><span>Nexuss-Agent</span><span className="message-time">LIVE</span></div><div className="message-content"><MarkdownMessage content={liveStreaming.content || "▍"} /></div></article>}{responsePending && <ResponseSkeleton />}</div> : <div className="empty-thread"><div className="orbit-art axolotl-schematic" aria-hidden="true"><span className="axolotl-loop" /><span className="axolotl-eye axolotl-eye-one" /><span className="axolotl-eye axolotl-eye-two" /><span className="axolotl-gill axolotl-gill-one" /><span className="axolotl-gill axolotl-gill-two" /></div><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Start a thread.</h2><p>Give your work a place to begin.</p><button className="empty-create-button" onClick={createThread} disabled={createThreadMutation.isPending}><Plus size={14} /> New thread <ArrowUp size={13} /></button></div>}
         </section>
         <div className="composer-wrap"><div className="composer" onClick={() => composerRef.current?.focus()}>
           <div className="composer-top">
@@ -406,13 +521,18 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
               {modelMenuOpen && <div className="composer-menu model-menu" role="menu">{selectedModels.map((model) => <button key={model} onClick={(event) => { event.stopPropagation(); setActiveModel(model); setModelMenuOpen(false); }}><Bot size={14} />{model}{activeModel === model && <Check size={13} />}</button>)}</div>}
             </div>
           </div>
-          <textarea ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleComposerKey} placeholder="Write your message…" rows={2} disabled={!workspaceReady || appendMessagesMutation.isPending || createThreadMutation.isPending} />
+          <textarea ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleComposerKey} placeholder={streamingTurn ? "Write a follow-up — it will wait for the current response" : "Write your message…"} rows={2} disabled={!workspaceReady || appendMessagesMutation.isPending || createThreadMutation.isPending} />
           <div className="composer-bottom">
             <div className="composer-menu-anchor composer-project-anchor">
               <button className="composer-picker project-picker" onClick={(event) => { event.stopPropagation(); setModelMenuOpen(false); setProjectMenuOpen(!projectMenuOpen); }} disabled={!workspaceReady || workspace.projects.length === 0} aria-label="Assign project" aria-expanded={projectMenuOpen}><Folder size={14} /><span>{activeProject?.name || workspace.projects.find((project) => project.id === pendingProjectId)?.name || "Assign project"}</span><ChevronDown size={13} /></button>
               {projectMenuOpen && <div className="composer-menu project-menu" role="menu"><button onClick={(event) => { event.stopPropagation(); chooseProject(null); }}>No project</button>{workspace.projects.map((project) => <button key={project.id} onClick={(event) => { event.stopPropagation(); chooseProject(project.id); }}><Folder size={14} />{project.name}{project.id === (activeThread?.projectId || pendingProjectId) && <Check size={13} />}</button>)}</div>}
             </div>
-            <button className="send-button" onClick={() => void sendMessage()} disabled={!workspaceReady || !draft.trim() || appendMessagesMutation.isPending || createThreadMutation.isPending} aria-label="Send message"><ArrowUp size={17} /></button>
+            {promptQueue.length > 0 && <button className="queue-count" onClick={(event) => { event.stopPropagation(); setQueueMenuOpen(!queueMenuOpen); }} aria-label={`${promptQueue.length} prompts queued`}><span>{promptQueue.length}</span> queued</button>}
+            <div className="composer-menu-anchor send-menu-anchor">
+              <button className={`send-button ${streamingTurn ? "stop-button" : ""}`} onClick={(event) => { event.stopPropagation(); if (streamingTurn) stopStreaming(); else void sendMessage(); }} disabled={streamingTurn ? false : !workspaceReady || !draft.trim() || appendMessagesMutation.isPending || createThreadMutation.isPending} aria-label={streamingTurn ? "Stop response" : "Send message"}>{streamingTurn ? <Square size={13} fill="currentColor" /> : <ArrowUp size={17} />}</button>
+              <button className="send-queue-toggle" onClick={(event) => { event.stopPropagation(); setQueueMenuOpen(!queueMenuOpen); }} aria-label="Queue send options" aria-expanded={queueMenuOpen}><ChevronDown size={11} /></button>
+              {queueMenuOpen && <div className="composer-menu queue-menu" role="menu"><button onClick={(event) => { event.stopPropagation(); streamingTurn ? queuePrompt("next") : void sendMessage(); }}>{streamingTurn ? "Send after this response" : "Send now"}</button><button onClick={(event) => { event.stopPropagation(); streamingTurn ? queuePrompt("later") : void sendMessage(); }}>{streamingTurn ? "Send after queued prompts" : "Send now"}</button>{promptQueue.length > 0 && <div className="queue-menu-summary">{promptQueue.length} prompt{promptQueue.length === 1 ? "" : "s"} waiting</div>}</div>}
+            </div>
           </div>
         </div></div><div className="mobile-bottom-bar"><button onClick={() => setMobileNav(true)}><Menu size={16} /><span>Threads</span></button><button onClick={() => { composerRef.current?.focus(); setProjectMenuOpen(true); }} disabled={!workspaceReady || workspace.projects.length === 0}><Folder size={16} /><span>{activeProject?.name || workspace.projects.find((project) => project.id === pendingProjectId)?.name || "Project"}</span></button><button onClick={() => composerRef.current?.focus()} disabled={!workspaceReady}><ArrowUp size={16} /><span>Write</span></button></div>
       </main>
