@@ -16,17 +16,15 @@ describe("playground model stream", () => {
     const tokens: string[] = [];
     const result = await readOpenAICompatibleStream(new Response(stream), new AbortController().signal, token => tokens.push(token));
     expect(tokens).toEqual(["Hello ", "world"]);
-    expect(result).toEqual({ content: "Hello world", stopped: true });
+    expect(result).toEqual({ content: "Hello world", stopped: false, finished: true });
   });
 
   it("marks a provider stream stopped when its AbortSignal is cancelled", async () => {
-    let release: (() => void) | undefined;
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(new TextEncoder().encode("data: {\"choices\":[{\"delta\":{\"content\":\"Partial\"}}]}\n\n"));
-        release = () => controller.close();
       },
-      cancel() { release?.(); },
+      cancel() {},
     });
     const controller = new AbortController();
     const resultPromise = readOpenAICompatibleStream(new Response(stream), controller.signal, () => undefined);

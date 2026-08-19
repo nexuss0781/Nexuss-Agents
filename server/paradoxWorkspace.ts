@@ -245,8 +245,8 @@ export async function saveModelProviderSettings(ownerId: string, input: { baseUr
   });
 }
 
-export type PlaygroundPrompt = { threadId: string; model: string; prompt: string; title?: string };
-export type PlaygroundStreamResult = { content: string; stopped: boolean };
+export type PlaygroundPrompt = { threadId: string; model: string; prompt: string; title?: string; stopNotice?: boolean };
+export type PlaygroundStreamResult = { content: string; stopped: boolean; finished: boolean };
 
 async function loadProviderForPlayground(ownerId: string, model: string) {
   return withWorkspaceDb(false, (db) => {
@@ -266,7 +266,7 @@ async function loadThreadMessagesForPlayground(ownerId: string, threadId: string
   });
 }
 
-function extractStreamText(payload: { choices?: Array<{ delta?: { content?: unknown }; message?: { content?: unknown } }> }) {
+function extractStreamText(payload: { choices?: Array<{ delta?: { content?: unknown }; message?: { content?: unknown }; finish_reason?: unknown }> }) {
   const content = payload.choices?.[0]?.delta?.content ?? payload.choices?.[0]?.message?.content;
   if (typeof content === "string") return content;
   if (Array.isArray(content)) return content.map((part) => typeof part === "string" ? part : (part && typeof part === "object" && "text" in part && typeof part.text === "string" ? part.text : "")).join("");
@@ -280,12 +280,15 @@ export async function readOpenAICompatibleStream(response: Response, signal: Abo
   let buffer = "";
   let content = "";
   let stopped = false;
+  let finished = false;
   const consume = (line: string) => {
     const data = line.startsWith("data:") ? line.slice(5).trim() : "";
     if (!data) return;
-    if (data === "[DONE]") { stopped = true; return; }
+    if (data === "[DONE]") { finished = true; return; }
     try {
-      const token = extractStreamText(JSON.parse(data) as { choices?: Array<{ delta?: { content?: unknown }; message?: { content?: unknown } }> });
+      const payload = JSON.parse(data) as { choices?: Array<{ delta?: { content?: unknown }; message?: { content?: unknown }; finish_reason?: unknown }> };
+      if (payload.choices?.[0]?.finish_reason) finished = true;
+      const token = extractStreamText(payload);
       if (token) { content += token; onToken(token); }
     } catch {
       // Ignore provider keep-alives and malformed non-content events.
@@ -308,7 +311,7 @@ export async function readOpenAICompatibleStream(response: Response, signal: Abo
     signal.removeEventListener("abort", cancelReader);
     await reader.cancel().catch(() => undefined);
   }
-  return { content, stopped };
+  return { content, stopped, finished };
 }
 
 export async function streamWorkspacePrompt(ownerId: string, input: PlaygroundPrompt, signal: AbortSignal, onToken: (token: string) => void): Promise<PlaygroundStreamResult> {
@@ -316,7 +319,11 @@ export async function streamWorkspacePrompt(ownerId: string, input: PlaygroundPr
   const history = await loadThreadMessagesForPlayground(ownerId, input.threadId);
   const title = history.length === 0 ? (input.title || input.prompt.slice(0, 42)) : undefined;
   await appendThreadMessages(ownerId, input.threadId, [{ role: "user", content: input.prompt }], title);
-  const messages = [...history, { role: "user" as const, content: input.prompt }];
+  const messages = [
+    ...(input.stopNotice ? [{ role: "system" as const, content: "The user stopped the previous task. Stop immediately, wait, and do not continue that task until the user provides a new request." }] : []),
+    ...history,
+    { role: "user" as const, content: input.prompt },
+  ];
   let response: Response;
   try {
     response = await fetch(`${normalizeProviderBaseUrl(provider.base_url)}/chat/completions`, {
@@ -326,7 +333,7 @@ export async function streamWorkspacePrompt(ownerId: string, input: PlaygroundPr
       signal,
     });
   } catch (error) {
-    if (signal.aborted) return { content: "", stopped: true };
+    if (signal.aborted)     return { content: "", stopped: true, finished: false };
     throw error;
   }
   if (!response.ok) {

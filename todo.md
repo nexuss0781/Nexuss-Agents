@@ -230,3 +230,11 @@
 - TypeScript validation, the frontend persistence/streaming suite, the isolated server SSE parser suite, production build, and diff hygiene checks pass.
 - Full server integration tests still require the deployment’s configured Paradox credentials and a live provider endpoint.
 - Live authenticated verification remains pending: select a saved model, send a prompt, confirm token-by-token output, test Send after this response and Send after queued prompts, then click Stop and verify the partial response persists after refresh.
+
+## Corrected Playground Interaction and Composer Visuals
+
+The playground now keeps the initial composer minimal: there is no queue chevron until a streaming response is active and the user has typed a follow-up. During streaming with an empty draft, the primary control is a red Stop button. Once a follow-up exists, it becomes Send with a separate chevron; the direct action queues the follow-up for the next provider completion, while the dropdown exposes only **Add to queue** for deferred execution.
+
+Duplicate live/persisted user and assistant turns are suppressed with timestamp-aware checks. Stop clears pending queue work when no new prompt is written and carries a transient hidden stop instruction into the next model request without persisting it in the visible conversation. The project selector now sits beside the model selector in the composer’s top row, and the model menu has an explicit Saved models header, left-to-right model-name rendering, and clearer active-state styling.
+
+Focused verification passes: TypeScript, 15 frontend/server streaming tests, production build, and diff hygiene. The local browser reached the authenticated login screen; live playground visual verification remains dependent on a signed-in workspace session.

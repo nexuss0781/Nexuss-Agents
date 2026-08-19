@@ -8,6 +8,7 @@ const streamInput = z.object({
   model: z.string().trim().min(1).max(256),
   prompt: z.string().trim().min(1).max(100_000),
   title: z.string().trim().min(1).max(240).optional(),
+  stopNotice: z.boolean().optional(),
 });
 
 type StreamEvent = { type: "start" | "token" | "done" | "error"; [key: string]: unknown };
@@ -54,7 +55,7 @@ export function registerPlaygroundStreamRoute(app: Express) {
       );
       settled = true;
       if (controller.signal.aborted || res.writableEnded) return;
-      sendEvent(res, { type: "done", stopped: result.stopped, content: result.content });
+      sendEvent(res, { type: "done", stopped: result.stopped, finished: result.finished, content: result.content });
       res.end();
     } catch {
       settled = true;

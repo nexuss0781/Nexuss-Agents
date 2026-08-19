@@ -232,7 +232,7 @@ describe("persistent workspace client", () => {
     expect(host.querySelector(".model-menu")).not.toBeNull();
 
     const projectPicker = host.querySelector<HTMLButtonElement>('button[aria-label="Assign project"]');
-    expect(projectPicker?.closest(".composer-bottom")).not.toBeNull();
+    expect(projectPicker?.closest(".composer-top")).not.toBeNull();
     await act(async () => { projectPicker?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
     expect(host.querySelector(".project-menu")).not.toBeNull();
     expect(host.querySelector(".project-menu")?.parentElement?.classList.contains("composer-project-anchor")).toBe(true);
@@ -352,9 +352,14 @@ describe("persistent workspace client", () => {
       await act(async () => { setValue?.call(composer, "First prompt"); composer.dispatchEvent(new Event("input", { bubbles: true })); });
       await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Send message"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
       await waitForSelector(host, 'button[aria-label="Stop response"]');
-      await act(async () => { setValue?.call(composer, "Follow-up prompt"); composer.dispatchEvent(new Event("input", { bubbles: true })); host.querySelector<HTMLButtonElement>('button[aria-label="Queue send options"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-      await waitForText(host, "Send after this response");
-      expect(host.textContent).toContain("Send after queued prompts");
+      await act(async () => { setValue?.call(composer, "Follow-up prompt"); composer.dispatchEvent(new Event("input", { bubbles: true })); });
+      await waitForSelector(host, 'button[aria-label="Add prompt to queue"]');
+      await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Add prompt to queue"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+      await waitForText(host, "Add to queue");
+      await act(async () => { Array.from(host.querySelectorAll<HTMLButtonElement>(".queue-menu button")).find((button) => button.textContent?.includes("Add to queue"))?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+      await waitForSelector(host, 'button[aria-label="1 prompts queued"]');
+      expect(composer.value).toBe("");
+      expect(host.querySelector('button[aria-label="Queue send options"]')).toBeNull();
       await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Stop response"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
       expect(requestSignal?.aborted).toBe(true);
     } finally {
