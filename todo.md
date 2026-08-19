@@ -254,3 +254,10 @@ Focused verification passes: TypeScript, 15 frontend/server streaming tests, pro
 The playground stream now returns a safe request ID, provider error code, HTTP status, and bounded redacted diagnostic for failed model requests. `big-pickle` failures such as an unselected model, missing key, provider HTTP rejection, invalid endpoint, and transport error are classified in the server console and surfaced in the browser console without exposing prompts or credentials. The visible UI remains concise and non-disruptive.
 
 Focused TypeScript and streaming/error tests pass. The remaining release action is the production build and push of the diagnostic contract.
+
+## OpenRouter Free-Model Documentation
+
+- [x] Created `AI-Models/Openrouter.md` from the supplied OpenRouter catalog.
+- [x] Organized the reference into catalog, reasoning, coding, multimodal, retrieval, and operational modules.
+- [x] Documented 15 free-model entries, one adjacent paid reranker, routing recommendations, capability negotiation, privacy/licensing caveats, and streaming/error-handling guidance.
+- [x] Validated 15 free inventory rows, modular headings, reference metadata, and `git diff --check`.
