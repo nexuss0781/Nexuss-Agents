@@ -141,6 +141,15 @@ async function openFreshWorkspaceDb() {
   db.execute("CREATE TABLE IF NOT EXISTS workspace_imports (owner_id TEXT PRIMARY KEY, imported_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_model_providers (owner_id TEXT PRIMARY KEY, base_url TEXT NOT NULL, api_key TEXT NOT NULL, selected_models_json TEXT NOT NULL, available_models_json TEXT NOT NULL DEFAULT '[]', updated_at TEXT NOT NULL)");
   try { db.execute("ALTER TABLE workspace_model_providers ADD COLUMN available_models_json TEXT NOT NULL DEFAULT '[]'"); } catch { /* Existing encrypted workspaces already have the catalog column. */ }
+  db.execute("CREATE TABLE IF NOT EXISTS workspace_missions (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, project_id TEXT, parent_mission_id TEXT, mission_type TEXT NOT NULL, goal TEXT NOT NULL, contract_json TEXT NOT NULL, status TEXT NOT NULL, budget_json TEXT NOT NULL, version INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, started_at TEXT, finished_at TEXT)");
+  db.execute("CREATE TABLE IF NOT EXISTS workspace_mission_work_items (id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, owner_id TEXT NOT NULL, parent_work_item_id TEXT, title TEXT NOT NULL, description TEXT NOT NULL, role TEXT NOT NULL, status TEXT NOT NULL, dependencies_json TEXT NOT NULL, acceptance_criteria_json TEXT NOT NULL, input_json TEXT NOT NULL, output_json TEXT, attempt INTEGER NOT NULL, version INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
+  db.execute("CREATE TABLE IF NOT EXISTS workspace_mission_checkpoints (id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, owner_id TEXT NOT NULL, version INTEGER NOT NULL, status TEXT NOT NULL, state_json TEXT NOT NULL, next_action TEXT, created_at TEXT NOT NULL)");
+  db.execute("CREATE TABLE IF NOT EXISTS workspace_mission_events (id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, owner_id TEXT NOT NULL, work_item_id TEXT, sequence INTEGER NOT NULL, type TEXT NOT NULL, actor TEXT NOT NULL, payload_json TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(mission_id, sequence))");
+  db.execute("CREATE INDEX IF NOT EXISTS workspace_missions_owner_updated ON workspace_missions(owner_id, updated_at DESC)");
+  db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_work_items_mission_status ON workspace_mission_work_items(mission_id, status, updated_at ASC)");
+  db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_checkpoints_mission_version ON workspace_mission_checkpoints(mission_id, version DESC)");
+  db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_events_mission_sequence ON workspace_mission_events(mission_id, sequence ASC)");
+  db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_events_owner_created ON workspace_mission_events(owner_id, created_at DESC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_threads_owner_updated ON workspace_threads(owner_id, updated_at DESC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_messages_thread_created ON workspace_messages(thread_id, created_at ASC)");
   try { db.execute("ALTER TABLE workspace_threads ADD COLUMN chat_slug TEXT"); } catch { /* Existing encrypted workspaces already have the column. */ }
@@ -168,7 +177,7 @@ function checkpointLocalSnapshot(db: Db) {
   engine.checkpoint();
 }
 
-async function withWorkspaceDb<T>(write: boolean, action: (db: Db) => Promise<T> | T) {
+export async function withWorkspaceDb<T>(write: boolean, action: (db: Db) => Promise<T> | T) {
   let release: (() => void) | undefined;
   const previous = workspaceOperationTail;
   workspaceOperationTail = new Promise<void>((resolve) => { release = resolve; });
