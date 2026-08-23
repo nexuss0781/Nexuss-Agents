@@ -269,3 +269,13 @@ Focused TypeScript and streaming/error tests pass. The remaining release action 
 - [x] Defined recursive decomposition, evidence-backed completion, bounded autonomy, failure recovery, and durable mission state.
 - [x] Defined the experience-to-memory-to-skill-to-shortcut promotion pipeline with domain and subdomain classification.
 - [x] Created `docs/Nexuss-AGI-Builder-Workflow.md` with the end-to-end workflow, platform primitives, roadmap, and system-prompt principle.
+
+
+## Phase 3 — Server-Owned Mission Runner
+
+- [x] Added durable mission leases with expiry, heartbeat, ownership, and release semantics.
+- [x] Implemented server-owned lifecycle progression, dependency-aware work-item claiming, sequential execution, cancellation cleanup, and lease cleanup.
+- [x] Added guarded queue, pause, resume, stop, retry, and recovery commands.
+- [x] Exposed authenticated mission create/get/list/start/pause/resume/stop/retry/recover tRPC procedures with concise conflict errors.
+- [x] Added deterministic runner regression coverage for lifecycle completion, concurrent-start deduplication, and cancellation.
+- [x] TypeScript, runner/constitution tests, production build, and diff hygiene pass. Paradox-backed integration tests remain deployment-credential dependent.

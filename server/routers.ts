@@ -20,6 +20,8 @@ import {
   ModelProviderError,
   WorkspaceAccessError,
 } from "./paradoxWorkspace";
+import { createMission, getMission, listMissions } from "./mission/store";
+import { pauseMission, queueMission, recoverMissions, resumeMission, retryMission, stopMission } from "./mission/commands";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
@@ -42,6 +44,16 @@ function workspaceFailure(error: unknown): never {
   if (error instanceof WorkspaceAccessError) throw new TRPCError({ code: "NOT_FOUND", message: error.message });
   if (error instanceof ModelProviderError) throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
   throw error;
+}
+
+function missionFailure(error: unknown): never {
+  if (error instanceof WorkspaceAccessError) throw new TRPCError({ code: "NOT_FOUND", message: error.message });
+  if (error instanceof Error && /conflict|cannot be|not configured|not claimable|leased by|lease is/i.test(error.message)) throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
+  throw error;
+}
+
+async function missionCall<T>(action: () => Promise<T>) {
+  try { return await action(); } catch (error) { return missionFailure(error); }
 }
 
 export const appRouter = router({
@@ -98,6 +110,17 @@ export const appRouter = router({
       try { return await discoverModelProviderModels(await workspaceOwner(ctx)); } catch (error) { return workspaceFailure(error); }
     }),
     migrate: publicProcedure.input(legacyWorkspaceInput).mutation(async ({ ctx, input }) => migrateWorkspace(await workspaceOwner(ctx), input)),
+    mission: router({
+      create: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128).nullable().optional(), parentMissionId: z.string().min(1).max(128).nullable().optional(), goal: z.string().trim().min(1).max(100_000), contract: z.object({ deliverables: z.array(z.string().trim().min(1).max(500)).max(100).optional(), acceptanceCriteria: z.array(z.object({ id: z.string().trim().min(1).max(128), description: z.string().trim().min(1).max(2_000), verification: z.enum(["automated", "runtime", "visual", "manual", "mixed"]), required: z.boolean() })).max(100), constraints: z.array(z.string().trim().min(1).max(2_000)).max(100).optional(), assumptions: z.array(z.string().trim().min(1).max(2_000)).max(100).optional(), projectScope: z.record(z.string(), z.unknown()).optional(), riskLevel: z.enum(["low", "medium", "high", "critical"]).optional(), autonomyPolicy: z.record(z.string(), z.unknown()).optional(), executionBudget: z.record(z.string(), z.unknown()).optional(), completionPolicy: z.array(z.string().trim().min(1).max(2_000)).max(100).optional() }), budget: z.object({ maxDepth: z.number().int().min(1).max(10), maxChildWorkItems: z.number().int().min(1).max(1_000), maxAgentAttempts: z.number().int().min(1).max(20), maxToolCalls: z.number().int().min(1).max(10_000), maxModelTokens: z.number().int().min(1_000).max(10_000_000), maxDurationSeconds: z.number().int().min(1).max(86_400) }).optional() })).mutation(async ({ ctx, input }) => missionCall(async () => createMission(await workspaceOwner(ctx), input))),
+      get: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).query(async ({ ctx, input }) => missionCall(async () => getMission(await workspaceOwner(ctx), input.missionId))),
+      list: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128).optional() }).optional()).query(async ({ ctx, input }) => missionCall(async () => listMissions(await workspaceOwner(ctx), input?.projectId))),
+      start: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).mutation(async ({ ctx, input }) => missionCall(async () => queueMission(await workspaceOwner(ctx), input.missionId))),
+      pause: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).mutation(async ({ ctx, input }) => missionCall(async () => pauseMission(await workspaceOwner(ctx), input.missionId))),
+      resume: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).mutation(async ({ ctx, input }) => missionCall(async () => resumeMission(await workspaceOwner(ctx), input.missionId))),
+      stop: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).mutation(async ({ ctx, input }) => missionCall(async () => stopMission(await workspaceOwner(ctx), input.missionId))),
+      retry: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).mutation(async ({ ctx, input }) => missionCall(async () => retryMission(await workspaceOwner(ctx), input.missionId))),
+      recover: publicProcedure.mutation(async ({ ctx }) => missionCall(async () => recoverMissions(await workspaceOwner(ctx)))),
+    }),
   }),
 
   // TODO: add feature routers here, e.g.

@@ -20,7 +20,7 @@ type MissionContractInput = {
   projectScope?: Record<string, unknown>;
   riskLevel?: MissionRisk;
   autonomyPolicy?: Record<string, unknown>;
-  executionBudget?: MissionBudget;
+  executionBudget?: Partial<MissionBudget>;
   completionPolicy?: string[];
 };
 
@@ -374,5 +374,83 @@ export async function appendMissionEvent(ownerId: string, missionId: string, inp
       if (!item) throw new WorkspaceAccessError("Work item not found");
     }
     return insertMissionEvent(db, ownerId, missionId, input);
+  });
+}
+
+export type MissionLease = {
+  workItemId: string;
+  missionId: string;
+  ownerId: string;
+  workerId: string;
+  attempt: number;
+  expiresAt: string;
+  heartbeatAt: string;
+  createdAt: string;
+};
+
+const LEASE_DURATION_MS = 30_000;
+
+function readLease(row: {
+  work_item_id: string;
+  mission_id: string;
+  owner_id: string;
+  worker_id: string;
+  attempt: number;
+  expires_at: string;
+  heartbeat_at: string;
+  created_at: string;
+}): MissionLease {
+  return {
+    workItemId: row.work_item_id,
+    missionId: row.mission_id,
+    ownerId: row.owner_id,
+    workerId: row.worker_id,
+    attempt: row.attempt,
+    expiresAt: row.expires_at,
+    heartbeatAt: row.heartbeat_at,
+    createdAt: row.created_at,
+  };
+}
+
+export async function claimWorkItem(ownerId: string, workItemId: string, workerId: string, expectedVersion: number): Promise<{ workItem: MissionWorkItem; lease: MissionLease }> {
+  return withWorkspaceDb(true, (db) => {
+    const current = rows<Parameters<typeof readWorkItem>[0]>(db.execute("SELECT id, mission_id, owner_id, parent_work_item_id, title, description, role, status, dependencies_json, acceptance_criteria_json, input_json, output_json, attempt, version, created_at, updated_at FROM workspace_mission_work_items WHERE id = ? AND owner_id = ? LIMIT 1", [workItemId, ownerId]))[0];
+    if (!current) throw new WorkspaceAccessError("Work item not found");
+    if (current.version !== expectedVersion) throw new Error(`Work-item version conflict: expected ${expectedVersion}, found ${current.version}`);
+    if (!["pending", "ready", "repairing"].includes(current.status)) throw new Error(`Work item is not claimable from status ${current.status}`);
+    const nowDate = new Date();
+    const nowIso = nowDate.toISOString();
+    db.execute("DELETE FROM workspace_mission_leases WHERE work_item_id = ? AND expires_at <= ?", [workItemId, nowIso]);
+    const activeLease = rows<{ worker_id: string; expires_at: string }>(db.execute("SELECT worker_id, expires_at FROM workspace_mission_leases WHERE work_item_id = ? LIMIT 1", [workItemId]))[0];
+    if (activeLease) throw new Error(`Work item is leased by worker ${activeLease.worker_id} until ${activeLease.expires_at}`);
+    const nextAttempt = current.attempt + 1;
+    const nextVersion = current.version + 1;
+    const expiresAt = new Date(nowDate.getTime() + LEASE_DURATION_MS).toISOString();
+    const result = db.execute("UPDATE workspace_mission_work_items SET status = ?, attempt = ?, version = ?, updated_at = ? WHERE id = ? AND owner_id = ? AND version = ?", ["claimed", nextAttempt, nextVersion, nowIso, workItemId, ownerId, expectedVersion]);
+    if (!result.changes) throw new Error("Work-item claim was lost to a concurrent update");
+    db.execute("INSERT INTO workspace_mission_leases (work_item_id, mission_id, owner_id, worker_id, attempt, expires_at, heartbeat_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [workItemId, current.mission_id, ownerId, workerId, nextAttempt, expiresAt, nowIso, nowIso]);
+    insertMissionEvent(db, ownerId, current.mission_id, { type: "work_item.claimed", actor: workerId, workItemId, payload: { attempt: nextAttempt, expiresAt } }, nowIso);
+    const updated = rows<Parameters<typeof readWorkItem>[0]>(db.execute("SELECT id, mission_id, owner_id, parent_work_item_id, title, description, role, status, dependencies_json, acceptance_criteria_json, input_json, output_json, attempt, version, created_at, updated_at FROM workspace_mission_work_items WHERE id = ? AND owner_id = ?", [workItemId, ownerId]))[0];
+    const lease = rows<Parameters<typeof readLease>[0]>(db.execute("SELECT work_item_id, mission_id, owner_id, worker_id, attempt, expires_at, heartbeat_at, created_at FROM workspace_mission_leases WHERE work_item_id = ?", [workItemId]))[0];
+    return { workItem: readWorkItem(updated), lease: readLease(lease) };
+  });
+}
+
+export async function heartbeatWorkItemLease(ownerId: string, workItemId: string, workerId: string): Promise<MissionLease> {
+  return withWorkspaceDb(true, (db) => {
+    const nowDate = new Date();
+    const nowIso = nowDate.toISOString();
+    const expiresAt = new Date(nowDate.getTime() + LEASE_DURATION_MS).toISOString();
+    const result = db.execute("UPDATE workspace_mission_leases SET expires_at = ?, heartbeat_at = ? WHERE work_item_id = ? AND owner_id = ? AND worker_id = ? AND expires_at > ?", [expiresAt, nowIso, workItemId, ownerId, workerId, nowIso]);
+    if (!result.changes) throw new Error("Work-item lease is missing, expired, or owned by another worker");
+    return readLease(rows<Parameters<typeof readLease>[0]>(db.execute("SELECT work_item_id, mission_id, owner_id, worker_id, attempt, expires_at, heartbeat_at, created_at FROM workspace_mission_leases WHERE work_item_id = ? AND owner_id = ? AND worker_id = ?", [workItemId, ownerId, workerId]))[0]);
+  });
+}
+
+export async function releaseWorkItemLease(ownerId: string, workItemId: string, workerId: string) {
+  return withWorkspaceDb(true, (db) => {
+    const result = db.execute("DELETE FROM workspace_mission_leases WHERE work_item_id = ? AND owner_id = ? AND worker_id = ?", [workItemId, ownerId, workerId]);
+    if (!result.changes) throw new Error("Work-item lease is missing or owned by another worker");
+    return { workItemId, released: true as const };
   });
 }
