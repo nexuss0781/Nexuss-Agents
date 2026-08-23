@@ -9,6 +9,12 @@ import { registerPlaygroundStreamRoute } from "../playgroundStream";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { missionRunner } from "../mission/runner";
+import { planRepositoryChange } from "../mission/orchestrator";
+import { createRepositoryChangeExecutor } from "../mission/repositoryChangeExecutor";
+
+missionRunner.configureOrchestrator(planRepositoryChange);
+missionRunner.configureExecutor(createRepositoryChangeExecutor());
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {

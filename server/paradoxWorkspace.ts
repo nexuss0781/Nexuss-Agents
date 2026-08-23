@@ -511,3 +511,27 @@ export async function migrateWorkspace(ownerId: string, workspace: LegacyWorkspa
     return { imported: true };
   });
 }
+
+export type WorkspaceModelMessage = { role: "system" | "user" | "assistant" | "tool"; content: string };
+export type WorkspaceModelPrompt = { model: string; messages: WorkspaceModelMessage[] };
+
+export async function streamWorkspaceModel(ownerId: string, input: WorkspaceModelPrompt, signal: AbortSignal, onToken: (token: string) => void = () => {}): Promise<PlaygroundStreamResult> {
+  const provider = await loadProviderForPlayground(ownerId, input.model);
+  let response: Response;
+  try {
+    response = await fetch(`${normalizeProviderBaseUrl(provider.base_url)}/chat/completions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${provider.api_key}`, Accept: "text/event-stream", "Content-Type": "application/json" },
+      body: JSON.stringify({ model: input.model, messages: input.messages, stream: true }),
+      signal,
+    });
+  } catch (error) {
+    if (signal.aborted) return { content: "", stopped: true, finished: false };
+    throw error;
+  }
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new ModelProviderError(`The model API rejected the request: ${response.status} — ${providerErrorDetail(detail)}`, { code: "PROVIDER_HTTP_ERROR", status: response.status });
+  }
+  return readOpenAICompatibleStream(response, signal, onToken);
+}

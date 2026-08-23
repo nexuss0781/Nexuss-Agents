@@ -279,3 +279,13 @@ Focused TypeScript and streaming/error tests pass. The remaining release action 
 - [x] Exposed authenticated mission create/get/list/start/pause/resume/stop/retry/recover tRPC procedures with concise conflict errors.
 - [x] Added deterministic runner regression coverage for lifecycle completion, concurrent-start deduplication, and cancellation.
 - [x] TypeScript, runner/constitution tests, production build, and diff hygiene pass. Paradox-backed integration tests remain deployment-credential dependent.
+
+## Phase 4 — Principal Orchestrator and Bounded Repository Executor
+
+- [x] Added a typed normalized mission-event facade for orchestration, executor, quality-gate, evidence, and runner events with recursive prohibited-field protection.
+- [x] Added the principal orchestrator with structured JSON plan normalization, dependency-aware durable work-graph creation, independent quality-gate insertion, and deterministic fallback planning.
+- [x] Added the bounded repository harness with repository-root path confinement, secret-file restrictions, bounded file reads/writes, allowlisted `pnpm`/`npm`/`yarn` verification scripts and safe Git inspection, cancellation, timeout, and bounded output capture.
+- [x] Added the first Autonomous Repository Change executor with server-only encrypted model access, redacted model context, bounded complete-file writes, evidence counts, quality-gate execution, and typed failure classifications.
+- [x] Wired the principal orchestrator and repository executor at server bootstrap; retry paths reuse existing durable work graphs instead of duplicating plans.
+- [x] Added orchestrator, harness, redaction, and runner regression coverage; focused tests and TypeScript validation pass.
+- [ ] Live authenticated Render verification remains required for a real provider-backed mission, including deployment process-lifetime behavior and Paradox-backed event/work-item persistence.

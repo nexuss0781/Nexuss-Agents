@@ -12,6 +12,7 @@ import {
 import type { MissionStatus } from "./constitution";
 
 export type MissionExecutionContext = {
+  ownerId: string;
   workerId: string;
   mission: MissionSnapshot;
   signal: AbortSignal;
@@ -20,6 +21,7 @@ export type MissionExecutionContext = {
 
 export type MissionExecutionResult = {
   verified: boolean;
+  continueMission?: boolean;
   summary: string;
   failureClass?: string;
   nextAction?: string;
@@ -27,6 +29,7 @@ export type MissionExecutionResult = {
 };
 
 export type MissionExecutor = (context: MissionExecutionContext) => Promise<MissionExecutionResult>;
+export type MissionOrchestrator = (ownerId: string, missionId: string, signal: AbortSignal) => Promise<{ workItems: unknown[]; summary: string }>;
 
 export class MissionRunnerError extends Error {
   readonly code: string;
@@ -49,10 +52,15 @@ function claimable(item: MissionWorkItem, workItems: MissionWorkItem[]) {
 
 class ServerMissionRunner {
   private executor: MissionExecutor | undefined;
+  private orchestrator: MissionOrchestrator | undefined;
   private readonly active = new Map<string, { ownerId: string; controller: AbortController; promise: Promise<void> }>();
 
   configureExecutor(executor: MissionExecutor | undefined) {
     this.executor = executor;
+  }
+
+  configureOrchestrator(orchestrator: MissionOrchestrator | undefined) {
+    this.orchestrator = orchestrator;
   }
 
   isRunning(missionId: string) {
@@ -92,7 +100,9 @@ class ServerMissionRunner {
       }
       if (controller.signal.aborted) return;
       if (snapshot.mission.status === "planning") {
-        snapshot = { ...snapshot, mission: await transitionMission(ownerId, missionId, "planning", "planned", snapshot.mission.version, workerId, { workerId }) };
+        const needsPlan = snapshot.workItems.length === 0;
+        if (needsPlan && this.orchestrator) await this.orchestrator(ownerId, missionId, controller.signal);
+        snapshot = { ...snapshot, mission: await transitionMission(ownerId, missionId, "planning", "planned", snapshot.mission.version, workerId, { workerId, orchestrated: Boolean(needsPlan && this.orchestrator), reusedWorkGraph: !needsPlan }) };
       }
       if (controller.signal.aborted) return;
       if (snapshot.mission.status === "planned" || snapshot.mission.status === "repairing") {
@@ -120,7 +130,7 @@ class ServerMissionRunner {
             heartbeatTimer.unref?.();
           }
 
-          const result = await this.executor({ workerId, mission: executionSnapshot, signal: controller.signal, activeWorkItem: claimedWorkItem?.workItem });
+          const result = await this.executor({ ownerId, workerId, mission: executionSnapshot, signal: controller.signal, activeWorkItem: claimedWorkItem?.workItem });
           if (controller.signal.aborted) return;
           if (claimedWorkItem) {
             claimedWorkItem.workItem = await updateWorkItem(ownerId, claimedWorkItem.workItem.id, {
@@ -132,6 +142,10 @@ class ServerMissionRunner {
 
           const latest = await getMission(ownerId, missionId);
           const unresolved = latest.workItems.filter((item) => !["completed", "cancelled"].includes(item.status));
+          if (result.continueMission) {
+            if (latest.workItems.length <= executionSnapshot.workItems.length) throw new MissionRunnerError("Executor reported progress without creating new work", "MISSION_EXECUTOR_NO_PROGRESS");
+            continue;
+          }
           if (!result.verified) {
             const verifying = await transitionMission(ownerId, missionId, "executing", "verifying", latest.mission.version, workerId, { summary: result.summary, artifactIds: result.artifactIds || [] });
             await transitionMission(ownerId, missionId, "verifying", "repairing", verifying.version, workerId, { failureClass: result.failureClass || "QUALITY_GATE_FAILED", summary: result.summary, nextAction: result.nextAction || "repair failed work" });

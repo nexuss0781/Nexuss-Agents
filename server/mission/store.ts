@@ -13,6 +13,7 @@ import { WorkspaceAccessError, withWorkspaceDb } from "../paradoxWorkspace";
 type Db = Parameters<Parameters<typeof withWorkspaceDb>[1]>[0];
 
 type MissionContractInput = {
+  model?: string;
   deliverables?: string[];
   acceptanceCriteria: AcceptanceCriterion[];
   constraints?: string[];
@@ -117,7 +118,16 @@ function json(value: unknown) { return JSON.stringify(value); }
 function assertSafeEventPayload(payload: Record<string, unknown>) {
   const serialized = JSON.stringify(payload);
   if (serialized.length > 32_000) throw new Error("Mission event payload exceeds the 32KB safety limit");
-  if (/(api[_-]?key|authorization|cookie|passphrase|password|secret|token)/i.test(serialized)) throw new Error("Mission event payload contains a prohibited secret field");
+  const prohibited = /(api[_-]?key|authorization|cookie|passphrase|password|secret|token)/i;
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) { value.forEach(visit); return; }
+    if (!value || typeof value !== "object") return;
+    for (const [key, nested] of Object.entries(value)) {
+      if (prohibited.test(key)) throw new Error("Mission event payload contains a prohibited secret field");
+      visit(nested);
+    }
+  };
+  visit(payload);
 }
 
 function nextEventSequence(db: Db, missionId: string, ownerId: string) {
