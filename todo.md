@@ -261,3 +261,11 @@ Focused TypeScript and streaming/error tests pass. The remaining release action 
 - [x] Organized the reference into catalog, reasoning, coding, multimodal, retrieval, and operational modules.
 - [x] Documented 15 free-model entries, one adjacent paid reranker, routing recommendations, capability negotiation, privacy/licensing caveats, and streaming/error-handling guidance.
 - [x] Validated 15 free inventory rows, modular headings, reference metadata, and `git diff --check`.
+
+## Autonomous Builder Platform Blueprint
+
+- [x] Defined Nexuss-Agent as a persistent autonomous-builder operating system rather than a research mode, WebDev mode, or assistant clone.
+- [x] Specified the hierarchical principal-orchestrator, sub-orchestrator, specialist, harness, tool, and independent-quality-agent workflow.
+- [x] Defined recursive decomposition, evidence-backed completion, bounded autonomy, failure recovery, and durable mission state.
+- [x] Defined the experience-to-memory-to-skill-to-shortcut promotion pipeline with domain and subdomain classification.
+- [x] Created `docs/Nexuss-AGI-Builder-Workflow.md` with the end-to-end workflow, platform primitives, roadmap, and system-prompt principle.
