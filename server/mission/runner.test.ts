@@ -9,6 +9,9 @@ const store = vi.hoisted(() => ({
   updateWorkItem: vi.fn(),
   releaseWorkItemLease: vi.fn(),
   heartbeatWorkItemLease: vi.fn(),
+  listLearningCandidates: vi.fn(),
+  listMissionArtifacts: vi.fn(),
+  createLearningCandidate: vi.fn(),
 }));
 
 vi.mock("./store", () => store);
@@ -40,6 +43,12 @@ describe("server mission runner", () => {
     store.updateWorkItem.mockReset();
     store.releaseWorkItemLease.mockReset();
     store.heartbeatWorkItemLease.mockReset();
+    store.listLearningCandidates.mockReset();
+    store.listMissionArtifacts.mockReset();
+    store.createLearningCandidate.mockReset();
+    store.listLearningCandidates.mockResolvedValue([]);
+    store.listMissionArtifacts.mockResolvedValue([]);
+    store.createLearningCandidate.mockImplementation(async (_owner: string, _mission: string, input: Record<string, unknown>) => ({ id: `candidate-${String(input.candidateType)}`, ...input }));
     missionRunner.configureExecutor(undefined);
     missionRunner.configureOrchestrator(undefined);
   });

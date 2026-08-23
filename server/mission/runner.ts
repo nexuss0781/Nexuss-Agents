@@ -10,6 +10,7 @@ import {
   type MissionWorkItem,
 } from "./store";
 import type { MissionStatus } from "./constitution";
+import { extractMissionLearningCandidates } from "./learning";
 
 export type MissionExecutionContext = {
   ownerId: string;
@@ -154,6 +155,7 @@ class ServerMissionRunner {
           if (unresolved.length === 0) {
             const verifying = await transitionMission(ownerId, missionId, "executing", "verifying", latest.mission.version, workerId, { summary: result.summary, artifactIds: result.artifactIds || [] });
             await transitionMission(ownerId, missionId, "verifying", "completed", verifying.version, workerId, { summary: result.summary, artifactIds: result.artifactIds || [] });
+            await extractMissionLearningCandidates(ownerId, missionId).catch((error) => console.error("[MissionRunner] learning candidate extraction failed", { missionId, error: error instanceof Error ? error.message : String(error) }));
             return;
           }
           if (unresolved.some((item) => item.status === "failed")) {
@@ -184,6 +186,7 @@ class ServerMissionRunner {
         const current = await getMission(ownerId, missionId);
         if (["executing", "planning", "planned", "repairing"].includes(current.mission.status)) {
           await transitionMission(ownerId, missionId, current.mission.status, "failed", current.mission.version, workerId, { code: error instanceof MissionRunnerError ? error.code : "MISSION_EXECUTION_FAILED" });
+          await extractMissionLearningCandidates(ownerId, missionId).catch((learningError) => console.error("[MissionRunner] failed-mission learning extraction failed", { missionId, error: learningError instanceof Error ? learningError.message : String(learningError) }));
         }
       } catch (transitionError) {
         console.error("[MissionRunner] failed to persist terminal error", { missionId, error: transitionError instanceof Error ? transitionError.message : String(transitionError) });

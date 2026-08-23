@@ -146,8 +146,14 @@ async function openFreshWorkspaceDb() {
   db.execute("CREATE TABLE IF NOT EXISTS workspace_mission_checkpoints (id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, owner_id TEXT NOT NULL, version INTEGER NOT NULL, status TEXT NOT NULL, state_json TEXT NOT NULL, next_action TEXT, created_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_mission_events (id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, owner_id TEXT NOT NULL, work_item_id TEXT, sequence INTEGER NOT NULL, type TEXT NOT NULL, actor TEXT NOT NULL, payload_json TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(mission_id, sequence))");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_mission_leases (work_item_id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, owner_id TEXT NOT NULL, worker_id TEXT NOT NULL, attempt INTEGER NOT NULL, expires_at TEXT NOT NULL, heartbeat_at TEXT NOT NULL, created_at TEXT NOT NULL)");
+  db.execute("CREATE TABLE IF NOT EXISTS workspace_mission_artifacts (id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, owner_id TEXT NOT NULL, work_item_id TEXT, kind TEXT NOT NULL, locator TEXT NOT NULL, summary TEXT NOT NULL, metadata_json TEXT NOT NULL, created_at TEXT NOT NULL)");
+  db.execute("CREATE TABLE IF NOT EXISTS workspace_mission_learning_candidates (id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, owner_id TEXT NOT NULL, candidate_type TEXT NOT NULL, domain TEXT NOT NULL, title TEXT NOT NULL, content_json TEXT NOT NULL, confidence REAL NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL)");
+  db.execute("CREATE TABLE IF NOT EXISTS workspace_mission_replays (id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, owner_id TEXT NOT NULL, candidate_id TEXT, status TEXT NOT NULL, evidence_json TEXT NOT NULL, created_at TEXT NOT NULL)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_leases_mission ON workspace_mission_leases(mission_id, expires_at ASC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_leases_owner ON workspace_mission_leases(owner_id, expires_at ASC)");
+  db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_artifacts_mission_created ON workspace_mission_artifacts(mission_id, created_at ASC)");
+  db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_learning_mission_status ON workspace_mission_learning_candidates(mission_id, status, created_at ASC)");
+  db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_replays_mission_created ON workspace_mission_replays(mission_id, created_at ASC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_missions_owner_updated ON workspace_missions(owner_id, updated_at DESC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_work_items_mission_status ON workspace_mission_work_items(mission_id, status, updated_at ASC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_checkpoints_mission_version ON workspace_mission_checkpoints(mission_id, version DESC)");

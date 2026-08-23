@@ -12,8 +12,11 @@ export const MISSION_EVENT_TYPES = [
   "quality_gate.started",
   "quality_gate.completed",
   "evidence.recorded",
+  "knowledge.candidate_created",
+  "knowledge.replay_completed",
   "work_item.blocked",
   "runner.error",
+  "runner.recovery_started",
 ] as const;
 
 export type MissionEventType = typeof MISSION_EVENT_TYPES[number];

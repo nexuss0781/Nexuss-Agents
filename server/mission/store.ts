@@ -464,3 +464,110 @@ export async function releaseWorkItemLease(ownerId: string, workItemId: string, 
     return { workItemId, released: true as const };
   });
 }
+
+export type MissionArtifact = {
+  id: string;
+  missionId: string;
+  ownerId: string;
+  workItemId?: string;
+  kind: string;
+  locator: string;
+  summary: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type MissionLearningCandidate = {
+  id: string;
+  missionId: string;
+  ownerId: string;
+  candidateType: "experience" | "memory" | "skill" | "shortcut";
+  domain: string;
+  title: string;
+  content: Record<string, unknown>;
+  confidence: number;
+  status: "candidate" | "replay_pending" | "validated" | "rejected";
+  createdAt: string;
+};
+
+export type MissionReplay = {
+  id: string;
+  missionId: string;
+  ownerId: string;
+  candidateId?: string;
+  status: "passed" | "failed" | "blocked";
+  evidence: Record<string, unknown>;
+  createdAt: string;
+};
+
+function readArtifact(row: { id: string; mission_id: string; owner_id: string; work_item_id: string | null; kind: string; locator: string; summary: string; metadata_json: string; created_at: string }): MissionArtifact {
+  return { id: row.id, missionId: row.mission_id, ownerId: row.owner_id, ...(row.work_item_id ? { workItemId: row.work_item_id } : {}), kind: row.kind, locator: row.locator, summary: row.summary, metadata: parseJson<Record<string, unknown>>(row.metadata_json, {}), createdAt: row.created_at };
+}
+
+function readLearningCandidate(row: { id: string; mission_id: string; owner_id: string; candidate_type: MissionLearningCandidate["candidateType"]; domain: string; title: string; content_json: string; confidence: number; status: MissionLearningCandidate["status"]; created_at: string }): MissionLearningCandidate {
+  return { id: row.id, missionId: row.mission_id, ownerId: row.owner_id, candidateType: row.candidate_type, domain: row.domain, title: row.title, content: parseJson<Record<string, unknown>>(row.content_json, {}), confidence: row.confidence, status: row.status, createdAt: row.created_at };
+}
+
+function readReplay(row: { id: string; mission_id: string; owner_id: string; candidate_id: string | null; status: MissionReplay["status"]; evidence_json: string; created_at: string }): MissionReplay {
+  return { id: row.id, missionId: row.mission_id, ownerId: row.owner_id, ...(row.candidate_id ? { candidateId: row.candidate_id } : {}), status: row.status, evidence: parseJson<Record<string, unknown>>(row.evidence_json, {}), createdAt: row.created_at };
+}
+
+export async function recordMissionArtifact(ownerId: string, missionId: string, input: { workItemId?: string; kind: string; locator: string; summary: string; metadata?: Record<string, unknown> }): Promise<MissionArtifact> {
+  return withWorkspaceDb(true, (db) => {
+    assertOwner(db, ownerId, missionId);
+    if (input.workItemId) {
+      const item = rows<{ id: string }>(db.execute("SELECT id FROM workspace_mission_work_items WHERE id = ? AND mission_id = ? AND owner_id = ? LIMIT 1", [input.workItemId, missionId, ownerId]))[0];
+      if (!item) throw new WorkspaceAccessError("Work item not found");
+    }
+    const metadata = input.metadata || {};
+    assertSafeEventPayload(metadata);
+    const id = randomUUID();
+    const createdAt = timestamp();
+    db.execute("INSERT INTO workspace_mission_artifacts (id, mission_id, owner_id, work_item_id, kind, locator, summary, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", [id, missionId, ownerId, input.workItemId || null, input.kind.slice(0, 128), input.locator.slice(0, 1_000), input.summary.slice(0, 2_000), json(metadata), createdAt]);
+    insertMissionEvent(db, ownerId, missionId, { type: "evidence.recorded", actor: "system", workItemId: input.workItemId, payload: { artifactId: id, kind: input.kind.slice(0, 128), summary: input.summary.slice(0, 500) } }, createdAt);
+    return readArtifact(rows<Parameters<typeof readArtifact>[0]>(db.execute("SELECT id, mission_id, owner_id, work_item_id, kind, locator, summary, metadata_json, created_at FROM workspace_mission_artifacts WHERE id = ? AND owner_id = ?", [id, ownerId]))[0]);
+  });
+}
+
+export async function listMissionArtifacts(ownerId: string, missionId: string): Promise<MissionArtifact[]> {
+  return withWorkspaceDb(false, (db) => { assertOwner(db, ownerId, missionId); return rows<Parameters<typeof readArtifact>[0]>(db.execute("SELECT id, mission_id, owner_id, work_item_id, kind, locator, summary, metadata_json, created_at FROM workspace_mission_artifacts WHERE mission_id = ? AND owner_id = ? ORDER BY created_at ASC", [missionId, ownerId])).map(readArtifact); });
+}
+
+export async function createLearningCandidate(ownerId: string, missionId: string, input: { candidateType: MissionLearningCandidate["candidateType"]; domain: string; title: string; content: Record<string, unknown>; confidence: number }): Promise<MissionLearningCandidate> {
+  return withWorkspaceDb(true, (db) => {
+    const mission = readMission(readMissionRow(db, ownerId, missionId));
+    if (!["completed", "failed", "stopped"].includes(mission.status)) throw new Error("Learning candidates require a terminal mission");
+    assertSafeEventPayload(input.content);
+    const id = randomUUID();
+    const createdAt = timestamp();
+    const confidence = Math.max(0, Math.min(1, input.confidence));
+    db.execute("INSERT INTO workspace_mission_learning_candidates (id, mission_id, owner_id, candidate_type, domain, title, content_json, confidence, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [id, missionId, ownerId, input.candidateType, input.domain.slice(0, 200), input.title.slice(0, 500), json(input.content), confidence, "candidate", createdAt]);
+    insertMissionEvent(db, ownerId, missionId, { type: "knowledge.candidate_created", actor: "system", payload: { candidateId: id, candidateType: input.candidateType, domain: input.domain.slice(0, 200), confidence } }, createdAt);
+    return readLearningCandidate(rows<Parameters<typeof readLearningCandidate>[0]>(db.execute("SELECT id, mission_id, owner_id, candidate_type, domain, title, content_json, confidence, status, created_at FROM workspace_mission_learning_candidates WHERE id = ? AND owner_id = ?", [id, ownerId]))[0]);
+  });
+}
+
+export async function listLearningCandidates(ownerId: string, missionId: string): Promise<MissionLearningCandidate[]> {
+  return withWorkspaceDb(false, (db) => { assertOwner(db, ownerId, missionId); return rows<Parameters<typeof readLearningCandidate>[0]>(db.execute("SELECT id, mission_id, owner_id, candidate_type, domain, title, content_json, confidence, status, created_at FROM workspace_mission_learning_candidates WHERE mission_id = ? AND owner_id = ? ORDER BY created_at ASC", [missionId, ownerId])).map(readLearningCandidate); });
+}
+
+export async function recordMissionReplay(ownerId: string, missionId: string, input: { candidateId?: string; status: MissionReplay["status"]; evidence: Record<string, unknown> }): Promise<MissionReplay> {
+  return withWorkspaceDb(true, (db) => {
+    assertOwner(db, ownerId, missionId);
+    if (input.candidateId) {
+      const candidate = rows<{ id: string }>(db.execute("SELECT id FROM workspace_mission_learning_candidates WHERE id = ? AND mission_id = ? AND owner_id = ? LIMIT 1", [input.candidateId, missionId, ownerId]))[0];
+      if (!candidate) throw new WorkspaceAccessError("Learning candidate not found");
+      db.execute("UPDATE workspace_mission_learning_candidates SET status = ? WHERE id = ? AND owner_id = ?", [input.status === "passed" ? "validated" : input.status === "failed" ? "rejected" : "replay_pending", input.candidateId, ownerId]);
+    }
+    assertSafeEventPayload(input.evidence);
+    const id = randomUUID();
+    const createdAt = timestamp();
+    db.execute("INSERT INTO workspace_mission_replays (id, mission_id, owner_id, candidate_id, status, evidence_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)", [id, missionId, ownerId, input.candidateId || null, input.status, json(input.evidence), createdAt]);
+    insertMissionEvent(db, ownerId, missionId, { type: "knowledge.replay_completed", actor: "system", payload: { replayId: id, candidateId: input.candidateId || null, status: input.status } }, createdAt);
+    return readReplay(rows<Parameters<typeof readReplay>[0]>(db.execute("SELECT id, mission_id, owner_id, candidate_id, status, evidence_json, created_at FROM workspace_mission_replays WHERE id = ? AND owner_id = ?", [id, ownerId]))[0]);
+  });
+}
+
+export async function listResumableMissionOwners(): Promise<string[]> {
+  return withWorkspaceDb(false, (db) => rows<{ owner_id: string }>(db.execute("SELECT DISTINCT owner_id FROM workspace_missions WHERE status IN ('queued', 'planning', 'planned', 'executing', 'verifying', 'repairing') ORDER BY owner_id ASC")).map((row) => row.owner_id));
+}

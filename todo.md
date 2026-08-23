@@ -299,3 +299,15 @@ Focused TypeScript and streaming/error tests pass. The remaining release action 
 - [x] Passed prior specialist evidence into bounded builder context without forwarding raw child output or credential-bearing fields.
 - [x] Added registry, child-agent, concurrency, failure-redaction, orchestrator, runner, harness, and constitution regression coverage.
 - [x] TypeScript, 19 focused mission tests, production build, and diff hygiene pass; full Paradox-backed integration and live authenticated Render verification remain pending.
+
+## Unified Agent Runtime Contracts and Server-Side Practice
+
+- [x] Added a versioned unified agent contract covering principal orchestrator, sub-orchestrator, specialist, and quality-gate authority, loops, budgets, skills, harnesses, failure classes, escalation, evidence, and prompt assembly.
+- [x] Added role-specific prompt assembly with automatic recursive sensitive-context redaction.
+- [x] Added reusable skill and harness registries that treat repository, research, browser, WebDev, and terminal capabilities as composable skills/harnesses rather than architectural modes; implemented versus contract-only status is explicit.
+- [x] Added capability guards for skill access, harness operations, delegation, repository writes, and independent verification.
+- [x] Added encrypted durable artifact records for bounded repository writes and quality checks, storing references and bounded metadata rather than file contents or raw command output.
+- [x] Added terminal mission learning extraction for scoped experience, skill, and shortcut candidates, plus replay outcomes that never silently promote candidates to trusted knowledge.
+- [x] Added all-owner startup recovery scanning for resumable missions and normalized recovery events; recovery remains non-blocking so missing persistence configuration cannot prevent HTTP startup.
+- [x] Exposed owner-scoped artifacts, learning candidates, and candidate replay through authenticated mission APIs.
+- [x] Unified runtime tests currently pass: 27 focused mission tests and TypeScript validation. Production build and full Paradox-backed integration validation remain to be rerun for this slice.

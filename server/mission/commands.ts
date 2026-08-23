@@ -1,6 +1,9 @@
 import { getMission, listMissions, transitionMission, type MissionSnapshot } from "./store";
 import type { MissionStatus } from "./../mission/constitution";
 import { missionRunner } from "./runner";
+import { recordMissionEvent } from "./events";
+import { listResumableMissionOwners } from "./store";
+import { extractMissionLearningCandidates } from "./learning";
 
 const pausableStatuses: readonly MissionStatus[] = ["planning", "planned", "executing", "verifying", "repairing"];
 const stoppableStatuses: readonly MissionStatus[] = ["created", "queued", "planning", "planned", "executing", "verifying", "repairing", "paused", "failed"];
@@ -41,6 +44,7 @@ export async function stopMission(ownerId: string, missionId: string, actor = "u
   if (!stoppableStatuses.includes(snapshot.mission.status)) return snapshot;
   await transitionMission(ownerId, missionId, snapshot.mission.status, "stopped", snapshot.mission.version, actor, { command: "stop" });
   missionRunner.cancel(ownerId, missionId);
+  await extractMissionLearningCandidates(ownerId, missionId).catch((error) => console.error("[MissionRunner] stopped-mission learning extraction failed", { missionId, error: error instanceof Error ? error.message : String(error) }));
   return getMission(ownerId, missionId);
 }
 
@@ -52,9 +56,19 @@ export async function retryMission(ownerId: string, missionId: string, actor = "
   return getMission(ownerId, missionId);
 }
 
+export async function recoverAllMissions() {
+  const ownerIds = await listResumableMissionOwners();
+  let recovered = 0;
+  for (const ownerId of ownerIds) recovered += (await recoverMissions(ownerId)).length;
+  return { ownerCount: ownerIds.length, missionCount: recovered };
+}
+
 export async function recoverMissions(ownerId: string) {
   const missions = await listMissions(ownerId);
   const resumable = missions.filter((mission) => ["queued", "planning", "planned", "executing", "verifying", "repairing"].includes(mission.status));
-  for (const mission of resumable) void missionRunner.start(ownerId, mission.id).catch((error) => console.error("[MissionRunner] recovery start failed", { missionId: mission.id, error: error instanceof Error ? error.message : String(error) }));
+  for (const mission of resumable) {
+    void recordMissionEvent(ownerId, mission.id, { type: "runner.recovery_started", actor: "mission_runner", payload: { previousStatus: mission.status } }).catch((error) => console.error("[MissionRunner] recovery event failed", { missionId: mission.id, error: error instanceof Error ? error.message : String(error) }));
+    void missionRunner.start(ownerId, mission.id).catch((error) => console.error("[MissionRunner] recovery start failed", { missionId: mission.id, error: error instanceof Error ? error.message : String(error) }));
+  }
   return resumable;
 }

@@ -12,6 +12,7 @@ import { serveStatic, setupVite } from "./vite";
 import { missionRunner } from "../mission/runner";
 import { planRepositoryChange } from "../mission/orchestrator";
 import { createRepositoryChangeExecutor } from "../mission/repositoryChangeExecutor";
+import { recoverAllMissions } from "../mission/commands";
 
 missionRunner.configureOrchestrator(planRepositoryChange);
 missionRunner.configureExecutor(createRepositoryChangeExecutor());
@@ -68,6 +69,7 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    void recoverAllMissions().then((summary) => console.log("[MissionRunner] startup recovery scan completed", summary)).catch((error) => console.error("[MissionRunner] startup recovery scan failed", { error: error instanceof Error ? error.message : String(error) }));
   });
 }
 

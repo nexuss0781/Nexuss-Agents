@@ -2,6 +2,8 @@ import { streamWorkspaceModel } from "../paradoxWorkspace";
 import { recordMissionEvent } from "./events";
 import { redactSensitiveData } from "./redaction";
 import { getSpecialist, type SpecialistKind } from "./specialists";
+import { buildAgentSystemPrompt, getAgentContract } from "./agentContracts";
+import { assertDelegationAllowed, assertHarnessAllowed, assertSkillAllowed } from "./capabilityGuard";
 import { claimWorkItem, createMission, createWorkItem, releaseWorkItemLease, transitionMission, updateWorkItem, type MissionWorkItem } from "./store";
 
 export type SpecialistFinding = { kind: SpecialistKind; summary: string; content: string; completed: boolean; childMissionId?: string };
@@ -10,6 +12,9 @@ function bounded(value: string, max: number) { return value.length > max ? `${va
 
 async function createChildMission(input: { ownerId: string; missionId: string; model: string; kind: SpecialistKind; workItem: MissionWorkItem; }): Promise<{ childMissionId: string; childWorkItem: MissionWorkItem; workerId: string; executingVersion: number }> {
   const descriptor = getSpecialist(input.kind);
+  const subContract = getAgentContract("sub_orchestrator");
+  assertDelegationAllowed(subContract, 1);
+  assertHarnessAllowed(subContract, { harness: "specialist_spawn", operation: "spawn_registered_specialist", input: {} });
   const child = await createMission(input.ownerId, { parentMissionId: input.missionId, goal: `${descriptor.title}: ${input.workItem.title}`, contract: { model: input.model, acceptanceCriteria: input.workItem.acceptanceCriteria, constraints: ["Operate only as a bounded read-only specialist; do not modify the repository."] } });
   const queued = await transitionMission(input.ownerId, child.mission.id, "created", "queued", child.mission.version, "principal_orchestrator", { parentMissionId: input.missionId, specialistKind: input.kind });
   const planning = await transitionMission(input.ownerId, child.mission.id, "queued", "planning", queued.version, "principal_orchestrator", { specialistKind: input.kind });
@@ -21,6 +26,9 @@ async function createChildMission(input: { ownerId: string; missionId: string; m
 
 export async function runSpecialistAgent(input: { ownerId: string; missionId: string; model: string; kind: SpecialistKind; workItem: MissionWorkItem; repositoryContext: Record<string, unknown>; signal: AbortSignal; }): Promise<SpecialistFinding> {
   const descriptor = getSpecialist(input.kind);
+  const specialistContract = getAgentContract(input.kind);
+  assertSkillAllowed(specialistContract, "repository_inspection");
+  assertHarnessAllowed(specialistContract, { harness: "repository_inspection", operation: "snapshot", input: {} });
   let child: { childMissionId: string; childWorkItem: MissionWorkItem; workerId: string; executingVersion: number } | undefined;
   try {
     child = await createChildMission(input);
@@ -28,7 +36,7 @@ export async function runSpecialistAgent(input: { ownerId: string; missionId: st
     const result = await streamWorkspaceModel(input.ownerId, {
       model: input.model,
       messages: [
-        { role: "system", content: `${descriptor.systemInstruction}\nReturn a concise JSON object: {"summary":"string","risks":["string"],"recommendations":["string"]}. Do not include secrets or complete file contents.` },
+        { role: "system", content: `${buildAgentSystemPrompt(getAgentContract(input.kind), { missionGoal: input.workItem.description, workItemTitle: input.workItem.title, workItemDescription: input.workItem.description, acceptanceCriteria: input.workItem.acceptanceCriteria, allowedSkills: getAgentContract(input.kind).allowedSkills, allowedHarnesses: getAgentContract(input.kind).allowedHarnesses, priorEvidence: input.repositoryContext })}\nReturn a concise JSON object: {"summary":"string","risks":["string"],"recommendations":["string"]}. Do not include secrets or complete file contents.` },
         { role: "user", content: JSON.stringify(redactSensitiveData({ workItem: { title: input.workItem.title, description: input.workItem.description, acceptanceCriteria: input.workItem.acceptanceCriteria }, repository: input.repositoryContext })) },
       ],
     }, input.signal);
@@ -54,6 +62,7 @@ export async function runSpecialistAgent(input: { ownerId: string; missionId: st
 
 export async function spawnBuilderReviews(input: { ownerId: string; missionId: string; model: string; workItem: MissionWorkItem; repositoryContext: Record<string, unknown>; signal: AbortSignal }): Promise<SpecialistFinding[]> {
   const kinds: SpecialistKind[] = ["repository_architect", "security_auditor"];
+  assertDelegationAllowed(getAgentContract("sub_orchestrator"), kinds.length);
   await Promise.all(kinds.map((kind) => recordMissionEvent(input.ownerId, input.missionId, { type: "specialist.spawned", actor: "principal_orchestrator", workItemId: input.workItem.id, payload: { kind, parentRole: input.workItem.role, attempt: input.workItem.attempt } })));
   return Promise.all(kinds.map((kind) => runSpecialistAgent({ ...input, kind })));
 }

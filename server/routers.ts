@@ -20,7 +20,8 @@ import {
   ModelProviderError,
   WorkspaceAccessError,
 } from "./paradoxWorkspace";
-import { createMission, getMission, listMissions } from "./mission/store";
+import { createMission, getMission, listMissions, listMissionArtifacts, listLearningCandidates } from "./mission/store";
+import { recordLearningReplay } from "./mission/learning";
 import { pauseMission, queueMission, recoverMissions, resumeMission, retryMission, stopMission } from "./mission/commands";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
@@ -113,6 +114,9 @@ export const appRouter = router({
     mission: router({
       create: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128).nullable().optional(), parentMissionId: z.string().min(1).max(128).nullable().optional(), goal: z.string().trim().min(1).max(100_000), contract: z.object({ model: z.string().trim().min(1).max(256).optional(), deliverables: z.array(z.string().trim().min(1).max(500)).max(100).optional(), acceptanceCriteria: z.array(z.object({ id: z.string().trim().min(1).max(128), description: z.string().trim().min(1).max(2_000), verification: z.enum(["automated", "runtime", "visual", "manual", "mixed"]), required: z.boolean() })).max(100), constraints: z.array(z.string().trim().min(1).max(2_000)).max(100).optional(), assumptions: z.array(z.string().trim().min(1).max(2_000)).max(100).optional(), projectScope: z.record(z.string(), z.unknown()).optional(), riskLevel: z.enum(["low", "medium", "high", "critical"]).optional(), autonomyPolicy: z.record(z.string(), z.unknown()).optional(), executionBudget: z.record(z.string(), z.unknown()).optional(), completionPolicy: z.array(z.string().trim().min(1).max(2_000)).max(100).optional() }), budget: z.object({ maxDepth: z.number().int().min(1).max(10), maxChildWorkItems: z.number().int().min(1).max(1_000), maxAgentAttempts: z.number().int().min(1).max(20), maxToolCalls: z.number().int().min(1).max(10_000), maxModelTokens: z.number().int().min(1_000).max(10_000_000), maxDurationSeconds: z.number().int().min(1).max(86_400) }).optional() })).mutation(async ({ ctx, input }) => missionCall(async () => createMission(await workspaceOwner(ctx), input))),
       get: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).query(async ({ ctx, input }) => missionCall(async () => getMission(await workspaceOwner(ctx), input.missionId))),
+      artifacts: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).query(async ({ ctx, input }) => missionCall(async () => listMissionArtifacts(await workspaceOwner(ctx), input.missionId))),
+      learningCandidates: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).query(async ({ ctx, input }) => missionCall(async () => listLearningCandidates(await workspaceOwner(ctx), input.missionId))),
+      replayCandidate: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128), candidateId: z.string().min(1).max(128), passed: z.boolean(), evidence: z.record(z.string(), z.unknown()) })).mutation(async ({ ctx, input }) => missionCall(async () => recordLearningReplay(await workspaceOwner(ctx), input.missionId, input))),
       list: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128).optional() }).optional()).query(async ({ ctx, input }) => missionCall(async () => listMissions(await workspaceOwner(ctx), input?.projectId))),
       start: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).mutation(async ({ ctx, input }) => missionCall(async () => queueMission(await workspaceOwner(ctx), input.missionId))),
       pause: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).mutation(async ({ ctx, input }) => missionCall(async () => pauseMission(await workspaceOwner(ctx), input.missionId))),

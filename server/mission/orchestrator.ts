@@ -6,6 +6,7 @@ import { AUTONOMOUS_REPOSITORY_CHANGE_SYSTEM_PROMPT } from "./autonomousReposito
 import type { AcceptanceCriterion } from "./constitution";
 import { redactSensitiveData } from "./redaction";
 import { specialistForRole, type SpecialistKind } from "./specialists";
+import { buildAgentSystemPrompt, getAgentContract } from "./agentContracts";
 
 export type PlannedWorkItem = {
   title: string;
@@ -124,7 +125,7 @@ export async function planRepositoryChange(ownerId: string, missionId: string, s
     await recordMissionEvent(ownerId, missionId, { type: "orchestration.plan_created", actor: "principal_orchestrator", payload: { planId: randomUUID(), source: "deterministic_fallback", workItemCount: plan.workItems.length, assumptionCount: plan.assumptions.length } });
   } else {
     const messages: WorkspaceModelMessage[] = [
-      { role: "system", content: AUTONOMOUS_REPOSITORY_CHANGE_SYSTEM_PROMPT },
+      { role: "system", content: `${AUTONOMOUS_REPOSITORY_CHANGE_SYSTEM_PROMPT}\n\n${buildAgentSystemPrompt(getAgentContract("principal"), { missionGoal: snapshot.mission.goal, acceptanceCriteria: snapshot.mission.contract.acceptanceCriteria, allowedSkills: ["mission_planning", "repository_inspection", "skill_selection"], allowedHarnesses: ["mission_runtime", "repository_inspection"] })}` },
       { role: "user", content: `${planPrompt}\n\nMission:\n${JSON.stringify(redactSensitiveData({ goal: snapshot.mission.goal, contract: snapshot.mission.contract, existingWorkItems: snapshot.workItems.map((item) => ({ title: item.title, status: item.status })) }))}` },
     ];
     try {
