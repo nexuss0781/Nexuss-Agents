@@ -1,10 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { missionRunner } from "./runner";
-import type { MissionSnapshot } from "./store";
+import type { MissionSnapshot, MissionWorkItem } from "./store";
 
 const store = vi.hoisted(() => ({
   getMission: vi.fn(),
   transitionMission: vi.fn(),
+  claimWorkItem: vi.fn(),
+  updateWorkItem: vi.fn(),
+  releaseWorkItemLease: vi.fn(),
+  heartbeatWorkItemLease: vi.fn(),
 }));
 
 vi.mock("./store", () => store);
@@ -32,7 +36,12 @@ describe("server mission runner", () => {
   beforeEach(() => {
     store.getMission.mockReset();
     store.transitionMission.mockReset();
+    store.claimWorkItem.mockReset();
+    store.updateWorkItem.mockReset();
+    store.releaseWorkItemLease.mockReset();
+    store.heartbeatWorkItemLease.mockReset();
     missionRunner.configureExecutor(undefined);
+    missionRunner.configureOrchestrator(undefined);
   });
 
   it("progresses a queued mission through execution, verification, and completion", async () => {
@@ -55,6 +64,32 @@ describe("server mission runner", () => {
       ["executing", "verifying"],
       ["verifying", "completed"],
     ]);
+  });
+
+  it("plans a dependency-ready work graph before executing its first item", async () => {
+    let current = snapshot("queued");
+    const item: MissionWorkItem = { id: "work-1", missionId: "mission-1", ownerId: "owner-1", title: "Inspect repository", description: "Inspect", role: "architect", status: "pending", dependencies: [], acceptanceCriteria: [], input: {}, attempt: 0, version: 1, createdAt: "2026-08-23T00:00:00.000Z", updatedAt: "2026-08-23T00:00:00.000Z" };
+    store.getMission.mockImplementation(async () => current);
+    store.transitionMission.mockImplementation(async (_owner: string, _id: string, from: string, to: string, version: number) => {
+      current = { ...current, mission: { ...current.mission, status: to as typeof current.mission.status, version: version + 1 } };
+      return current.mission;
+    });
+    store.claimWorkItem.mockImplementation(async () => ({ workItem: { ...item, status: "claimed", attempt: 1, version: 2 }, lease: { workItemId: item.id, workerId: "runner-test" } }));
+    store.updateWorkItem.mockImplementation(async (_owner: string, _id: string, patch: { status?: string; expectedVersion: number }) => {
+      current = { ...current, workItems: [{ ...item, status: patch.status as MissionWorkItem["status"], attempt: 1, version: patch.expectedVersion + 1 }] };
+      return current.workItems[0];
+    });
+    store.releaseWorkItemLease.mockResolvedValue({ workItemId: item.id, released: true });
+    const orchestrator = vi.fn(async () => { current = { ...current, workItems: [item] }; return { workItems: [item], summary: "planned" }; });
+    const executor = vi.fn(async ({ activeWorkItem }: { activeWorkItem?: MissionWorkItem }) => ({ verified: true, summary: activeWorkItem?.title || "none" }));
+    missionRunner.configureOrchestrator(orchestrator);
+    missionRunner.configureExecutor(executor);
+
+    await missionRunner.start("owner-1", "mission-1");
+
+    expect(orchestrator).toHaveBeenCalledWith("owner-1", "mission-1", expect.any(AbortSignal));
+    expect(executor).toHaveBeenCalledWith(expect.objectContaining({ activeWorkItem: expect.objectContaining({ id: "work-1", status: "claimed" }) }));
+    expect(current.mission.status).toBe("completed");
   });
 
   it("deduplicates concurrent starts for the same mission", async () => {
