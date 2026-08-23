@@ -3,8 +3,9 @@ import { streamWorkspaceModel } from "../paradoxWorkspace";
 import { planRepositoryChange } from "./orchestrator";
 import { recordMissionEvent } from "./events";
 import { redactSensitiveData } from "./redaction";
+import { runSpecialistAgent, spawnBuilderReviews } from "./specialistOrchestrator";
 import type { MissionExecutionResult, MissionExecutor } from "./runner";
-import type { MissionWorkItem } from "./store";
+import type { MissionSnapshot, MissionWorkItem } from "./store";
 
 const executionPrompt = `You are executing one bounded repository work item inside an autonomous coding mission. Return JSON only with this shape:
 {"summary":"string","writes":[{"path":"relative/path","content":"complete file content"}],"commands":[{"program":"pnpm|npm|yarn|git","args":["allowlisted arguments"]}]}
@@ -73,13 +74,14 @@ async function executeQualityGate(ownerId: string, missionId: string, root: stri
   };
 }
 
-async function executeModelWorkItem(ownerId: string, missionId: string, root: string, model: string, item: MissionWorkItem, signal: AbortSignal): Promise<MissionExecutionResult> {
+async function executeModelWorkItem(ownerId: string, missionId: string, root: string, model: string, mission: MissionSnapshot, item: MissionWorkItem, signal: AbortSignal): Promise<MissionExecutionResult> {
   await recordMissionEvent(ownerId, missionId, { type: "executor.started", actor: "repository_executor", workItemId: item.id, payload: { role: item.role, attempt: item.attempt } });
   const snapshot = await collectRepositorySnapshot(root, signal);
   const relevantFiles = snapshot.trackedFiles.filter((path) => !/(^|[\\/])\.env(?:\.|$)|\.(?:pem|key|p12|pfx)$/i.test(path)).slice(0, 250);
+  const specialistEvidence = mission.workItems.filter((candidate) => candidate.status === "completed" && ["sub_orchestrator", "architect", "security_auditor"].includes(candidate.role)).map((candidate) => ({ title: candidate.title, role: candidate.role, output: candidate.output || {} }));
   const messages = [
-    { role: "system" as const, content: executionPrompt },
-    { role: "user" as const, content: JSON.stringify(redactSensitiveData({ workItem: { title: item.title, description: item.description, role: item.role, acceptanceCriteria: item.acceptanceCriteria, input: item.input }, repository: { status: snapshot.status, trackedFiles: relevantFiles, packageJson: snapshot.packageJson } })) },
+    { role: "system" as const, content: `${executionPrompt}\nRole policy: ${item.role === "builder" ? "You may propose bounded file writes." : "You are read-only for this role; return no writes."}` },
+    { role: "user" as const, content: JSON.stringify(redactSensitiveData({ workItem: { title: item.title, description: item.description, role: item.role, acceptanceCriteria: item.acceptanceCriteria, input: item.input }, specialistEvidence, repository: { status: snapshot.status, trackedFiles: relevantFiles, packageJson: snapshot.packageJson } })) },
   ];
   const result = await streamWorkspaceModel(ownerId, { model, messages }, signal);
   if (result.stopped) return { verified: false, summary: "Repository work was cancelled", failureClass: "CANCELLED" };
@@ -114,19 +116,41 @@ export function createRepositoryChangeExecutor(): MissionExecutor {
       const plan = await planRepositoryChange(ownerId, mission.mission.id, signal);
       return { verified: true, continueMission: true, summary: `Created a ${plan.workItems.length}-step repository work graph` };
     }
+    if (activeWorkItem.role === "sub_orchestrator") {
+      if (!mission.mission.contract.model) return { verified: true, summary: "Specialist reviews deferred because no model is configured", artifactIds: ["specialist-reviews-deferred"] };
+      const snapshot = await collectRepositorySnapshot(root, signal);
+      const findings = await spawnBuilderReviews({ ownerId, missionId: mission.mission.id, model: mission.mission.contract.model, workItem: activeWorkItem, repositoryContext: snapshot, signal });
+      return { verified: findings.every((finding) => finding.completed), summary: findings.every((finding) => finding.completed) ? "Architecture and security specialists completed their independent reviews" : "One or more specialist reviews were unavailable", artifactIds: findings.map((finding) => `specialist-${finding.kind}`), ...(findings.every((finding) => finding.completed) ? {} : { failureClass: "SPECIALIST_REVIEW_FAILED", nextAction: "retry the specialist review stage" }) };
+    }
+    if (activeWorkItem.role === "security_auditor") {
+      if (!mission.mission.contract.model) return { verified: true, summary: "Security audit used the bounded harness policy without a model", artifactIds: ["security-policy-baseline"] };
+      const snapshot = await collectRepositorySnapshot(root, signal);
+      const finding = await runSpecialistAgent({ ownerId, missionId: mission.mission.id, model: mission.mission.contract.model, kind: "security_auditor", workItem: activeWorkItem, repositoryContext: snapshot, signal });
+      return { verified: finding.completed, summary: finding.summary, artifactIds: ["specialist-security_auditor"], ...(finding.completed ? {} : { failureClass: "SECURITY_REVIEW_FAILED", nextAction: "retry the independent security audit" }) };
+    }
     if (activeWorkItem.role === "quality") {
       const quality = await executeQualityGate(ownerId, mission.mission.id, root, signal);
       return { verified: quality.verified, summary: quality.summary, ...(quality.verified ? {} : { failureClass: "QUALITY_GATE_FAILED", nextAction: "repair the repository change using the failed check evidence" }), artifactIds: quality.checks.map((check) => check.command) };
     }
+    if (activeWorkItem.role === "architect" && mission.mission.contract.model) {
+      const snapshot = await collectRepositorySnapshot(root, signal);
+      const finding = await runSpecialistAgent({ ownerId, missionId: mission.mission.id, model: mission.mission.contract.model, kind: "repository_architect", workItem: activeWorkItem, repositoryContext: snapshot, signal });
+      return { verified: finding.completed, summary: finding.summary, artifactIds: ["specialist-repository_architect"], ...(finding.completed ? {} : { failureClass: "ARCHITECTURE_REVIEW_FAILED", nextAction: "retry the architecture review" }) };
+    }
     if (!mission.mission.contract.model && activeWorkItem.role === "architect") {
       const snapshot = await collectRepositorySnapshot(root, signal);
       return { verified: true, summary: `Repository baseline captured: ${snapshot.trackedFiles.length} tracked file(s)`, artifactIds: ["repository-status", "repository-file-list"] };
+    }
+    if (activeWorkItem.role === "integrator" && mission.mission.contract.model) {
+      const snapshot = await collectRepositorySnapshot(root, signal);
+      const finding = await runSpecialistAgent({ ownerId, missionId: mission.mission.id, model: mission.mission.contract.model, kind: "integrator", workItem: activeWorkItem, repositoryContext: snapshot, signal });
+      return { verified: finding.completed, summary: finding.summary, artifactIds: ["specialist-integrator"], ...(finding.completed ? {} : { failureClass: "INTEGRATION_REVIEW_FAILED", nextAction: "retry the integrator review" }) };
     }
     if (!mission.mission.contract.model && activeWorkItem.role === "integrator") {
       const status = await runRepositoryCommand(root, "git", ["status", "--short"], signal);
       return { verified: status.exitCode === 0, summary: status.exitCode === 0 ? "Verified the final repository integration state" : "Could not read the final repository integration state", artifactIds: ["repository-final-status"], ...(status.exitCode === 0 ? {} : { failureClass: "INTEGRATION_STATUS_FAILED", nextAction: "retry the final repository status check" }) };
     }
     if (!mission.mission.contract.model) return { verified: false, summary: "A selected model is required for bounded repository implementation work", failureClass: "MODEL_NOT_CONFIGURED", nextAction: "configure and select a server-side model, then retry the mission" };
-    return executeModelWorkItem(ownerId, mission.mission.id, root, mission.mission.contract.model, activeWorkItem, signal);
+    return executeModelWorkItem(ownerId, mission.mission.id, root, mission.mission.contract.model, mission, activeWorkItem, signal);
   };
 }

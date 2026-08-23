@@ -32,9 +32,10 @@ describe("principal repository orchestrator", () => {
 
     const plan = await planRepositoryChange("owner-1", "mission-1", new AbortController().signal);
 
-    expect(plan.workItems.map((item) => item.role)).toEqual(["builder", "quality"]);
-    expect(store.createWorkItem).toHaveBeenCalledTimes(2);
+    expect(plan.workItems.map((item) => item.role)).toEqual(["sub_orchestrator", "builder", "security_auditor", "quality", "integrator"]);
+    expect(store.createWorkItem).toHaveBeenCalledTimes(5);
     expect(store.createWorkItem.mock.calls[1]?.[2].dependencies).toEqual(["work-1"]);
+    expect(store.createWorkItem.mock.calls[3]?.[2].dependencies).toEqual(["work-1", "work-2", "work-3"]);
     expect(store.appendMissionEvent).toHaveBeenCalledWith("owner-1", "mission-1", expect.objectContaining({ type: "orchestration.plan_created" }));
   });
 
@@ -44,8 +45,8 @@ describe("principal repository orchestrator", () => {
     const plan = await planRepositoryChange("owner-1", "mission-1", new AbortController().signal);
 
     expect(streamWorkspaceModel).not.toHaveBeenCalled();
-    expect(plan.workItems.map((item) => item.role)).toEqual(["architect", "builder", "quality", "integrator"]);
-    expect(store.createWorkItem).toHaveBeenCalledTimes(4);
+    expect(plan.workItems.map((item) => item.role)).toEqual(["sub_orchestrator", "architect", "builder", "security_auditor", "quality", "integrator"]);
+    expect(store.createWorkItem).toHaveBeenCalledTimes(6);
     expect(store.appendMissionEvent).toHaveBeenCalledWith("owner-1", "mission-1", expect.objectContaining({ type: "orchestration.plan_created", actor: "principal_orchestrator", payload: expect.objectContaining({ source: "deterministic_fallback" }) }));
   });
 });

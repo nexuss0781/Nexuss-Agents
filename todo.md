@@ -289,3 +289,13 @@ Focused TypeScript and streaming/error tests pass. The remaining release action 
 - [x] Wired the principal orchestrator and repository executor at server bootstrap; retry paths reuse existing durable work graphs instead of duplicating plans.
 - [x] Added orchestrator, harness, redaction, and runner regression coverage; focused tests and TypeScript validation pass.
 - [ ] Live authenticated Render verification remains required for a real provider-backed mission, including deployment process-lifetime behavior and Paradox-backed event/work-item persistence.
+
+## Specialist Sub-Orchestrators and Spawned Agents
+
+- [x] Added a typed specialist registry for repository architecture, repository building, independent quality, security auditing, integration, and sub-orchestration roles.
+- [x] Added bounded specialist-agent spawning with explicit read-only/write capabilities, two-agent parallel review limits, redacted model context, and normalized specialist lifecycle events.
+- [x] Persisted spawned specialists as owner-scoped child missions linked to the parent mission and parent work item, including child work items, leases, lifecycle transitions, bounded outputs, and cancellation-safe terminal handling.
+- [x] Added coordinator, architecture, builder, security, quality, and integrator stages to normalized repository-change plans with dependency reindexing and retry-safe graph behavior.
+- [x] Passed prior specialist evidence into bounded builder context without forwarding raw child output or credential-bearing fields.
+- [x] Added registry, child-agent, concurrency, failure-redaction, orchestrator, runner, harness, and constitution regression coverage.
+- [x] TypeScript, 19 focused mission tests, production build, and diff hygiene pass; full Paradox-backed integration and live authenticated Render verification remain pending.

@@ -3,6 +3,9 @@ import { appendMissionEvent, type MissionEvent } from "./store";
 export const MISSION_EVENT_TYPES = [
   "orchestration.plan_created",
   "orchestration.plan_rejected",
+  "specialist.spawned",
+  "specialist.completed",
+  "specialist.failed",
   "executor.started",
   "executor.completed",
   "executor.failed",
