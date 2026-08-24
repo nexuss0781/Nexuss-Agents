@@ -595,3 +595,9 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 Right-aligned the project menu directly above the Assign project trigger, matching the model and execution drop-ups’ vertical relationship to their buttons. The project card no longer shifts farther left; its existing compact dark styling, project selection, and filter behavior remain intact.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Distinct Left Projects Card
+
+Restyled the left-panel Projects card as a distinct cool-slate surface with restrained diagonal texture, stronger card hierarchy, polished carousel controls, and a clearer selected-project state. The project carousel, selection/filtering, thread list, and composer were not behaviorally changed.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.

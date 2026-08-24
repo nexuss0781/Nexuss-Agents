@@ -975,3 +975,33 @@ body { color: var(--paper); }
 
 /* Project drop-up sits directly above its right-aligned trigger, parallel to the model drop-up. */
 .composer-project-anchor .project-menu { right: 0; left: auto; bottom: calc(100% + 8px); }
+
+/* Distinct left-panel Projects card: cool-slate surface with restrained diagonal texture. */
+.project-section {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(203,214,219,.2);
+  border-radius: 12px;
+  background: linear-gradient(145deg, #273238 0%, #1a2327 62%, #151c1f 100%);
+  box-shadow: inset 0 1px 0 rgba(235,242,244,.045), 0 12px 28px rgba(0,0,0,.16);
+}
+.project-section::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: "";
+  background: repeating-linear-gradient(135deg, transparent 0 24px, rgba(221,231,234,.022) 25px 26px);
+}
+.project-section > * { position: relative; z-index: 1; }
+.project-section .sidebar-list-label { color: #aebbc0; font-size: 9px; letter-spacing: .16em; }
+.project-carousel-header { padding-bottom: 2px; }
+.project-carousel-controls { color: #c0cdd0; }
+.project-carousel-button { width: 24px; height: 24px; border-color: rgba(203,214,219,.24); border-radius: 7px; background: rgba(10,14,16,.2); color: #d1dcdf; }
+.project-carousel-button:hover:not(:disabled) { border-color: rgba(235,242,244,.42); background: rgba(221,231,234,.1); color: #f3f6f7; }
+.project-row.project-carousel-card { min-height: 54px; border: 1px solid rgba(203,214,219,.13); border-radius: 9px; background: rgba(10,14,16,.22); box-shadow: inset 0 1px 0 rgba(235,242,244,.025); }
+.project-row.project-carousel-card:hover { border-color: rgba(221,231,234,.26); background: rgba(221,231,234,.07); }
+.project-row.project-carousel-card.selected { border-color: rgba(235,242,244,.34); background: linear-gradient(135deg, rgba(214,225,229,.16), rgba(10,14,16,.24)); box-shadow: inset 0 0 0 1px rgba(235,242,244,.045), 0 6px 16px rgba(0,0,0,.12); }
+.project-row.project-carousel-card.selected:hover { background: linear-gradient(135deg, rgba(221,231,234,.21), rgba(10,14,16,.28)); }
+.project-section .add-project { margin-top: 5px; border: 1px dashed rgba(203,214,219,.18); border-radius: 8px; color: #adbbc0; }
+.project-section .add-project:hover { border-color: rgba(235,242,244,.3); background: rgba(221,231,234,.07); color: #edf3f4; }
