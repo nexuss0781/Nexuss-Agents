@@ -1042,3 +1042,23 @@ body { color: var(--paper); }
 .composer textarea::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(203,214,219,.24); }
 .composer textarea::-webkit-scrollbar-thumb:hover { background: rgba(221,231,234,.44); }
 .composer-bottom { min-height: 52px; align-items: center; }
+
+/* Manus-style user bubbles: grow to content width before wrapping. */
+.message.user .message-content,
+.live-prompt .message-content {
+  display: block;
+  width: fit-content;
+  max-width: min(820px, 88%);
+  min-width: 0;
+  margin-left: auto;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+@media (max-width: 800px) {
+  .message.user .message-content,
+  .live-prompt .message-content { max-width: 94%; }
+}
+@media (max-width: 500px) {
+  .message.user .message-content,
+  .live-prompt .message-content { max-width: 100%; }
+}

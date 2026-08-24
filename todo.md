@@ -613,3 +613,9 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 Changed the composer from a rigid textarea presentation to a content-driven bubble. The textarea now grows from 80px up to 220px as the prompt wraps or becomes multiline, keeps its own tiny scrollbar only beyond the cap, and leaves the bottom controls in a stable dedicated row.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Wider Natural User Prompt Bubbles
+
+Updated sent user prompts to use intrinsic bubble width, allowing each message to grow horizontally with its content up to a wider readable maximum before wrapping. Short prompts remain compact, longer prompts wrap only when the available width is reached, and the live prompt follows the same behavior.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
