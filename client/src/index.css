@@ -922,3 +922,10 @@ body { color: var(--paper); }
   .model-menu { width: min(250px, calc(100vw - 24px)); }
   .composer-project-anchor .project-menu { width: min(190px, calc(100vw - 24px)); }
 }
+
+/* Keep project and model menus parallel: same upward edge and compact card width. */
+.model-menu, .composer-project-anchor .project-menu { top: auto; bottom: calc(100% + 8px); width: min(260px, calc(100vw - 32px)); transform-origin: bottom right; }
+.composer-project-anchor .project-menu { right: calc(100% + 8px); left: auto; }
+@media (max-width: 800px) {
+  .model-menu, .composer-project-anchor .project-menu { width: min(240px, calc(100vw - 24px)); }
+}

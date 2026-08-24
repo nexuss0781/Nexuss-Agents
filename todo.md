@@ -571,3 +571,9 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 Refined the model and project menus to open upward within the visible composer area, narrowed both menu surfaces, and kept the project menu fully to the left of its trigger. The 4px scrollbar treatment remains applied across menus and sidebar history lists so dropdowns no longer obscure the chat card or extend below the viewport.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Parallel Project Dropdown Card
+
+Aligned the project dropdown with the model dropdown’s parallel upward-opening card position, matching its compact width and keeping the panel fully to the left of the project trigger. Existing tiny scrollbar and project-selection behavior remain intact.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
