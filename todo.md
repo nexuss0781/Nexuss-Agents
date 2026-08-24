@@ -391,3 +391,11 @@ The focused validation command was `pnpm check && pnpm exec vitest run client/sr
 - [x] Kept genuinely vague work requests in the conversation as a natural clarification question without exposing internal intake decisions or errors.
 - [x] Added regressions for direct greeting streaming, autonomous task submission, conversation clarification, and the general agent identity. TypeScript, 36 focused tests, production build, and diff hygiene pass.
 - [ ] Live authenticated Render verification remains required after deployment.
+
+## General Agent Prompt Enforcement
+
+- [x] Added a dedicated general Nexuss-Agent system prompt for greetings, questions, checks, and ordinary conversation.
+- [x] Wired that prompt into the actual direct Playground message payload before persisted history and the current user request.
+- [x] Added an intent boundary so explicit work requests and attachments use Mission Intake, while ordinary conversation reaches the agent directly.
+- [x] Added regressions for greeting routing and actual system-prompt payload presence. TypeScript, 37 focused tests, production build, and diff hygiene pass.
+- [ ] Live authenticated Render verification remains required after deployment.

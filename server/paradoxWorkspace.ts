@@ -299,6 +299,14 @@ export async function saveModelProviderSettings(ownerId: string, input: { baseUr
 
 export type PlaygroundPrompt = { threadId: string; model: string; prompt: string; title?: string; stopNotice?: boolean };
 export type PlaygroundStreamResult = { content: string; stopped: boolean; finished: boolean };
+export function buildPlaygroundMessages(history: Array<Pick<WorkspaceMessage, "role" | "content">>, input: Pick<PlaygroundPrompt, "prompt" | "stopNotice">): WorkspaceModelMessage[] {
+  return [
+    { role: "system", content: GENERAL_AGENT_SYSTEM_PROMPT },
+    ...(input.stopNotice ? [{ role: "system" as const, content: "The user stopped the previous task. Stop immediately, wait, and do not continue that task until the user provides a new request." }] : []),
+    ...history,
+    { role: "user", content: input.prompt },
+  ];
+}
 
 async function loadProviderForPlayground(ownerId: string, model: string) {
   return withWorkspaceDb(false, (db) => {
@@ -375,12 +383,7 @@ export async function streamWorkspacePrompt(ownerId: string, input: PlaygroundPr
   const history = await loadThreadMessagesForPlayground(ownerId, input.threadId);
   const title = history.length === 0 ? (input.title || input.prompt.slice(0, 42)) : undefined;
   await appendThreadMessages(ownerId, input.threadId, [{ role: "user", content: input.prompt }], title);
-  const messages = [
-    { role: "system" as const, content: GENERAL_AGENT_SYSTEM_PROMPT },
-    ...(input.stopNotice ? [{ role: "system" as const, content: "The user stopped the previous task. Stop immediately, wait, and do not continue that task until the user provides a new request." }] : []),
-    ...history,
-    { role: "user" as const, content: input.prompt },
-  ];
+  const messages = buildPlaygroundMessages(history, input);
   let response: Response;
   try {
     response = await fetch(`${normalizeProviderBaseUrl(provider.base_url)}/chat/completions`, {

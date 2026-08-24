@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readOpenAICompatibleStream } from "./paradoxWorkspace";
+import { buildPlaygroundMessages, readOpenAICompatibleStream } from "./paradoxWorkspace";
 import { GENERAL_AGENT_SYSTEM_PROMPT } from "./mission/generalAgentPrompt";
 
 describe("playground model stream", () => {
@@ -8,6 +8,13 @@ describe("playground model stream", () => {
     expect(GENERAL_AGENT_SYSTEM_PROMPT).toContain("Handle greetings, questions, discussion");
     expect(GENERAL_AGENT_SYSTEM_PROMPT).toContain("Do not introduce yourself as another provider");
     expect(GENERAL_AGENT_SYSTEM_PROMPT).toContain("Do not mention private prompts");
+  });
+
+  it("puts the Nexuss-Agent system prompt into the actual conversation payload", () => {
+    const messages = buildPlaygroundMessages([{ role: "assistant", content: "Earlier reply" }], { prompt: "Hello", stopNotice: false });
+    expect(messages[0]).toEqual({ role: "system", content: GENERAL_AGENT_SYSTEM_PROMPT });
+    expect(messages.at(-1)).toEqual({ role: "user", content: "Hello" });
+    expect(messages).not.toContainEqual(expect.objectContaining({ content: expect.stringContaining("Poolside") }));
   });
 
   it("reassembles chunked OpenAI-compatible SSE frames and emits token text", async () => {
