@@ -638,3 +638,10 @@ body { color: var(--paper); }
 .copy-button { opacity: 0; transition: opacity .12s ease-out, color .12s ease-out, background .12s ease-out; }
 .message:hover .copy-button, .copy-button:focus-visible { opacity: 1; }
 @media (max-width: 600px) { .empty-suggestions { max-width: 300px; } .copy-button { opacity: 1; } }
+
+/* Keep the conversation calm and continuous: one turn follows the next. */
+.message-divider { margin: 12px 0; opacity: .7; }
+.message.assistant + .message.user, .message.user + .message.assistant { margin-top: 16px; }
+.message.assistant + .message.assistant { margin-top: 2px; }
+.message-content { margin-top: 6px; }
+.message.user .message-content { padding: 10px 15px; }

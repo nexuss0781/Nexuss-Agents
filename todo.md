@@ -451,3 +451,9 @@ The second redesign pass now addresses both the visual and functional issues des
 The workspace visual layer now uses a three-level monochrome surface system, clearer typography, open assistant responses, lighter user bubbles, a pulsing live indicator, hover-revealed copy actions, responsive spacing, and a more focused floating composer. The header now presents a readable title, model, relative time, share, rename, delete, and settings controls without raw identifiers. The sidebar hides implementation hashes, groups conversations by recency, and gives placeholder titles a readable `New chat` treatment. The empty state now offers useful starting suggestions, while the composer uses a small toolbar status and centered low-emphasis selectors.
 
 TypeScript, 27 focused frontend/Playground tests, production build, and diff hygiene pass. Full encrypted Paradox integration tests remain unavailable locally without deployment credentials. Live authenticated Render visual and same-minute multi-send verification remain required after deployment.
+
+## Simplified Chat Flow Correction
+
+The latest pass intentionally backs away from oversized visual treatment. The chat now keeps a simple continuous message flow: persisted history stays in chronological order, the active new prompt is rendered directly after the previous turn, timestamps remain small and low-contrast, and the prompt scroll target receives only a modest viewport offset. The active response changes the send control to Stop, while the composer remains compact and visually quiet.
+
+The deeper v2 styling remains available where it improves hierarchy, but large spacing bands and heavy card treatment were reduced to match the supplied live reference. TypeScript, 27 focused frontend/Playground tests, production build, and diff hygiene pass. Full encrypted Paradox integration and live authenticated visual verification remain pending deployment credentials and Render access.
