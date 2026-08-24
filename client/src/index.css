@@ -884,3 +884,32 @@ body { color: var(--paper); }
   background: rgba(42,52,57,.72);
   color: #f0f4f5;
 }
+
+/* Dropdown polish and tiny scrollbar system. */
+.composer-menu {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(203,214,219,.34) transparent;
+  border-color: rgba(203,214,219,.2);
+  border-radius: 10px;
+  background: linear-gradient(145deg, #1b2226 0%, #121719 100%);
+  box-shadow: 0 18px 42px rgba(0,0,0,.42), inset 0 1px 0 rgba(235,242,244,.035);
+}
+.composer-menu::-webkit-scrollbar { width: 4px; height: 4px; }
+.composer-menu::-webkit-scrollbar-track { background: transparent; }
+.composer-menu::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(203,214,219,.32); }
+.composer-menu::-webkit-scrollbar-thumb:hover { background: rgba(221,231,234,.56); }
+.model-menu { width: min(300px, calc(100vw - 32px)); padding: 6px; border-radius: 11px; }
+.model-menu-header { border-bottom-color: rgba(203,214,219,.12); color: #93a0a5; }
+.model-menu-header b { color: #d2dcdf; }
+.model-option { min-height: 40px !important; border-radius: 7px !important; color: #b8c4c8 !important; transition: background .14s ease-out, color .14s ease-out; }
+.model-option:hover { background: rgba(214,225,229,.1) !important; color: #f0f4f5 !important; }
+.model-option-name { color: inherit; }
+.model-option svg:first-child { color: #91a0a5; }
+.model-option svg:last-child { color: #e1e9eb; }
+.project-menu { top: calc(100% + 7px); right: auto; left: auto; }
+.composer-project-anchor .project-menu { right: calc(100% + 8px); }
+.thread-list, .project-section, .model-list { scrollbar-width: thin; scrollbar-color: rgba(203,214,219,.32) transparent; }
+.thread-list::-webkit-scrollbar, .project-section::-webkit-scrollbar, .model-list::-webkit-scrollbar { width: 4px; height: 4px; }
+.thread-list::-webkit-scrollbar-track, .project-section::-webkit-scrollbar-track, .model-list::-webkit-scrollbar-track { background: transparent; }
+.thread-list::-webkit-scrollbar-thumb, .project-section::-webkit-scrollbar-thumb, .model-list::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(203,214,219,.28); }
+.thread-list::-webkit-scrollbar-thumb:hover, .project-section::-webkit-scrollbar-thumb:hover, .model-list::-webkit-scrollbar-thumb:hover { background: rgba(221,231,234,.5); }

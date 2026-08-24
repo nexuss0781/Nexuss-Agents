@@ -559,3 +559,9 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 Darkened the main Start a thread chat card to a near-black premium surface and added a restrained fine stripe/grid texture inspired by the supplied authentication dashboard reference. Reduced the card controls to quieter dark surfaces so the cool-grey left panel remains the strongest visual anchor.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Dropdown and Scrollbar Polish
+
+Modernized the model dropdown with a rounded dark premium surface, clearer selected/hover states, and compact typography. The project menu now opens fully to the left of its composer trigger instead of overlapping the right edge. Thread, project, model, and dropdown scrollbars now use tiny 4px tracks with subtle neutral thumbs and hover feedback.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
