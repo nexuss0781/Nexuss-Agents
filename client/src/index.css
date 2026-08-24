@@ -476,3 +476,13 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 @keyframes active-work-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
 @media (prefers-reduced-motion: reduce) { .active-work-drawer { animation: none; } }
 @media (max-width: 500px) { .mission-activity-button { max-width: 95px; padding: 0 7px; }.active-work-header { padding-left: 17px; padding-right: 17px; }.active-work-body { padding: 12px; } }
+
+/* Composer control alignment: keep the model and work style together at center. */
+.composer-top { position: relative; }
+.composer-controls-center { position: absolute; left: 50%; display: flex; align-items: center; gap: 10px; transform: translateX(-50%); }
+.composer-controls-center .composer-top-divider { width: 1px; height: 15px; background: rgba(255,255,255,.1); }
+.message.user { scroll-margin-top: 18px; }
+@media (max-width: 600px) {
+  .composer-controls-center { position: static; margin: 0 auto; transform: none; }
+  .composer-controls-center .composer-picker { max-width: 150px; }
+}

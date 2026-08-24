@@ -377,7 +377,7 @@ describe("persistent workspace client", () => {
       await act(async () => { await new Promise((resolveTick) => setTimeout(resolveTick, 25)); });
       expect(inputs).not.toHaveBeenCalledWith("workspace.mission.createFromIntake", expect.anything());
       expect(fetchMock).toHaveBeenCalledWith("/api/playground/stream", expect.objectContaining({ method: "POST" }));
-      expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
+      expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0, behavior: "smooth" }));
     } finally {
       Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: originalScrollTo });
       fetchMock.mockRestore();

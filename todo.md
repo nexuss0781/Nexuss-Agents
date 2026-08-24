@@ -415,3 +415,11 @@ The focused validation command was `pnpm check && pnpm exec vitest run client/sr
 - [x] Preserved compact message spacing and added a small bottom breathing space below the newest content while scrolling the conversation container to the latest message.
 - [x] Added regression coverage for failed-prompt restoration and send-time scrolling. TypeScript, 20 focused workspace tests, production build, and diff hygiene pass.
 - [ ] Live authenticated Render visual verification remains required after deployment.
+
+## Prompt Position and Failure Rollback
+
+- [x] New prompts now become the scroll target and are placed at the top of the visible conversation with a small top offset; subsequent live updates continue to the latest content.
+- [x] Reordered the composer controls so the model selector appears before Complex and the pair is centered between attachments and project assignment.
+- [x] Added owner-scoped server rollback for failed direct model requests, removing the just-sent persisted prompt before the client restores it to the composer.
+- [x] Added regression coverage for top-position scrolling and retry restoration. TypeScript, 20 focused workspace tests, production build, and diff hygiene pass.
+- [ ] Live authenticated Render visual and failure-retry verification remains required after deployment.

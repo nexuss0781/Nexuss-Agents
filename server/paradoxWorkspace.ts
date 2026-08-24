@@ -384,6 +384,7 @@ export async function streamWorkspacePrompt(ownerId: string, input: PlaygroundPr
   const title = history.length === 0 ? (input.title || input.prompt.slice(0, 42)) : undefined;
   await appendThreadMessages(ownerId, input.threadId, [{ role: "user", content: input.prompt }], title);
   const messages = buildPlaygroundMessages(history, input);
+  const rollbackPrompt = () => removeLatestThreadMessage(ownerId, input.threadId, { role: "user", content: input.prompt });
   let response: Response;
   try {
     response = await fetch(`${normalizeProviderBaseUrl(provider.base_url)}/chat/completions`, {
@@ -393,14 +394,22 @@ export async function streamWorkspacePrompt(ownerId: string, input: PlaygroundPr
       signal,
     });
   } catch (error) {
-    if (signal.aborted)     return { content: "", stopped: true, finished: false };
+    if (signal.aborted) return { content: "", stopped: true, finished: false };
+    await rollbackPrompt().catch(() => undefined);
     throw error;
   }
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
+    await rollbackPrompt().catch(() => undefined);
     throw new ModelProviderError(`The model API rejected the request: ${response.status} — ${providerErrorDetail(detail)}`, { code: "PROVIDER_HTTP_ERROR", status: response.status });
   }
-  const result = await readOpenAICompatibleStream(response, signal, onToken);
+  let result: PlaygroundStreamResult;
+  try {
+    result = await readOpenAICompatibleStream(response, signal, onToken);
+  } catch (error) {
+    if (!signal.aborted) await rollbackPrompt().catch(() => undefined);
+    throw error;
+  }
   if (result.content) await appendThreadMessages(ownerId, input.threadId, [{ role: "assistant", content: result.content }]);
   return result;
 }
@@ -507,6 +516,15 @@ export async function appendThreadMessages(ownerId: string, threadId: string, me
     if (title) db.execute("UPDATE workspace_threads SET title = ?, updated_at = ? WHERE id = ? AND owner_id = ?", [title, timestamp, threadId, ownerId]);
     else db.execute("UPDATE workspace_threads SET updated_at = ? WHERE id = ? AND owner_id = ?", [timestamp, threadId, ownerId]);
     return { threadId, title, updatedAt: timestamp, messages: inserted };
+  });
+}
+
+export async function removeLatestThreadMessage(ownerId: string, threadId: string, message: Pick<WorkspaceMessage, "role" | "content">) {
+  return withWorkspaceDb(true, (db) => {
+    assertThreadOwner(db, ownerId, threadId);
+    db.execute("DELETE FROM workspace_messages WHERE id = (SELECT id FROM workspace_messages WHERE thread_id = ? AND owner_id = ? AND role = ? AND content = ? ORDER BY created_at DESC LIMIT 1) AND owner_id = ?", [threadId, ownerId, message.role, message.content, ownerId]);
+    db.execute("UPDATE workspace_threads SET updated_at = ? WHERE id = ? AND owner_id = ?", [now(), threadId, ownerId]);
+    return { threadId, removed: true };
   });
 }
 
