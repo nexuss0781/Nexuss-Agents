@@ -42,6 +42,8 @@ type Workspace = { projects: Project[]; threads: Thread[] };
 type StreamingTurn = { threadId: string; prompt: string; content: string; startedAt: string };
 type QueuedPrompt = { id: string; content: string; mode: "next" | "later" };
 type ExecutionMode = "complex" | "general" | "instant";
+type AttachmentStatus = "uploading" | "processing" | "ready" | "failed" | "cancelled";
+type UploadedAttachment = { id: string; name: string; mimeType: string; size: number; contentHash: string; storageUrl: string; status: AttachmentStatus; progress: number; error?: string };
 
 const seed: Workspace = {
   projects: [],
@@ -251,8 +253,11 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const [promptQueue, setPromptQueue] = useState<QueuedPrompt[]>([]);
   const [queueMenuOpen, setQueueMenuOpen] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
+  const [attachments, setAttachments] = useState<UploadedAttachment[]>([]);
   const [migrationSettled, setMigrationSettled] = useState(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const attachmentRequestsRef = useRef<Map<string, XMLHttpRequest>>(new Map());
   const streamAbortRef = useRef<AbortController | null>(null);
   const streamThreadRef = useRef<string | null>(null);
   const promptQueueRef = useRef<QueuedPrompt[]>([]);
@@ -310,7 +315,11 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   }, [modelSettingsQuery.isSuccess, modelSettingsQuery.data]);
 
   useEffect(() => {
-    return () => streamAbortRef.current?.abort();
+    return () => {
+      streamAbortRef.current?.abort();
+      attachmentRequestsRef.current.forEach((request) => request.abort());
+      attachmentRequestsRef.current.clear();
+    };
   }, []);
 
   useEffect(() => {
@@ -381,6 +390,60 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   function updatePromptQueue(next: QueuedPrompt[]) {
     promptQueueRef.current = next;
     setPromptQueue(next);
+  }
+
+  function updateAttachment(id: string, patch: Partial<UploadedAttachment>) {
+    setAttachments((current) => current.map((attachment) => attachment.id === id ? { ...attachment, ...patch } : attachment));
+  }
+
+  function uploadAttachment(file: File) {
+    const id = crypto.randomUUID();
+    setAttachments((current) => [...current, { id, name: file.name || "attachment", mimeType: file.type || "application/octet-stream", size: file.size, contentHash: "", storageUrl: "", status: "uploading", progress: 0 }]);
+    const request = new XMLHttpRequest();
+    attachmentRequestsRef.current.set(id, request);
+    request.open("POST", "/api/workspace/attachments/upload");
+    request.withCredentials = true;
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      const progress = Math.min(99, Math.round((event.loaded / event.total) * 100));
+      updateAttachment(id, { progress, status: progress >= 99 ? "processing" : "uploading" });
+    };
+    request.onload = () => {
+      attachmentRequestsRef.current.delete(id);
+      let payload: { attachment?: { id: string; name: string; mimeType: string; size: number; contentHash: string; storageUrl: string }; error?: string } = {};
+      try { payload = JSON.parse(request.responseText || "{}"); } catch { /* handled by the generic upload error below */ }
+      if (request.status >= 200 && request.status < 300 && payload.attachment) {
+        updateAttachment(id, { ...payload.attachment, status: "ready", progress: 100 });
+      } else {
+        updateAttachment(id, { status: "failed", progress: 0, error: payload.error || "Upload could not be completed." });
+      }
+    };
+    request.onerror = () => { attachmentRequestsRef.current.delete(id); updateAttachment(id, { status: "failed", progress: 0, error: "Upload could not be completed." }); };
+    request.onabort = () => { attachmentRequestsRef.current.delete(id); updateAttachment(id, { status: "cancelled", error: "Upload cancelled." }); };
+    const form = new FormData();
+    form.append("file", file, file.name);
+    const projectId = activeProject?.id || pendingProjectId;
+    if (projectId) form.append("projectId", projectId);
+    form.append("sourceKind", "specification");
+    request.send(form);
+  }
+
+  function chooseAttachments(files: FileList | null) {
+    if (!files) return;
+    Array.from(files).forEach(uploadAttachment);
+    if (attachmentInputRef.current) attachmentInputRef.current.value = "";
+  }
+
+  function cancelAttachment(id: string) {
+    const request = attachmentRequestsRef.current.get(id);
+    if (request) request.abort();
+    else updateAttachment(id, { status: "cancelled", error: "Upload cancelled." });
+  }
+
+  function removeAttachment(id: string) {
+    attachmentRequestsRef.current.get(id)?.abort();
+    attachmentRequestsRef.current.delete(id);
+    setAttachments((current) => current.filter((attachment) => attachment.id !== id));
   }
 
   function queuePrompt(mode: "next" | "later") {
@@ -566,7 +629,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         </section>
         <div className="composer-wrap"><div className="composer" onClick={() => composerRef.current?.focus()}>
           <div className="composer-top">
-            <button className="composer-plus" onClick={(event) => { event.stopPropagation(); toast("Attachments are coming soon"); }} aria-label="Add context"><Plus size={16} /></button>
+            <button className="composer-plus" onClick={(event) => { event.stopPropagation(); attachmentInputRef.current?.click(); }} aria-label="Add attachments" title="Add attachments"><Plus size={16} /></button>
+            <input ref={attachmentInputRef} className="attachment-input" type="file" multiple onChange={(event) => chooseAttachments(event.target.files)} aria-label="Choose attachments" />
             <div className="composer-menu-anchor composer-execution-anchor">
               <button className="composer-picker execution-picker" onClick={(event) => { event.stopPropagation(); setModelMenuOpen(false); setProjectMenuOpen(false); setExecutionMenuOpen(!executionMenuOpen); }} aria-label="Choose execution style" aria-expanded={executionMenuOpen}><span className="execution-picker-dot" aria-hidden="true" /><span>{executionMode === "complex" ? "Complex" : executionMode}</span><ChevronDown size={13} /></button>
               {executionMenuOpen && <div className="composer-menu execution-menu" role="menu" aria-label="Execution styles">
@@ -586,6 +650,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
               {projectMenuOpen && <div className="composer-menu project-menu" role="menu"><button onClick={(event) => { event.stopPropagation(); chooseProject(null); }}>No project</button>{workspace.projects.map((project) => <button key={project.id} onClick={(event) => { event.stopPropagation(); chooseProject(project.id); }}><Folder size={14} />{project.name}{project.id === (activeThread?.projectId || pendingProjectId) && <Check size={13} />}</button>)}</div>}
             </div>
           </div>
+          {attachments.length > 0 && <div className="attachment-tray" aria-live="polite">{attachments.map((attachment) => <div className={`attachment-chip ${attachment.status}`} key={attachment.id}><div className="attachment-chip-main"><span className="attachment-chip-mark" aria-hidden="true" /><span className="attachment-chip-copy"><strong title={attachment.name}>{attachment.name}</strong><small>{attachment.status === "uploading" ? `Uploading ${attachment.progress}%` : attachment.status === "processing" ? "Preparing" : attachment.status === "ready" ? "Ready" : attachment.error || attachment.status}</small></span></div>{(attachment.status === "uploading" || attachment.status === "processing") ? <button className="attachment-action" onClick={(event) => { event.stopPropagation(); cancelAttachment(attachment.id); }} aria-label={`Cancel ${attachment.name}`}><X size={12} /></button> : <button className="attachment-action" onClick={(event) => { event.stopPropagation(); removeAttachment(attachment.id); }} aria-label={`Remove ${attachment.name}`}><X size={12} /></button>}{(attachment.status === "uploading" || attachment.status === "processing") && <span className="attachment-progress" style={{ width: `${attachment.progress}%` }} />}</div>)}</div>}
           <textarea ref={composerRef} value={draft} onChange={(event) => { setDraft(event.target.value); if (!event.target.value.trim()) setQueueMenuOpen(false); }} onKeyDown={handleComposerKey} placeholder={streamingTurn ? "Write a follow-up — it will wait for the current response" : "Write your message…"} rows={2} disabled={!workspaceReady || createThreadMutation.isPending} />
           <div className="composer-bottom">
             <span className="composer-runtime-status">{streamingTurn ? (promptQueue.length ? `${promptQueue.length} queued` : "Streaming response") : "Enter to send"}</span>

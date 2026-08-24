@@ -13,6 +13,7 @@ import { missionRunner } from "../mission/runner";
 import { planRepositoryChange } from "../mission/orchestrator";
 import { createRepositoryChangeExecutor } from "../mission/repositoryChangeExecutor";
 import { recoverAllMissions } from "../mission/commands";
+import { registerAttachmentUploadRoute } from "../attachments";
 
 missionRunner.configureOrchestrator(planRepositoryChange);
 missionRunner.configureExecutor(createRepositoryChangeExecutor());
@@ -45,6 +46,7 @@ async function startServer() {
   registerStorageProxy(app);
   registerNexussAuthRoutes(app);
   registerPlaygroundStreamRoute(app);
+  registerAttachmentUploadRoute(app);
   // tRPC API
   app.use(
     "/api/trpc",

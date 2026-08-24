@@ -255,6 +255,20 @@ describe("persistent workspace client", () => {
     expect(host.querySelector<HTMLButtonElement>('.execution-option.upcoming:nth-of-type(3)')?.disabled).toBe(true);
   });
 
+  it("accepts multiple attachments without an extension allowlist", async () => {
+    const host = await mountWorkspace((path) => {
+      if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-alpha"], apiKeyConfigured: true };
+      return { projects: [], threads: [] };
+    });
+
+    await waitForText(host, "model-alpha");
+    const fileInput = host.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(fileInput).not.toBeNull();
+    expect(fileInput?.multiple).toBe(true);
+    expect(fileInput?.getAttribute("accept")).toBeNull();
+    expect(host.querySelector('button[aria-label="Add attachments"]')).not.toBeNull();
+  });
+
   it("creates a project-linked thread from the first message and starts the selected model stream", async () => {
     const inputs = vi.fn();
     const project: WorkspaceSnapshot["projects"][number] = { id: "pntp", name: "PNTP", description: "", tone: "#f4f4f0" };

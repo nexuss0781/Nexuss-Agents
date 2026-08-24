@@ -326,3 +326,12 @@ Validation evidence for this slice: TypeScript check passed and 15 focused intak
 - [x] Preserved the existing conversation, model, project, settings, streaming, and queue behavior; no internal runtime terms are exposed.
 - [x] Added matching dark-workspace styles and a Home regression test for the selector states.
 - [x] TypeScript and 16 focused frontend tests pass. Local visual navigation reached the protected login boundary; an authenticated workspace screenshot remains a live-session verification item.
+
+## Frontend Phase 2 — Realtime Attachments
+
+- [x] Replaced the attachment placeholder with a multi-file picker that accepts files without an extension allowlist.
+- [x] Added per-file realtime XMLHttpRequest upload progress, processing, ready, failed, cancelled, retry-compatible, remove, and cancel states in the composer.
+- [x] Added an authenticated multipart upload route using the existing Nexuss session, server-side storage helper, SHA-256 content provenance, owner/project metadata, and encrypted attachment records.
+- [x] Added the durable `workspace_attachments` metadata table and indexes without storing file bytes in Paradox.
+- [x] Added attachment-input regression coverage; TypeScript, 24 focused frontend/server tests, production build, and diff hygiene pass.
+- [ ] Connecting ready attachment references into intake-created mission sources is reserved for the next mission-submission phase.
