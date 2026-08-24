@@ -507,32 +507,32 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 html, body, #root { background: var(--ink-0); }
 body { color: var(--paper); }
 .app-shell { background: var(--ink-0); color: var(--paper); }
-.sidebar { width: 296px; min-width: 296px; padding: 18px 14px 15px; border-right-color: var(--line-soft); background: #121213; }
-.brand-row { gap: 12px; padding: 3px 10px 26px; }
-.brand-mark { width: 31px; height: 31px; border: 1px solid rgba(139,96,72,.7); background: #2a211d; }
-.brand-mark img { width: 25px; height: 25px; filter: none; }
-.brand-name { color: #f7f7f2; font-size: 11px; letter-spacing: .18em; }
-.brand-meta { color: #69696b; }
-.brand-meta span { color: #9e9e9b; }
-.new-thread-button { height: 42px; border: 1px solid #3b3b3d; border-radius: 8px; background: #f1f1ed; color: #151516; font-size: 12px; box-shadow: none; }
-.new-thread-button:hover { background: #fff; transform: none; }
-.sidebar-section { margin-top: 25px; }
-.section-label { margin: 0 10px 10px; color: #737376; font-size: 9px; letter-spacing: .16em; }
-.search-field { height: 34px; margin: 0 2px 9px; border-color: #29292b; border-radius: 7px; background: #181819; }
+.sidebar { width: 280px; min-width: 280px; padding: 22px 16px 16px; border-right-color: rgba(255,255,255,.1); background: #101011; }
+.brand-row { gap: 11px; padding: 2px 8px 25px; }
+.brand-mark { width: 29px; height: 29px; border: 1px solid rgba(139,96,72,.7); background: #2a211d; border-radius: 50%; }
+.brand-mark img { width: 24px; height: 24px; filter: none; }
+.brand-name { color: #f4f4f0; font-size: 12px; letter-spacing: .13em; }
+.brand-meta { color: #77787c; }
+.brand-meta span { color: #f4f4f0; }
+.new-thread-button { height: 40px; border: 1px solid rgba(255,255,255,.16); border-radius: 3px; background: #f4f4f0; color: #0b0b0c; font-size: 12px; box-shadow: none; }
+.new-thread-button:hover { background: white; transform: translateY(-1px); }
+.sidebar-section { margin-top: 28px; }
+.section-label { margin: 0 8px 11px; color: #848589; font-size: 10px; letter-spacing: .16em; }
+.search-field { height: 31px; margin: 0 0 9px; border-color: rgba(255,255,255,.08); border-radius: 3px; background: rgba(255,255,255,.025); }
 .search-field input { font-size: 11px; }
-.thread-list, .project-list { gap: 3px; }
-.thread-item { padding: 10px 10px; border-left: 2px solid transparent; border-radius: 7px; }
-.thread-item.active { border-left-color: #e6e6e0; background: #242426; }
-.thread-item:hover { background: #1c1c1e; }
-.thread-title { color: #c8c8c5; font-size: 12px; }
+.thread-list, .project-list { gap: 2px; }
+.thread-item { padding: 9px 8px; border-left: 2px solid transparent; border-radius: 0; }
+.thread-item.active { border-left-color: #a77b5d; background: #221d1a; }
+.thread-item:hover { background: rgba(255,255,255,.035); }
+.thread-title { color: #c5c5c2; font-size: 12px; }
 .active .thread-title { color: #fff; }
-.thread-item-sub { padding-top: 6px; color: #69696b; }
-.active .thread-slug { color: #a6a6a2; }
-.project-section { margin-top: 23px; }
-.project-row { border-radius: 7px; padding: 9px 10px; }
-.project-row:hover { background: #1c1c1e; }
-.add-project { padding: 9px 10px; }
-.sidebar-footer { margin-top: 16px; padding-top: 14px; border-top-color: var(--line-soft); }
+.thread-item-sub { padding-top: 7px; color: #66676a; }
+.active .thread-slug { color: #c8b3a5; }
+.project-section { margin-top: 18px; }
+.project-row { border-radius: 0; padding: 8px; }
+.project-row:hover { background: rgba(255,255,255,.035); }
+.add-project { padding: 8px; }
+.sidebar-footer { margin-top: 18px; padding-top: 14px; border-top-color: rgba(255,255,255,.08); }
 
 .main-stage { background: #19191a; }
 .topbar { height: 56px; padding: 0 30px; border-bottom-color: var(--line-soft); background: rgba(25,25,26,.92); }
@@ -657,9 +657,10 @@ body { color: var(--paper); }
 
 /* Fixed composer: transparent positioning layer, stable bottom anchor, no black shelf. */
 @media (min-width: 801px) {
-  .composer-wrap { position: fixed; left: 296px; right: 0; bottom: 0; z-index: 20; display: flex; justify-content: center; width: auto; padding: 0 20px 18px; background: transparent; pointer-events: none; }
+  .main-stage { background: #19191a; }
+  .composer-wrap { position: fixed; left: 280px; right: 0; bottom: 0; z-index: 20; display: flex; justify-content: center; width: auto; padding: 0 20px 18px; background: transparent !important; box-shadow: none; pointer-events: none; }
   .composer-wrap > .composer { width: min(860px, 100%); pointer-events: auto; }
 }
 @media (max-width: 800px) {
-  .composer-wrap { background: transparent; }
+  .composer-wrap { background: transparent !important; }
 }
