@@ -929,3 +929,37 @@ body { color: var(--paper); }
 @media (max-width: 800px) {
   .model-menu, .composer-project-anchor .project-menu { width: min(240px, calc(100vw - 24px)); }
 }
+
+/* One drop-up language for model, execution style, and project selection. */
+.execution-menu,
+.composer-project-anchor .project-menu {
+  top: auto;
+  bottom: calc(100% + 8px);
+  width: min(260px, calc(100vw - 32px));
+  max-height: min(210px, calc(100dvh - 190px));
+  padding: 6px;
+  border: 1px solid rgba(203,214,219,.2);
+  border-radius: 11px;
+  background: linear-gradient(145deg, #1b2226 0%, #121719 100%);
+  box-shadow: 0 18px 42px rgba(0,0,0,.42), inset 0 1px 0 rgba(235,242,244,.035);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(203,214,219,.34) transparent;
+}
+.execution-menu { left: 0; right: auto; }
+.composer-project-anchor .project-menu { right: calc(100% + 8px); left: auto; }
+.execution-menu::-webkit-scrollbar,
+.composer-project-anchor .project-menu::-webkit-scrollbar { width: 4px; height: 4px; }
+.execution-menu::-webkit-scrollbar-track,
+.composer-project-anchor .project-menu::-webkit-scrollbar-track { background: transparent; }
+.execution-menu::-webkit-scrollbar-thumb,
+.composer-project-anchor .project-menu::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(203,214,219,.32); }
+.execution-option,
+.composer-project-anchor .project-menu button { min-height: 40px !important; border-radius: 7px !important; color: #b8c4c8 !important; transition: background .14s ease-out, color .14s ease-out; }
+.execution-option:hover:not(:disabled),
+.composer-project-anchor .project-menu button:hover { background: rgba(214,225,229,.1) !important; color: #f0f4f5 !important; }
+.execution-option.selected { background: rgba(214,225,229,.08); color: #e8eff1 !important; }
+.execution-option small { color: #738086; }
+@media (max-width: 800px) {
+  .execution-menu,
+  .composer-project-anchor .project-menu { width: min(240px, calc(100vw - 24px)); }
+}
