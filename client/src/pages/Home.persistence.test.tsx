@@ -322,8 +322,10 @@ describe("persistent workspace client", () => {
     const host = await mountWorkspace((path, input) => {
       inputs(path, input);
       if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-live"], availableModels: ["model-live"], apiKeyConfigured: true };
+      if (path === "workspace.createThread") return { id: "first-thread", chatSlug: "chat-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", title: "New thread", projectId: "pntp", updatedAt: "2026-08-18T00:00:00.000Z", messages: [] };
       if (path === "workspace.mission.createFromIntake") return { intake: { id: "intake-created" }, mission: { mission: { id: "mission-created", status: "created" }, workItems: [], events: [] } };
       if (path === "workspace.mission.start") return { mission: { id: "mission-created", status: "queued" }, workItems: [], events: [] };
+      if (path === "workspace.appendMessages") return { threadId: "first-thread", messages: [] };
       if (path === "workspace.mission.list") return [{ id: "mission-created", ownerId: "owner-1", goal: "Build the release workflow", status: "executing", version: 1, createdAt: "2026-08-24T00:00:00.000Z", updatedAt: "2026-08-24T00:00:00.000Z" }];
       return empty;
     });
@@ -345,6 +347,7 @@ describe("persistent workspace client", () => {
     await waitForText(host, "Build the release workflow");
     expect(inputs).toHaveBeenCalledWith("workspace.mission.createFromIntake", { projectId: null, model: "model-live", sources: [{ kind: "raw_prompt", text: "Build the release workflow" }] });
     expect(inputs).toHaveBeenCalledWith("workspace.mission.start", { missionId: "mission-created" });
+    expect(inputs).toHaveBeenCalledWith("workspace.appendMessages", { threadId: "first-thread", messages: [{ role: "user", content: "Build the release workflow" }, { role: "assistant", content: "I’m taking this on now. I’ll work through the request, check the result, and bring the finished work back here." }], title: "Build the release workflow" });
   });
 
   it("requests full message history only for the browser-selected chat slug", async () => {

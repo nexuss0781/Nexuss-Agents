@@ -296,7 +296,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const createProjectMutation = trpc.workspace.createProject.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Project could not be saved") });
   const updateProjectMutation = trpc.workspace.updateProject.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Project could not be updated") });
   const deleteProjectMutation = trpc.workspace.deleteProject.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Project could not be removed") });
-  const createThreadMutation = trpc.workspace.createThread.useMutation({ onSuccess: (thread) => { setActiveThreadId(thread.id); setPendingProjectId(null); setLocation(`/app/chat/${thread.chatSlug}`); refreshWorkspace(); toast.success(thread.created === false ? "Existing empty thread selected" : "New thread created"); }, onError: () => toast.error("Thread could not be created") });
+  const createThreadMutation = trpc.workspace.createThread.useMutation({ onSuccess: (thread) => { setActiveThreadId(thread.id); setPendingProjectId(null); setLocation(`/app/chat/${thread.chatSlug}`); refreshWorkspace(); }, onError: () => toast.error("Thread could not be created") });
+  const appendMessagesMutation = trpc.workspace.appendMessages.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Your conversation could not be updated") });
   const renameThreadMutation = trpc.workspace.renameThread.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Thread could not be renamed") });
   const deleteThreadMutation = trpc.workspace.deleteThread.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Thread could not be deleted") });
   const assignThreadProjectMutation = trpc.workspace.assignThreadProject.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Project assignment could not be saved") });
@@ -394,7 +395,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   function deleteThread(id: string) {
     if (!workspaceReady) return;
     if (workspace.threads.length === 1) return toast.error("Keep at least one thread in the workspace");
-    deleteThreadMutation.mutate({ id }, { onSuccess: () => { if (activeThreadId === id) setActiveThreadId(""); toast.success("Thread deleted"); } });
+    deleteThreadMutation.mutate({ id }, { onSuccess: () => { if (activeThreadId === id) setActiveThreadId(""); } });
   }
 
   function submitThreadName() {
@@ -413,10 +414,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     if (!name) return;
     if (projectEditor?.mode === "edit" && projectEditor.project) {
       updateProjectMutation.mutate({ id: projectEditor.project.id, project: { name, description } });
-      toast.success("Project updated");
     } else {
       createProjectMutation.mutate({ name, description, tone: "#f4f4f0" });
-      toast.success("Project created");
     }
     setProjectEditor(null);
   }
@@ -424,7 +423,6 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   function deleteProject(id: string) {
     if (!workspaceReady) return;
     deleteProjectMutation.mutate({ id });
-    toast.success("Project removed; threads are still safe");
   }
 
   function updatePromptQueue(next: QueuedPrompt[]) {
@@ -493,7 +491,6 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     updatePromptQueue(mode === "next" ? [item, ...promptQueueRef.current] : [...promptQueueRef.current, item]);
     setDraft("");
     setQueueMenuOpen(false);
-    toast.success(mode === "next" ? "Prompt queued next" : "Prompt queued after the current work");
   }
 
   function stopStreaming() {
@@ -503,7 +500,6 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       updatePromptQueue([]);
     }
     streamAbortRef.current.abort();
-    toast("Stopping the current response…");
   }
 
   async function runPrompt(content: string, targetThread: Thread) {
@@ -556,10 +552,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       const next = finished ? promptQueueRef.current.shift() : undefined;
       setPromptQueue([...promptQueueRef.current]);
       if (next) {
-        toast.success("Starting the next queued prompt");
         window.setTimeout(() => void runPrompt(next.content, targetThread), 0);
       } else if (finished && streamedContent) {
-        toast.success("Response ready");
       }
     }
   }
@@ -568,7 +562,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     const content = draft.trim();
     if (!workspaceReady || (!content && attachments.length === 0) || createMissionFromIntakeMutation.isPending || startMissionMutation.isPending) return;
     const pendingAttachments = attachments.filter((attachment) => attachment.status === "uploading" || attachment.status === "processing");
-    if (pendingAttachments.length) return toast("Finish attaching your files first.");
+    if (pendingAttachments.length) return toast.error("Finish attaching your files first.");
     const failedAttachments = attachments.filter((attachment) => attachment.status !== "ready");
     if (failedAttachments.length) return toast.error("Remove failed attachments or choose them again.");
     try {
@@ -576,12 +570,14 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       const sources = [...(content ? [{ kind: "raw_prompt" as const, text: content }] : []), ...attachments.map((attachment) => ({ kind: "specification" as const, attachmentId: attachment.id, name: attachment.name, mimeType: attachment.mimeType }))];
       const result = await createMissionFromIntakeMutation.mutateAsync({ projectId, model: activeModel || undefined, sources });
       await startMissionMutation.mutateAsync({ missionId: result.mission.mission.id });
+      const targetThread = activeThread || await createThreadMutation.mutateAsync({ projectId: pendingProjectId });
+      const acknowledgment = "I’m taking this on now. I’ll work through the request, check the result, and bring the finished work back here.";
+      await appendMessagesMutation.mutateAsync({ threadId: targetThread.id, messages: [...(content ? [{ role: "user" as const, content }] : []), { role: "assistant", content: acknowledgment }], ...(targetThread.messages.length === 0 && content ? { title: content.slice(0, 42) } : {}) });
       void utils.workspace.mission.list.invalidate();
       setSelectedMissionId(result.mission.mission.id);
       setActiveWorkOpen(true);
       setDraft("");
       setAttachments([]);
-      toast.success("Work received. The agent has started.");
     } catch (error) {
       const detail = error instanceof Error ? error.message : "";
       if (detail.includes("needs_clarification")) toast.error("I need a little more detail before I can start this work.");
@@ -638,8 +634,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         setAvailableModels(settings.availableModels || []);
         setModelApiKey("");
         void utils.workspace.modelSettings.invalidate();
-        toast.success("Provider settings saved");
-        afterSave?.();
+          afterSave?.();
       },
     });
   }
@@ -648,7 +643,6 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     saveProviderSettings(() => discoverModelsMutation.mutate(undefined, {
       onSuccess: ({ models }) => {
         setAvailableModels((current) => Array.from(new Set([...current, ...models])).sort((a, b) => a.localeCompare(b)));
-        toast.success(`${models.length} models available`);
       },
     }));
   }
@@ -702,7 +696,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="topbar-thread-copy"><div className="topbar-thread-title">{activeThread?.title || "New thread"}</div>{activeThreadSlug && <span className="topbar-thread-slug">{activeThreadSlug}</span>}</div></div><div className="topbar-right">{recentMissions.length > 0 && <button className={`mission-activity-button ${activeMissions.length > 0 ? "active" : ""}`} onClick={() => setActiveWorkOpen(true)} aria-label="Open your work" aria-expanded={activeWorkOpen}><span className="mission-activity-dot" aria-hidden="true" />{activeMissions.length > 0 ? `${activeMissions.length} working` : "Your work"}</button>}<button className="icon-button settings-trigger" onClick={() => setSettingsOpen(true)} aria-label="Open settings" aria-haspopup="dialog" aria-expanded={settingsOpen}><Settings size={16} /></button></div></header>
         <div className="mobile-context-strip"><button className="mobile-context-button" onClick={() => setMobileNav(true)}><Menu size={15} /><span>Threads</span></button><div className="mobile-context-title"><strong>{activeThread?.title || "New thread"}</strong></div><button className="mobile-context-button" onClick={createThread} disabled={!workspaceReady || createThreadMutation.isPending}><Plus size={15} /><span>New</span></button></div><section className="conversation-area">
           <div className="conversation-heading">{activeThread && <div className="heading-actions"><button className="icon-button" onClick={() => { setThreadEditor(activeThread.id); setThreadName(activeThread.title); }} aria-label="Rename thread"><Pencil size={16} /></button><button className="icon-button danger-hover" onClick={() => deleteThread(activeThread.id)} aria-label="Delete thread"><Trash2 size={16} /></button></div>}</div>
-          {navigationQuery.isError || activeChatQuery.isError ? <div className="empty-thread"><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Workspace unavailable.</h2><p>Your saved data is unchanged. Check your connection and try again.</p><button className="empty-create-button" onClick={() => { void navigationQuery.refetch(); if (routeChatSlug) void activeChatQuery.refetch(); }}><ArrowUp size={14} /> Retry loading</button></div> : !workspaceReady || migration.isPending ? <AxolotlLoader label="LOADING YOUR WORKSPACE" /> : activeThread?.messages.length || responsePending || liveStreaming ? <div className="message-stack">{livePromptVisible && <article className="message user live-prompt"><div className="message-meta"><span className="role-mark user">You</span><span>You</span><span className="message-time">{formatDate(liveStreaming!.startedAt)}</span></div><div className="message-content"><MarkdownMessage content={liveStreaming!.prompt} /></div><div className="message-divider" /></article>}{activeThread?.messages.map((message, index) => <article className={`message ${message.role}`} key={message.id}><div className="message-meta"><span className={`role-mark ${message.role}`}>{message.role === "assistant" ? <img src={AXOLOTL_ICON} alt="" /> : "You"}</span><span>{message.role === "assistant" ? "Nexuss-Agent" : "You"}</span><span className="message-time">{formatDate(message.createdAt)}</span>{message.role === "assistant" && <button className="copy-button" onClick={() => { navigator.clipboard?.writeText(message.content); toast.success("Copied to clipboard"); }}><Copy size={13} /> Copy</button>}</div><div className="message-content"><MarkdownMessage content={message.content} /></div>{index < (activeThread?.messages.length || 0) - 1 && <div className="message-divider" />}</article>)}{liveAssistantVisible && <article className="message assistant live-response"><div className="message-meta"><span className="role-mark assistant"><img src={AXOLOTL_ICON} alt="" /></span><span>Nexuss-Agent</span><span className="message-time">LIVE</span></div><div className="message-content"><MarkdownMessage content={liveStreaming!.content || "▍"} /></div></article>}{responsePending && <ResponseSkeleton />}</div> : <div className="empty-thread"><div className="orbit-art axolotl-schematic" aria-hidden="true"><span className="axolotl-loop" /><span className="axolotl-eye axolotl-eye-one" /><span className="axolotl-eye axolotl-eye-two" /><span className="axolotl-gill axolotl-gill-one" /><span className="axolotl-gill axolotl-gill-two" /></div><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Start a thread.</h2><p>Give your work a place to begin.</p><button className="empty-create-button" onClick={createThread} disabled={createThreadMutation.isPending}><Plus size={14} /> New thread <ArrowUp size={13} /></button></div>}
+          {navigationQuery.isError || activeChatQuery.isError ? <div className="empty-thread"><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Workspace unavailable.</h2><p>Your saved data is unchanged. Check your connection and try again.</p><button className="empty-create-button" onClick={() => { void navigationQuery.refetch(); if (routeChatSlug) void activeChatQuery.refetch(); }}><ArrowUp size={14} /> Retry loading</button></div> : !workspaceReady || migration.isPending ? <AxolotlLoader label="LOADING YOUR WORKSPACE" /> : activeThread?.messages.length || responsePending || liveStreaming ? <div className="message-stack">{livePromptVisible && <article className="message user live-prompt"><div className="message-meta"><span className="role-mark user">You</span><span>You</span><span className="message-time">{formatDate(liveStreaming!.startedAt)}</span></div><div className="message-content"><MarkdownMessage content={liveStreaming!.prompt} /></div><div className="message-divider" /></article>}{activeThread?.messages.map((message, index) => <article className={`message ${message.role}`} key={message.id}><div className="message-meta"><span className={`role-mark ${message.role}`}>{message.role === "assistant" ? <img src={AXOLOTL_ICON} alt="" /> : "You"}</span><span>{message.role === "assistant" ? "Nexuss-Agent" : "You"}</span><span className="message-time">{formatDate(message.createdAt)}</span>{message.role === "assistant" && <button className="copy-button" onClick={() => { void navigator.clipboard?.writeText(message.content); }}><Copy size={13} /> Copy</button>}</div><div className="message-content"><MarkdownMessage content={message.content} /></div>{index < (activeThread?.messages.length || 0) - 1 && <div className="message-divider" />}</article>)}{liveAssistantVisible && <article className="message assistant live-response"><div className="message-meta"><span className="role-mark assistant"><img src={AXOLOTL_ICON} alt="" /></span><span>Nexuss-Agent</span><span className="message-time">LIVE</span></div><div className="message-content"><MarkdownMessage content={liveStreaming!.content || "▍"} /></div></article>}{responsePending && <ResponseSkeleton />}</div> : <div className="empty-thread"><div className="orbit-art axolotl-schematic" aria-hidden="true"><span className="axolotl-loop" /><span className="axolotl-eye axolotl-eye-one" /><span className="axolotl-eye axolotl-eye-two" /><span className="axolotl-gill axolotl-gill-one" /><span className="axolotl-gill axolotl-gill-two" /></div><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Start a thread.</h2><p>Give your work a place to begin.</p><button className="empty-create-button" onClick={createThread} disabled={createThreadMutation.isPending}><Plus size={14} /> New thread <ArrowUp size={13} /></button></div>}
         </section>
         <div className="composer-wrap"><div className="composer" onClick={() => composerRef.current?.focus()}>
           <div className="composer-top">

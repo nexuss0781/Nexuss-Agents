@@ -367,3 +367,11 @@ The focused validation command was `pnpm check && pnpm exec vitest run client/sr
 - [x] Replaced the raw internal decision error in the workspace with a calm request for more detail, while retaining a separate safe-blocked message for unsafe or disallowed work.
 - [x] Added intake regression coverage for both actionable concise prompts and genuinely vague prompts; TypeScript and 27 focused frontend/server tests pass.
 - [ ] Live authenticated Render verification remains required after deployment.
+
+## Conversation-First Mission Feedback
+
+- [x] Removed routine success and informational toasts from the workspace; toast output is now reserved for errors and blocked user actions.
+- [x] Persisted the user request and a first-agent acknowledgment into the active conversation when autonomous work starts, including attachment-only submissions without violating message validation.
+- [x] Kept the live `Your work` drawer as the progress surface while making the conversation the first place the user hears from the agent.
+- [x] Added regression coverage for the mission submission payload and durable acknowledgment; TypeScript, 27 focused tests, production build, diff hygiene, and non-error-toast scan pass.
+- [ ] Live authenticated Render verification remains required after deployment.
