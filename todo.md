@@ -541,3 +541,9 @@ Validated with TypeScript, 28 focused chat/Playground tests, production build, a
 Added selectable project cards to the carousel. Selecting a project filters the thread history to only threads assigned to that project, and a clear control restores the full history. Carousel navigation preserves selection by selecting the newly visible project and updating the filter; unselected navigation leaves history unfiltered. New thread actions now pass the selected project into fresh-thread creation, including the selected project in the new thread record.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Quiet Chat Backdrop
+
+Reduced the main chat window and top bar to a restrained near-black backdrop so the cool-grey left panel carries the visual emphasis. The central Start a thread card remains readable with a quieter dark gradient and softer controls; sidebar project selection, filtering, and composer behavior remain unchanged.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.

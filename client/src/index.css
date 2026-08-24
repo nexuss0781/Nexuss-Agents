@@ -841,3 +841,10 @@ body { color: var(--paper); }
 .project-filter-clear { margin-left: 6px; padding: 2px 5px; border: 1px solid rgba(203,214,219,.2); border-radius: 4px; background: transparent; color: #b8c4c8; font: 8px "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .05em; }
 .project-filter-clear:hover { border-color: rgba(221,231,234,.38); background: rgba(214,225,229,.08); color: #eef3f4; }
 .thread-list-empty { padding: 18px 10px; color: #869398; font-size: 10px; text-align: center; }
+
+/* Keep the cool-grey value concentrated in the left panel; quiet the chat surface. */
+.main-stage, .conversation-area { background: #0f1213; }
+.topbar { background: rgba(15,18,19,.94); }
+.empty-thread { border-color: rgba(203,214,219,.14); background: linear-gradient(135deg, #171d1f 0%, #121719 58%, #0f1314 100%); box-shadow: 0 20px 60px rgba(0,0,0,.22), inset 0 1px 0 rgba(229,237,239,.025); }
+.empty-thread .empty-suggestions button, .empty-thread .empty-create-button { background: rgba(214,225,229,.045); }
+.empty-thread .empty-suggestions button:hover, .empty-thread .empty-create-button:hover { background: rgba(214,225,229,.1); }
