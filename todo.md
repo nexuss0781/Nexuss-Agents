@@ -407,3 +407,11 @@ The focused validation command was `pnpm check && pnpm exec vitest run client/sr
 - [x] Added automatic smooth scrolling to the conversation container bottom whenever a prompt is sent, a response arrives, or live response content grows.
 - [x] Added a mounted-client regression for send-time bottom scrolling. TypeScript, 19 focused workspace tests, production build, and diff hygiene pass.
 - [ ] Live authenticated Render visual verification remains required after deployment.
+
+## Send Retry and Reference-Style Scrolling
+
+- [x] Restored a failed direct prompt to the composer so the user can edit or retry it; existing attachment selections remain available when mission submission fails.
+- [x] Kept the error toast for the failure while avoiding loss of the original prompt.
+- [x] Preserved compact message spacing and added a small bottom breathing space below the newest content while scrolling the conversation container to the latest message.
+- [x] Added regression coverage for failed-prompt restoration and send-time scrolling. TypeScript, 20 focused workspace tests, production build, and diff hygiene pass.
+- [ ] Live authenticated Render visual verification remains required after deployment.

@@ -557,6 +557,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       if (!controller.signal.aborted) {
         const diagnostic = error instanceof PlaygroundRequestError ? { name: error.name, requestId: error.requestId, code: error.code, status: error.status, detail: error.diagnostic } : error;
         console.error("[Playground] prompt stream failed", { model: activeModel, threadId: targetThread.id, error: diagnostic });
+        setDraft((current) => current.trim() ? current : content);
         toast.error(error instanceof PlaygroundRequestError ? "The model request failed. Check the console for details." : error instanceof Error ? error.message : "The model request failed.");
       }
     } finally {
@@ -604,6 +605,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       setAttachments([]);
     } catch (error) {
       const detail = error instanceof Error ? error.message : "";
+      setDraft((current) => current.trim() ? current : content);
       if (detail.includes("blocked")) toast.error("I cannot start this work safely yet. Please revise the request.");
       else toast.error(detail || "This work could not be started.");
     }

@@ -441,6 +441,27 @@ describe("persistent workspace client", () => {
     expect(events).toEqual(["start", "Hello ", "world", "done"]);
   });
 
+  it("returns a failed prompt to the composer for retry", async () => {
+    const empty: WorkspaceSnapshot = { projects: [], threads: [] };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ error: "Provider unavailable" }), { status: 503, statusText: "Service Unavailable", headers: { "Content-Type": "application/json" } }));
+    try {
+      const host = await mountWorkspace((path) => {
+        if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-live"], availableModels: ["model-live"], apiKeyConfigured: true };
+        if (path === "workspace.createThread") return { id: "retry-thread", chatSlug: "chat-dddddddddddddddddddddddddddddddd", title: "New thread", updatedAt: "2026-08-24T00:00:00.000Z", messages: [] };
+        return empty;
+      });
+      await waitForText(host, "Start a thread.");
+      await waitForText(host, "model-live");
+      const composer = host.querySelector<HTMLTextAreaElement>("textarea");
+      if (!composer) throw new Error("Composer was not rendered");
+      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+      await act(async () => { setValue?.call(composer, "Please check this"); composer.dispatchEvent(new Event("input", { bubbles: true })); host.querySelector<HTMLButtonElement>('button[aria-label="Send message"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 20)); });
+      expect(composer.value).toBe("Please check this");
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+
   it("keeps rejected stream details in the console and exposes a concise error", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     try {
