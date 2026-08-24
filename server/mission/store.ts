@@ -12,7 +12,12 @@ import { WorkspaceAccessError, withWorkspaceDb } from "../paradoxWorkspace";
 
 type Db = Parameters<Parameters<typeof withWorkspaceDb>[1]>[0];
 
-type MissionContractInput = {
+export type MissionContractInput = {
+  intakeId?: string;
+  sourceReferences?: string[];
+  requiredSkills?: string[];
+  domains?: string[];
+  intakeDecision?: "ready_for_planning" | "ready_with_assumptions";
   model?: string;
   deliverables?: string[];
   acceptanceCriteria: AcceptanceCriterion[];
@@ -570,4 +575,69 @@ export async function recordMissionReplay(ownerId: string, missionId: string, in
 
 export async function listResumableMissionOwners(): Promise<string[]> {
   return withWorkspaceDb(false, (db) => rows<{ owner_id: string }>(db.execute("SELECT DISTINCT owner_id FROM workspace_missions WHERE status IN ('queued', 'planning', 'planned', 'executing', 'verifying', 'repairing') ORDER BY owner_id ASC")).map((row) => row.owner_id));
+}
+
+export type MissionIntakeStatus = "ready_for_planning" | "ready_with_assumptions" | "needs_clarification" | "blocked";
+
+export type MissionIntakeSource = {
+  id: string;
+  kind: "raw_prompt" | "plan_text" | "specification";
+  name?: string;
+  mimeType?: string;
+  text: string;
+  contentHash: string;
+};
+
+export type MissionIntakeRecord = {
+  id: string;
+  ownerId: string;
+  projectId?: string;
+  model?: string;
+  status: MissionIntakeStatus;
+  sources: MissionIntakeSource[];
+  brief: Record<string, unknown>;
+  issues: Array<Record<string, unknown>>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+function readMissionIntake(row: { id: string; owner_id: string; project_id: string | null; model: string | null; status: MissionIntakeStatus; sources_json: string; brief_json: string; issues_json: string; created_at: string; updated_at: string }): MissionIntakeRecord {
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    ...(row.project_id ? { projectId: row.project_id } : {}),
+    ...(row.model ? { model: row.model } : {}),
+    status: row.status,
+    sources: parseJson<MissionIntakeSource[]>(row.sources_json, []),
+    brief: parseJson<Record<string, unknown>>(row.brief_json, {}),
+    issues: parseJson<Array<Record<string, unknown>>>(row.issues_json, []),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function createMissionIntake(ownerId: string, input: { projectId?: string | null; model?: string; status: MissionIntakeStatus; sources: MissionIntakeSource[]; brief: Record<string, unknown>; issues: Array<Record<string, unknown>> }): Promise<MissionIntakeRecord> {
+  return withWorkspaceDb(true, (db) => {
+    if (input.projectId) assertProject(db, ownerId, input.projectId);
+    if (input.sources.length > 20) throw new Error("Mission intake supports at most 20 sources");
+    if (JSON.stringify(input.sources).length > 600_000) throw new Error("Mission intake sources exceed the bounded safety limit");
+    assertSafeEventPayload(input.brief);
+    assertSafeEventPayload({ issues: input.issues });
+    const id = randomUUID();
+    const createdAt = timestamp();
+    db.execute("INSERT INTO workspace_mission_intakes (id, owner_id, project_id, model, status, sources_json, brief_json, issues_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [id, ownerId, input.projectId || null, input.model || null, input.status, json(input.sources), json(input.brief), json(input.issues), createdAt, createdAt]);
+    return readMissionIntake(rows<Parameters<typeof readMissionIntake>[0]>(db.execute("SELECT id, owner_id, project_id, model, status, sources_json, brief_json, issues_json, created_at, updated_at FROM workspace_mission_intakes WHERE id = ? AND owner_id = ?", [id, ownerId]))[0]);
+  });
+}
+
+export async function getMissionIntake(ownerId: string, intakeId: string): Promise<MissionIntakeRecord> {
+  return withWorkspaceDb(false, (db) => {
+    const row = rows<Parameters<typeof readMissionIntake>[0]>(db.execute("SELECT id, owner_id, project_id, model, status, sources_json, brief_json, issues_json, created_at, updated_at FROM workspace_mission_intakes WHERE id = ? AND owner_id = ? LIMIT 1", [intakeId, ownerId]))[0];
+    if (!row) throw new WorkspaceAccessError("Mission intake not found");
+    return readMissionIntake(row);
+  });
+}
+
+export async function listMissionIntakes(ownerId: string, projectId?: string): Promise<MissionIntakeRecord[]> {
+  return withWorkspaceDb(false, (db) => rows<Parameters<typeof readMissionIntake>[0]>(db.execute(`SELECT id, owner_id, project_id, model, status, sources_json, brief_json, issues_json, created_at, updated_at FROM workspace_mission_intakes WHERE owner_id = ?${projectId ? " AND project_id = ?" : ""} ORDER BY updated_at DESC`, projectId ? [ownerId, projectId] : [ownerId])).map(readMissionIntake));
 }

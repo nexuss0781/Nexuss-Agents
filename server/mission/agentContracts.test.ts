@@ -3,7 +3,9 @@ import { buildAgentSystemPrompt, getAgentContract } from "./agentContracts";
 import { assertHarnessAllowed, assertRepositoryWriteAllowed, assertSkillAllowed } from "./capabilityGuard";
 
 describe("unified agent contracts", () => {
-  it("defines distinct authority and loops for principal, sub-orchestrator, builder, and quality", () => {
+  it("defines distinct authority and loops for intake, principal, sub-orchestrator, builder, and quality", () => {
+    expect(getAgentContract("intake")).toMatchObject({ layer: "intake", authority: "intake_only", canDelegate: false, canWriteRepository: false, allowedSkills: ["requirement_extraction", "source_traceability", "risk_classification"], allowedHarnesses: ["mission_intake"] });
+    expect(getAgentContract("intake").systemPrompt).toContain("Mission Intake Engine");
     expect(getAgentContract("principal")).toMatchObject({ layer: "principal_orchestrator", authority: "mission_owner", canDelegate: true, canWriteRepository: false });
     expect(getAgentContract("sub_orchestrator")).toMatchObject({ layer: "sub_orchestrator", authority: "delegation_only", canDelegate: true, canWriteRepository: false });
     expect(getAgentContract("repository_builder")).toMatchObject({ layer: "specialist", authority: "execution_only", canWriteRepository: true });

@@ -1,10 +1,11 @@
-export type HarnessId = "mission_runtime" | "repository_inspection" | "repository_change" | "repository_verification" | "specialist_spawn" | "research" | "browser" | "webdev" | "terminal";
+export type HarnessId = "mission_intake" | "mission_runtime" | "repository_inspection" | "repository_change" | "repository_verification" | "specialist_spawn" | "research" | "browser" | "webdev" | "terminal";
 export type HarnessStatus = "implemented" | "contract_only";
 export type HarnessRequest = { harness: HarnessId; operation: string; input: Record<string, unknown>; timeoutMs?: number; signal?: AbortSignal };
 export type HarnessResult = { ok: boolean; status: "completed" | "failed" | "cancelled" | "timed_out"; summary: string; artifacts: string[]; evidence: Record<string, unknown>; sideEffects: string[]; retryable: boolean };
 export type HarnessDescriptor = { id: HarnessId; version: string; title: string; status: HarnessStatus; operations: readonly string[]; maxTimeoutMs: number; sideEffect: "none" | "bounded_repository_write" | "external_read" | "external_write"; secretBoundary: string; };
 
 const harnesses: Record<HarnessId, HarnessDescriptor> = {
+  mission_intake: { id: "mission_intake", version: "1.0.0", title: "Mission Intake Harness", status: "implemented", operations: ["ingest_text", "normalize_brief", "classify_risk", "persist_intake"], maxTimeoutMs: 120_000, sideEffect: "none", secretBoundary: "Preserve source material in encrypted storage; never place credentials or raw source text in public events." },
   mission_runtime: { id: "mission_runtime", version: "1.0.0", title: "Mission Runtime", status: "implemented", operations: ["create", "transition", "checkpoint", "event", "lease"], maxTimeoutMs: 30_000, sideEffect: "none", secretBoundary: "Never return credentials or private session material." },
   repository_inspection: { id: "repository_inspection", version: "1.0.0", title: "Repository Inspection Harness", status: "implemented", operations: ["snapshot", "read_file", "git_status", "git_diff", "git_ls_files"], maxTimeoutMs: 120_000, sideEffect: "none", secretBoundary: "Never read restricted secret files." },
   repository_change: { id: "repository_change", version: "1.0.0", title: "Repository Change Harness", status: "implemented", operations: ["write_files"], maxTimeoutMs: 120_000, sideEffect: "bounded_repository_write", secretBoundary: "Never write credentials, hidden control messages, or restricted paths." },

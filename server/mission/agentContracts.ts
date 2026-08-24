@@ -1,12 +1,13 @@
 import { getSpecialist, type SpecialistKind } from "./specialists";
 import { redactSensitiveData } from "./redaction";
+import { MISSION_INTAKE_SYSTEM_PROMPT } from "./intakePrompt";
 
 export const AGENT_CONTRACT_VERSION = "1.0.0" as const;
 
-export type AgentLayer = "principal_orchestrator" | "sub_orchestrator" | "specialist" | "quality_gate";
+export type AgentLayer = "intake" | "principal_orchestrator" | "sub_orchestrator" | "specialist" | "quality_gate";
 export type AgentLoopStage = "intake" | "inspect" | "plan" | "delegate" | "execute" | "verify" | "recover" | "checkpoint" | "report";
 export type AgentFailureClass = "retryable" | "repairable" | "replan_required" | "blocked" | "cancelled" | "terminal";
-export type AgentAuthority = "mission_owner" | "delegation_only" | "execution_only" | "verification_only";
+export type AgentAuthority = "intake_only" | "mission_owner" | "delegation_only" | "execution_only" | "verification_only";
 
 export type AgentBudget = {
   maxDepth: number;
@@ -20,7 +21,7 @@ export type AgentBudget = {
 export type AgentRoleContract = {
   version: typeof AGENT_CONTRACT_VERSION;
   layer: AgentLayer;
-  kind: SpecialistKind | "principal";
+  kind: SpecialistKind | "principal" | "intake";
   title: string;
   authority: AgentAuthority;
   objective: string;
@@ -61,7 +62,10 @@ const commonEvidence = ["bounded summary", "status and duration", "artifact or e
 
 export const AGENT_LOOP: readonly AgentLoopStage[] = ["intake", "inspect", "plan", "delegate", "execute", "verify", "recover", "checkpoint", "report"];
 
-export function getAgentContract(kind: SpecialistKind | "principal"): AgentRoleContract {
+export function getAgentContract(kind: SpecialistKind | "principal" | "intake"): AgentRoleContract {
+  if (kind === "intake") return {
+    version: AGENT_CONTRACT_VERSION, layer: "intake", kind, title: "Mission Intake Engine", authority: "intake_only", objective: "Understand raw prompts, plans, and specifications and produce a traceable normalized mission brief without decomposing or executing work.", loop: ["intake", "inspect", "verify", "checkpoint", "report"], allowedSkills: ["requirement_extraction", "source_traceability", "risk_classification"], allowedHarnesses: ["mission_intake"], canDelegate: false, canWriteRepository: false, canVerifyProducerOutput: false, budget: { ...DEFAULT_AGENT_BUDGET, maxChildren: 0, maxDurationSeconds: 300 }, failurePolicy: ["retryable", "blocked", "cancelled", "terminal"], escalationConditions: commonEscalations, evidenceRequirements: [...commonEvidence, "source references for extracted requirements", "intake decision"], systemPrompt: MISSION_INTAKE_SYSTEM_PROMPT,
+  };
   if (kind === "principal") return {
     version: AGENT_CONTRACT_VERSION, layer: "principal_orchestrator", kind, title: "Principal Orchestrator", authority: "mission_owner", objective: "Own the mission objective, decompose it into bounded work, delegate to registered agents, and make the final coordination decision.", loop: ["intake", "inspect", "plan", "delegate", "verify", "checkpoint", "report"], allowedSkills: ["mission_planning", "repository_inspection", "skill_selection"], allowedHarnesses: ["mission_runtime", "repository_inspection"], canDelegate: true, canWriteRepository: false, canVerifyProducerOutput: true, budget: { ...DEFAULT_AGENT_BUDGET, maxChildren: 12 }, failurePolicy: ["retryable", "repairable", "replan_required", "blocked", "cancelled", "terminal"], escalationConditions: commonEscalations, evidenceRequirements: commonEvidence, systemPrompt: "You are the principal orchestrator. Own coordination rather than implementation. Decompose the mission, select registered specialists, preserve authority boundaries, and accept completion only from independent evidence." };
   const descriptor = getSpecialist(kind);

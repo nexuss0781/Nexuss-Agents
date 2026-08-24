@@ -311,3 +311,11 @@ Focused TypeScript and streaming/error tests pass. The remaining release action 
 - [x] Added all-owner startup recovery scanning for resumable missions and normalized recovery events; recovery remains non-blocking so missing persistence configuration cannot prevent HTTP startup.
 - [x] Exposed owner-scoped artifacts, learning candidates, and candidate replay through authenticated mission APIs.
 - [x] Unified runtime tests currently pass: 27 focused mission tests and TypeScript validation. Production build and full Paradox-backed integration validation remain to be rerun for this slice.
+
+## Mission Intake Engine
+
+The server now has a first-class Mission Intake Engine before principal orchestration. It accepts bounded raw prompts, plan text, and specification text; preserves encrypted source metadata and content hashes; extracts objectives, deliverables, acceptance criteria, constraints, assumptions, domains, required skills, verification expectations, and escalation conditions; classifies risk and intake decisions; and records source traceability. A canonical versioned intake system prompt defines the intake-only authority boundary: it normalizes requirements but does not decompose work, delegate agents, invoke execution tools, or claim completion.
+
+The intake role is registered in the unified agent contract with intake-only authority, implemented requirement-extraction/source-traceability/risk-classification skills, and an implemented mission-intake harness. Authenticated APIs now support intake preview, stored-intake retrieval, and mission creation from an approved intake brief. The principal orchestrator receives the normalized intake metadata when planning. Model-backed normalization uses the encrypted server-side provider with deterministic fallback when unavailable or malformed; blocking ambiguity and unsafe requests cannot create a mission.
+
+Validation evidence for this slice: TypeScript check passed and 15 focused intake, contract, capability, orchestrator, and runner tests passed. Full Paradox-backed persistence validation still requires the deployment credentials.

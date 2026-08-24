@@ -141,6 +141,7 @@ async function openFreshWorkspaceDb() {
   db.execute("CREATE TABLE IF NOT EXISTS workspace_imports (owner_id TEXT PRIMARY KEY, imported_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_model_providers (owner_id TEXT PRIMARY KEY, base_url TEXT NOT NULL, api_key TEXT NOT NULL, selected_models_json TEXT NOT NULL, available_models_json TEXT NOT NULL DEFAULT '[]', updated_at TEXT NOT NULL)");
   try { db.execute("ALTER TABLE workspace_model_providers ADD COLUMN available_models_json TEXT NOT NULL DEFAULT '[]'"); } catch { /* Existing encrypted workspaces already have the catalog column. */ }
+  db.execute("CREATE TABLE IF NOT EXISTS workspace_mission_intakes (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, project_id TEXT, model TEXT, status TEXT NOT NULL, sources_json TEXT NOT NULL, brief_json TEXT NOT NULL, issues_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_missions (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, project_id TEXT, parent_mission_id TEXT, mission_type TEXT NOT NULL, goal TEXT NOT NULL, contract_json TEXT NOT NULL, status TEXT NOT NULL, budget_json TEXT NOT NULL, version INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, started_at TEXT, finished_at TEXT)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_mission_work_items (id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, owner_id TEXT NOT NULL, parent_work_item_id TEXT, title TEXT NOT NULL, description TEXT NOT NULL, role TEXT NOT NULL, status TEXT NOT NULL, dependencies_json TEXT NOT NULL, acceptance_criteria_json TEXT NOT NULL, input_json TEXT NOT NULL, output_json TEXT, attempt INTEGER NOT NULL, version INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_mission_checkpoints (id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, owner_id TEXT NOT NULL, version INTEGER NOT NULL, status TEXT NOT NULL, state_json TEXT NOT NULL, next_action TEXT, created_at TEXT NOT NULL)");
@@ -154,6 +155,7 @@ async function openFreshWorkspaceDb() {
   db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_artifacts_mission_created ON workspace_mission_artifacts(mission_id, created_at ASC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_learning_mission_status ON workspace_mission_learning_candidates(mission_id, status, created_at ASC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_replays_mission_created ON workspace_mission_replays(mission_id, created_at ASC)");
+  db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_intakes_owner_updated ON workspace_mission_intakes(owner_id, updated_at DESC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_missions_owner_updated ON workspace_missions(owner_id, updated_at DESC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_work_items_mission_status ON workspace_mission_work_items(mission_id, status, updated_at ASC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_checkpoints_mission_version ON workspace_mission_checkpoints(mission_id, version DESC)");

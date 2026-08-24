@@ -126,7 +126,7 @@ export async function planRepositoryChange(ownerId: string, missionId: string, s
   } else {
     const messages: WorkspaceModelMessage[] = [
       { role: "system", content: `${AUTONOMOUS_REPOSITORY_CHANGE_SYSTEM_PROMPT}\n\n${buildAgentSystemPrompt(getAgentContract("principal"), { missionGoal: snapshot.mission.goal, acceptanceCriteria: snapshot.mission.contract.acceptanceCriteria, allowedSkills: ["mission_planning", "repository_inspection", "skill_selection"], allowedHarnesses: ["mission_runtime", "repository_inspection"] })}` },
-      { role: "user", content: `${planPrompt}\n\nMission:\n${JSON.stringify(redactSensitiveData({ goal: snapshot.mission.goal, contract: snapshot.mission.contract, existingWorkItems: snapshot.workItems.map((item) => ({ title: item.title, status: item.status })) }))}` },
+      { role: "user", content: `${planPrompt}\n\nMission:\n${JSON.stringify(redactSensitiveData({ goal: snapshot.mission.goal, contract: snapshot.mission.contract, intake: { intakeId: snapshot.mission.contract.intakeId || null, decision: snapshot.mission.contract.intakeDecision || null, requiredSkills: snapshot.mission.contract.requiredSkills || [], domains: snapshot.mission.contract.domains || [], sourceReferences: snapshot.mission.contract.sourceReferences || [] }, existingWorkItems: snapshot.workItems.map((item) => ({ title: item.title, status: item.status })) }))}` },
     ];
     try {
       const result = await streamWorkspaceModel(ownerId, { model, messages }, signal);
