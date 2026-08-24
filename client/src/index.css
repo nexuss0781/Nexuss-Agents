@@ -712,3 +712,21 @@ body { color: var(--paper); }
 .composer-bottom { height: 44px; min-height: 44px; padding: 0 13px 0 16px; align-items: center; }
 .composer-send-cluster { height: 36px; min-height: 36px; align-items: center; }
 .send-button { flex: 0 0 36px; width: 36px; height: 36px; }
+
+/* Smooth cool-grey sidebar surface shared by projects, profile, and New thread. */
+.sidebar { background: linear-gradient(180deg, #11171a 0%, #172025 52%, #11171a 100%); }
+.new-thread-button { border-color: rgba(203,214,219,.18); background: #20272b; color: #e1e8ea; }
+.new-thread-button:hover { border-color: rgba(221,231,234,.32); background: #2a3338; }
+
+/* One-project carousel: compact navigation keeps the thread list dominant. */
+.project-section { overflow: hidden; }
+.project-carousel-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 22px; }
+.project-carousel-header .sidebar-list-label { min-width: 0; margin: 1px 8px 6px; }
+.project-carousel-controls { display: inline-flex; align-items: center; gap: 3px; color: #93a0a5; font: 9px "IBM Plex Mono", monospace; }
+.project-carousel-button { display: grid; place-items: center; width: 23px; height: 23px; border: 1px solid rgba(203,214,219,.16); border-radius: 5px; background: rgba(214,225,229,.04); color: #bcc7ca; }
+.project-carousel-button:hover:not(:disabled) { border-color: rgba(221,231,234,.34); background: rgba(214,225,229,.1); color: #eef3f4; }
+.project-carousel-button:disabled { cursor: default; opacity: .3; }
+.project-carousel-card { min-height: 48px; animation: project-card-in .18s ease-out both; }
+.project-empty { padding: 9px 8px; color: #8b989d; font-size: 10px; }
+@keyframes project-card-in { from { opacity: .35; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { .project-carousel-card { animation: none; } }

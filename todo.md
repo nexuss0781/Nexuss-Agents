@@ -487,3 +487,9 @@ Validated with TypeScript, 27 focused chat/Playground tests, production build, a
 Replaced the active thread’s brown surface with a neutral cool-grey state, strengthened the cool-grey project and profile surfaces, and kept the existing brown only within the brand mark. The thread list remains the flexible independently scrollable region. The composer bottom row now has a fixed height and the Send/Stop control has a fixed flex basis, keeping it fully inside the composer border and aligned to the control baseline.
 
 Validated with TypeScript, 27 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Project Carousel and Shared Sidebar Background
+
+Replaced the stacked project list with a one-project-at-a-time carousel, including accessible previous and next chevron controls and a restrained horizontal transition. Added a smooth cool-grey sidebar gradient, applied the project surface color to the New thread control, and preserved the independently scrollable thread region.
+
+Validated with TypeScript, 27 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.

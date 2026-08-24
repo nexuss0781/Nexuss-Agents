@@ -13,6 +13,8 @@ import {
   Bot,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CirclePlus,
   Copy,
   Folder,
@@ -295,6 +297,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const [activeModel, setActiveModel] = useState<string | null>(null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
+  const [projectSlide, setProjectSlide] = useState(0);
   const [projectEditor, setProjectEditor] = useState<{ mode: "create" | "edit"; project?: Project } | null>(null);
   const [threadEditor, setThreadEditor] = useState<string | null>(null);
   const [threadName, setThreadName] = useState("");
@@ -327,6 +330,10 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const latestUserMessageRef = useRef<HTMLElement>(null);
   const focusNewPromptThreadRef = useRef<string | null>(null);
   const workspace = navigationQuery.data || seed;
+  const projectKey = workspace.projects.map((project) => project.id).join("|");
+  useEffect(() => {
+    setProjectSlide((current) => Math.min(current, Math.max(workspace.projects.length - 1, 0)));
+  }, [projectKey, workspace.projects.length]);
   const migration = trpc.workspace.migrate.useMutation({
     onSuccess: () => {
       localStorage.removeItem("nexuss-agent-workspace-v2");
@@ -792,12 +799,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         </div>
         <div className="sidebar-section project-section">
           <div className="project-list">
-            <div className="sidebar-list-label">Projects</div>
-            {navigationQuery.isLoading ? <div className="project-list-skeleton" aria-label="Loading saved projects"><i /><i /><i /></div> : workspace.projects.map((project) => (
-              <div className="project-row" key={project.id}>
-                <Folder size={15} /><div className="project-row-copy"><span>{project.name}</span><small>{project.description}</small></div><button className="item-more" onClick={() => setProjectEditor({ mode: "edit", project })} aria-label={`Edit ${project.name}`}><MoreHorizontal size={15} /></button>
-              </div>
-            ))}
+            <div className="project-carousel-header"><div className="sidebar-list-label">Projects</div>{workspace.projects.length > 1 && <div className="project-carousel-controls"><button className="project-carousel-button" onClick={() => setProjectSlide((current) => Math.max(current - 1, 0))} disabled={projectSlide === 0} aria-label="Previous project"><ChevronLeft size={14} /></button><span aria-live="polite">{projectSlide + 1}/{workspace.projects.length}</span><button className="project-carousel-button" onClick={() => setProjectSlide((current) => Math.min(current + 1, workspace.projects.length - 1))} disabled={projectSlide >= workspace.projects.length - 1} aria-label="Next project"><ChevronRight size={14} /></button></div>}</div>
+            {navigationQuery.isLoading ? <div className="project-list-skeleton" aria-label="Loading saved projects"><i /><i /><i /></div> : workspace.projects.length > 0 ? (() => { const project = workspace.projects[projectSlide]; return <div className="project-row project-carousel-card" key={project.id}><Folder size={15} /><div className="project-row-copy"><span>{project.name}</span><small>{project.description}</small></div><button className="item-more" onClick={() => setProjectEditor({ mode: "edit", project })} aria-label={`Edit ${project.name}`}><MoreHorizontal size={15} /></button></div>; })() : <div className="project-empty">No projects yet</div>}
             <button className="add-project" onClick={() => setProjectEditor({ mode: "create" })} disabled={!workspaceReady}><FolderPlus size={15} /> Add project</button>
           </div>
         </div>
