@@ -529,3 +529,9 @@ Validated with TypeScript, 28 focused chat/Playground tests, production build, a
 Reduced the left-sidebar New thread control to a balanced 44px desktop height, tightened the gap before the Filter threads field, and reduced section spacing so threads, projects, and profile fit cleanly within one viewport. The thread panel remains flexible and independently scrollable, preserving the cool-grey styling.
 
 Validated with TypeScript, 28 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Composer Control Simplification
+
+Removed the visible Ready/Talking status pill from the composer. The model selector and execution-style dropdown now flow from the left side immediately after the attachment control, while project assignment remains aligned to the right. Existing Send/Stop, attachment, queue, and project behavior remain unchanged.
+
+Validated with TypeScript, 28 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.

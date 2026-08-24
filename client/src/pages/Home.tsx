@@ -819,7 +819,6 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
           <div className="composer-top">
             <button className="composer-plus" onClick={(event) => { event.stopPropagation(); attachmentInputRef.current?.click(); }} aria-label="Add attachments" title="Add attachments"><Plus size={16} /></button>
             <input ref={attachmentInputRef} className="attachment-input" type="file" multiple onChange={(event) => chooseAttachments(event.target.files)} aria-label="Choose attachments" />
-            <span className="composer-status-pill"><span className="composer-status-dot" aria-hidden="true" />{composerStartsMission ? "Work ready" : streamingTurn ? "Talking" : "Ready"}</span>
             <div className="composer-controls-center">
               <div className="composer-menu-anchor composer-model-anchor">
                 <button className="composer-picker model-picker" onClick={(event) => { event.stopPropagation(); setProjectMenuOpen(false); setModelMenuOpen(!modelMenuOpen); }} disabled={!selectedModels.length} aria-label="Select model" aria-expanded={modelMenuOpen}><Bot size={14} /><span>{activeModel || "Select model"}</span><ChevronDown size={13} /></button>
