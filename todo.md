@@ -383,3 +383,11 @@ The focused validation command was `pnpm check && pnpm exec vitest run client/sr
 - [x] A genuinely vague request now receives the first agent’s clarification in the conversation and does not start work; accepted work still receives the start acknowledgment only after mission creation succeeds.
 - [x] Added server and mounted-client regressions for both paths. TypeScript, 29 focused tests, production build, and diff hygiene pass.
 - [ ] Live authenticated Render verification remains required after deployment.
+
+## Direct Agent Conversation Boundary
+
+- [x] Added a general Nexuss-Agent conversation prompt so greetings, questions, checks, and ordinary discussion receive a natural agent response instead of a provider self-introduction.
+- [x] Changed Complex submission routing so only explicit work requests or attached specifications enter Mission Intake; ordinary conversation uses the direct streaming path.
+- [x] Kept genuinely vague work requests in the conversation as a natural clarification question without exposing internal intake decisions or errors.
+- [x] Added regressions for direct greeting streaming, autonomous task submission, conversation clarification, and the general agent identity. TypeScript, 36 focused tests, production build, and diff hygiene pass.
+- [ ] Live authenticated Render verification remains required after deployment.

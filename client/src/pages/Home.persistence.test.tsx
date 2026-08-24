@@ -350,6 +350,34 @@ describe("persistent workspace client", () => {
     expect(inputs).toHaveBeenCalledWith("workspace.appendMessages", { threadId: "first-thread", messages: [{ role: "user", content: "Build the release workflow" }, { role: "assistant", content: "I’m taking this on now. I’ll work through the request, check the result, and bring the finished work back here." }], title: "Build the release workflow" });
   });
 
+  it("sends a greeting directly to the agent instead of starting autonomous work", async () => {
+    const inputs = vi.fn();
+    const empty: WorkspaceSnapshot = { projects: [], threads: [] };
+    const stream = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new TextEncoder().encode(`data: {"type":"token","text":"Hello — I’m here."}\n\n`)); } });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } }));
+    try {
+      const host = await mountWorkspace((path, input) => {
+        inputs(path, input);
+        if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-live"], availableModels: ["model-live"], apiKeyConfigured: true };
+        if (path === "workspace.createThread") return { id: "conversation-thread", chatSlug: "chat-cccccccccccccccccccccccccccccccc", title: "New thread", updatedAt: "2026-08-24T00:00:00.000Z", messages: [] };
+        return empty;
+      });
+      await waitForText(host, "Start a thread.");
+      await waitForText(host, "model-live");
+      const composer = host.querySelector<HTMLTextAreaElement>("textarea");
+      if (!composer) throw new Error("Composer was not rendered");
+      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+      await act(async () => { setValue?.call(composer, "Hello"); composer.dispatchEvent(new Event("input", { bubbles: true })); });
+      expect(host.querySelector<HTMLButtonElement>('button[aria-label="Send message"]')).not.toBeNull();
+      await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Send message"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+      await waitForSelector(host, 'button[aria-label="Stop response"]');
+      expect(inputs).not.toHaveBeenCalledWith("workspace.mission.createFromIntake", expect.anything());
+      expect(fetchMock).toHaveBeenCalledWith("/api/playground/stream", expect.objectContaining({ method: "POST" }));
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+
   it("answers a clarification request in the conversation without starting work", async () => {
     const inputs = vi.fn();
     const empty: WorkspaceSnapshot = { projects: [], threads: [] };

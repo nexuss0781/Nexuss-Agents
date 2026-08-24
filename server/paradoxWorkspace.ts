@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connect } from "parad";
+import { GENERAL_AGENT_SYSTEM_PROMPT } from "./mission/generalAgentPrompt";
 
 export type WorkspaceProject = { id: string; name: string; description: string; tone: string };
 export type WorkspaceMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
@@ -375,6 +376,7 @@ export async function streamWorkspacePrompt(ownerId: string, input: PlaygroundPr
   const title = history.length === 0 ? (input.title || input.prompt.slice(0, 42)) : undefined;
   await appendThreadMessages(ownerId, input.threadId, [{ role: "user", content: input.prompt }], title);
   const messages = [
+    { role: "system" as const, content: GENERAL_AGENT_SYSTEM_PROMPT },
     ...(input.stopNotice ? [{ role: "system" as const, content: "The user stopped the previous task. Stop immediately, wait, and do not continue that task until the user provides a new request." }] : []),
     ...history,
     { role: "user" as const, content: input.prompt },

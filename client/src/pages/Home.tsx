@@ -62,6 +62,12 @@ function missionStatusLabel(status: MissionStatus) {
 function missionIsActive(status: MissionStatus) {
   return status === "created" || status === "queued" || status === "planning" || status === "planned" || status === "executing" || status === "verifying" || status === "repairing" || status === "paused";
 }
+function isAutonomousWorkRequest(value: string) {
+  const text = value.trim();
+  if (!text) return false;
+  return /\b(?:build|create|implement|add|remove|delete|fix|debug|refactor|modify|change|update|write|design|develop|develop|deploy|publish|research|investigate|analyze|compare|plan|automate|set up|setup|migrate|test|run|ship)\b/i.test(text)
+    || /\b(?:i need you to|please make|please do|can you build|can you create|can you fix|help me build|help me create|help me fix)\b/i.test(text);
+}
 
 const seed: Workspace = {
   projects: [],
@@ -378,6 +384,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const responsePending = createThreadMutation.isPending;
   const filteredThreads = useMemo(() => workspace.threads.filter((thread) => thread.title.toLowerCase().includes(query.toLowerCase())), [workspace.threads, query]);
   const profileInitials = profileName.slice(0, 2).toUpperCase();
+  const composerStartsMission = executionMode === "complex" && (attachments.length > 0 || isAutonomousWorkRequest(draft));
   const profileAvatar = profileAvatarUrl?.startsWith("https://") && !avatarFailed ? profileAvatarUrl : undefined;
 
   function createThread() {
@@ -603,7 +610,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   async function sendMessage() {
     const content = draft.trim();
     if (!workspaceReady || (!content && attachments.length === 0) || createThreadMutation.isPending) return;
-    if (executionMode === "complex") {
+    if (executionMode === "complex" && (attachments.length > 0 || isAutonomousWorkRequest(content))) {
       await sendMission();
       return;
     }
@@ -731,10 +738,10 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
           {attachments.length > 0 && <div className="attachment-tray" aria-live="polite">{attachments.map((attachment) => <div className={`attachment-chip ${attachment.status}`} key={attachment.id}><div className="attachment-chip-main"><span className="attachment-chip-mark" aria-hidden="true" /><span className="attachment-chip-copy"><strong title={attachment.name}>{attachment.name}</strong><small>{attachment.status === "uploading" ? `Uploading ${attachment.progress}%` : attachment.status === "processing" ? "Preparing" : attachment.status === "ready" ? "Ready" : attachment.error || attachment.status}</small></span></div>{(attachment.status === "uploading" || attachment.status === "processing") ? <button className="attachment-action" onClick={(event) => { event.stopPropagation(); cancelAttachment(attachment.id); }} aria-label={`Cancel ${attachment.name}`}><X size={12} /></button> : <button className="attachment-action" onClick={(event) => { event.stopPropagation(); removeAttachment(attachment.id); }} aria-label={`Remove ${attachment.name}`}><X size={12} /></button>}{(attachment.status === "uploading" || attachment.status === "processing") && <span className="attachment-progress" style={{ width: `${attachment.progress}%` }} />}</div>)}</div>}
           <textarea ref={composerRef} value={draft} onChange={(event) => { setDraft(event.target.value); if (!event.target.value.trim()) setQueueMenuOpen(false); }} onKeyDown={handleComposerKey} placeholder={streamingTurn ? "Write a follow-up — it will wait for the current response" : "Write your message…"} rows={2} disabled={!workspaceReady || createThreadMutation.isPending} />
           <div className="composer-bottom">
-            <span className="composer-runtime-status">{executionMode === "complex" ? (activeMissions.length > 0 ? "Work in progress" : "Ready to send") : streamingTurn ? (promptQueue.length ? `${promptQueue.length} queued` : "Streaming response") : "Ready to send"}</span>
+            <span className="composer-runtime-status">{composerStartsMission ? (activeMissions.length > 0 ? "Work in progress" : "Ready to start") : streamingTurn ? (promptQueue.length ? `${promptQueue.length} queued` : "Talking with you") : "Ready to send"}</span>
             <div className="composer-send-cluster">
               {promptQueue.length > 0 && <button className="queue-count" onClick={(event) => { event.stopPropagation(); setQueueMenuOpen(!queueMenuOpen); }} aria-label={`${promptQueue.length} prompts queued`}><span>{promptQueue.length}</span> queued</button>}
-              {createMissionFromIntakeMutation.isPending || startMissionMutation.isPending ? <button className="send-button" disabled aria-label="Starting work"><span className="send-spinner" /> </button> : streamingTurn && !draft.trim() ? <button className="send-button stop-button" onClick={(event) => { event.stopPropagation(); stopStreaming(); }} aria-label="Stop response" title="Stop current task"><Square size={13} fill="currentColor" /></button> : <div className="composer-menu-anchor send-menu-anchor"><button className="send-button" onClick={(event) => { event.stopPropagation(); void sendMessage(); }} disabled={!workspaceReady || (!draft.trim() && attachments.length === 0) || createThreadMutation.isPending || attachments.some((attachment) => attachment.status === "failed" || attachment.status === "cancelled")} aria-label={executionMode === "complex" ? "Start work" : streamingTurn ? "Send follow-up" : "Send message"}><ArrowUp size={17} /></button>{streamingTurn && draft.trim() && executionMode !== "complex" && <><button className="send-queue-toggle" onClick={(event) => { event.stopPropagation(); setQueueMenuOpen(!queueMenuOpen); }} aria-label="Add prompt to queue" aria-expanded={queueMenuOpen}><ChevronDown size={11} /></button>{queueMenuOpen && <div className="composer-menu queue-menu" role="menu"><button onClick={(event) => { event.stopPropagation(); queuePrompt("later"); }}>Add to queue</button><div className="queue-menu-summary">Wait for the current task to finish</div></div>}</>}</div>}
+              {createMissionFromIntakeMutation.isPending || startMissionMutation.isPending ? <button className="send-button" disabled aria-label="Starting work"><span className="send-spinner" /> </button> : streamingTurn && !draft.trim() ? <button className="send-button stop-button" onClick={(event) => { event.stopPropagation(); stopStreaming(); }} aria-label="Stop response" title="Stop current task"><Square size={13} fill="currentColor" /></button> : <div className="composer-menu-anchor send-menu-anchor"><button className="send-button" onClick={(event) => { event.stopPropagation(); void sendMessage(); }} disabled={!workspaceReady || (!draft.trim() && attachments.length === 0) || createThreadMutation.isPending || attachments.some((attachment) => attachment.status === "failed" || attachment.status === "cancelled")} aria-label={composerStartsMission ? "Start work" : streamingTurn ? "Send follow-up" : "Send message"}><ArrowUp size={17} /></button>{streamingTurn && draft.trim() && !composerStartsMission && <><button className="send-queue-toggle" onClick={(event) => { event.stopPropagation(); setQueueMenuOpen(!queueMenuOpen); }} aria-label="Add prompt to queue" aria-expanded={queueMenuOpen}><ChevronDown size={11} /></button>{queueMenuOpen && <div className="composer-menu queue-menu" role="menu"><button onClick={(event) => { event.stopPropagation(); queuePrompt("later"); }}>Add to queue</button><div className="queue-menu-summary">Wait for the current task to finish</div></div>}</>}</div>}
             </div>
           </div>
         </div></div><div className="mobile-bottom-bar"><button onClick={() => setMobileNav(true)}><Menu size={16} /><span>Threads</span></button><button onClick={() => { composerRef.current?.focus(); setProjectMenuOpen(true); }} disabled={!workspaceReady || workspace.projects.length === 0}><Folder size={16} /><span>{activeProject?.name || workspace.projects.find((project) => project.id === pendingProjectId)?.name || "Project"}</span></button><button onClick={() => composerRef.current?.focus()} disabled={!workspaceReady}><ArrowUp size={16} /><span>Write</span></button></div>
