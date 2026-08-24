@@ -972,3 +972,6 @@ body { color: var(--paper); }
 .project-option svg:last-child { margin-left: auto; flex: 0 0 auto; color: #e1e9eb; }
 .project-option:hover, .project-option.selected { background: rgba(214,225,229,.1); color: #f0f4f5; }
 .project-option.selected { background: rgba(214,225,229,.08); }
+
+/* Project drop-up sits directly above its right-aligned trigger, parallel to the model drop-up. */
+.composer-project-anchor .project-menu { right: 0; left: auto; bottom: calc(100% + 8px); }

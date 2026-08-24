@@ -589,3 +589,9 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 Normalized the project dropdown to the model and execution menu design with the same dark rounded drop-up surface, compact spacing, header/count treatment, option row height, selected checkmark, hover state, and tiny scrollbar. The project panel remains positioned to the left of the right-aligned project trigger.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Direct Project Drop-Up Alignment
+
+Right-aligned the project menu directly above the Assign project trigger, matching the model and execution drop-ups’ vertical relationship to their buttons. The project card no longer shifts farther left; its existing compact dark styling, project selection, and filter behavior remain intact.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
