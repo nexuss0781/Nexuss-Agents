@@ -553,3 +553,9 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 Stopped sparse thread history from stretching an individual thread row to fill the entire scroll panel. The thread list and groups now align content to the start, while each thread keeps its compact intrinsic height and the list remains independently scrollable.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Dark Luxury Chat Card
+
+Darkened the main Start a thread chat card to a near-black premium surface and added a restrained fine stripe/grid texture inspired by the supplied authentication dashboard reference. Reduced the card controls to quieter dark surfaces so the cool-grey left panel remains the strongest visual anchor.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.

@@ -853,3 +853,34 @@ body { color: var(--paper); }
 .thread-list { align-content: start; }
 .thread-group { align-content: start; }
 .thread-item { align-self: start; height: auto; }
+
+/* Dark luxury chat card: quiet black surface with a fine architectural stripe texture. */
+.empty-thread {
+  border-color: rgba(203,214,219,.16);
+  background-color: #0d1012;
+  background-image:
+    linear-gradient(rgba(203,214,219,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(203,214,219,.035) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(39,49,54,.32), rgba(10,13,15,.96) 68%);
+  background-size: 32px 32px, 32px 32px, 100% 100%;
+  box-shadow: 0 24px 70px rgba(0,0,0,.28), inset 0 1px 0 rgba(235,242,244,.035);
+}
+.empty-thread::after {
+  border-color: rgba(203,214,219,.025);
+  background: repeating-linear-gradient(135deg, transparent 0 30px, rgba(203,214,219,.018) 31px 32px);
+  opacity: .62;
+}
+.empty-thread h2 { color: #eef2f3; }
+.empty-thread p { color: #8f9ca1; }
+.empty-thread .empty-suggestions button,
+.empty-thread .empty-create-button {
+  border-color: rgba(203,214,219,.2);
+  background: rgba(13,16,18,.68);
+  color: #b9c4c8;
+}
+.empty-thread .empty-suggestions button:hover,
+.empty-thread .empty-create-button:hover {
+  border-color: rgba(221,231,234,.36);
+  background: rgba(42,52,57,.72);
+  color: #f0f4f5;
+}
