@@ -457,3 +457,9 @@ TypeScript, 27 focused frontend/Playground tests, production build, and diff hyg
 The latest pass intentionally backs away from oversized visual treatment. The chat now keeps a simple continuous message flow: persisted history stays in chronological order, the active new prompt is rendered directly after the previous turn, timestamps remain small and low-contrast, and the prompt scroll target receives only a modest viewport offset. The active response changes the send control to Stop, while the composer remains compact and visually quiet.
 
 The deeper v2 styling remains available where it improves hierarchy, but large spacing bands and heavy card treatment were reduced to match the supplied live reference. TypeScript, 27 focused frontend/Playground tests, production build, and diff hygiene pass. Full encrypted Paradox integration and live authenticated visual verification remain pending deployment credentials and Render access.
+
+## Live Conversation Regression Correction
+
+The screenshot revealed that the prior deployment still presented the live prompt before older history and allowed the fixed composer layer to visually cover the lower conversation. The corrected implementation now renders persisted history first, appends the live prompt directly after it, uses one-shot top alignment for the newly sent turn, and reserves the composer’s measured height in the scroll viewport with a small margin. The message order is backed by a per-thread database sequence and stable client sorting, while the active response still changes Send to Stop.
+
+TypeScript, 27 focused frontend/Playground tests, production build, and diff hygiene pass. Live Render verification remains required after deployment to confirm the deployed asset reflects this commit.

@@ -311,6 +311,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const [activeWorkOpen, setActiveWorkOpen] = useState(false);
   const [selectedMissionId, setSelectedMissionId] = useState<string | null>(null);
   const [migrationSettled, setMigrationSettled] = useState(false);
+  const [composerReservedSpace, setComposerReservedSpace] = useState(174);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const attachmentRequestsRef = useRef<Map<string, XMLHttpRequest>>(new Map());
@@ -320,6 +321,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const stopNoticeRef = useRef(false);
   const migrationStarted = useRef(false);
   const conversationRef = useRef<HTMLElement>(null);
+  const composerWrapRef = useRef<HTMLDivElement>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const livePromptRef = useRef<HTMLElement>(null);
   const latestUserMessageRef = useRef<HTMLElement>(null);
@@ -382,6 +384,16 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     const persistedModels = savedProvider.availableModels || [];
     setAvailableModels(persistedModels.length ? persistedModels : savedProvider.selectedModels);
   }, [modelSettingsQuery.isSuccess, modelSettingsQuery.data]);
+
+  useEffect(() => {
+    const wrap = composerWrapRef.current;
+    if (!wrap || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setComposerReservedSpace(Math.ceil(entry.contentRect.height + 12));
+    });
+    observer.observe(wrap);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -793,11 +805,11 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
 
       <main className="main-stage">
         <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="topbar-thread-copy"><div className="topbar-thread-title">{activeThread ? displayThreadTitle(activeThread) : "New thread"}</div><span className="topbar-thread-meta">{activeModel || "No model selected"} · {formatRelativeDate(activeThread?.updatedAt)}</span></div></div><div className="topbar-right">{recentMissions.length > 0 && <button className={`mission-activity-button ${activeMissions.length > 0 ? "active" : ""}`} onClick={() => setActiveWorkOpen(true)} aria-label="Open your work" aria-expanded={activeWorkOpen}><span className="mission-activity-dot" aria-hidden="true" />{activeMissions.length > 0 ? `${activeMissions.length} working` : "Your work"}</button>}{activeThread && <><button className="icon-button" onClick={() => void shareThread()} aria-label="Share conversation" title="Share conversation"><Share2 size={16} /></button><button className="icon-button" onClick={() => { setThreadEditor(activeThread.id); setThreadName(activeThread.title); }} aria-label="Rename thread" title="Rename conversation"><Pencil size={16} /></button><button className="icon-button danger-hover" onClick={() => deleteThread(activeThread.id)} aria-label="Delete thread" title="Delete conversation"><Trash2 size={16} /></button></>}<button className="icon-button settings-trigger" onClick={() => setSettingsOpen(true)} aria-label="Open settings" aria-haspopup="dialog" aria-expanded={settingsOpen}><Settings size={16} /></button></div></header>
-        <div className="mobile-context-strip"><button className="mobile-context-button" onClick={() => setMobileNav(true)}><Menu size={15} /><span>Threads</span></button><div className="mobile-context-title"><strong>{activeThread ? displayThreadTitle(activeThread) : "New thread"}</strong></div><button className="mobile-context-button" onClick={createThread} disabled={!workspaceReady || createThreadMutation.isPending}><Plus size={15} /><span>New</span></button></div><section ref={conversationRef} className="conversation-area">
+        <div className="mobile-context-strip"><button className="mobile-context-button" onClick={() => setMobileNav(true)}><Menu size={15} /><span>Threads</span></button><div className="mobile-context-title"><strong>{activeThread ? displayThreadTitle(activeThread) : "New thread"}</strong></div><button className="mobile-context-button" onClick={createThread} disabled={!workspaceReady || createThreadMutation.isPending}><Plus size={15} /><span>New</span></button></div><section ref={conversationRef} className="conversation-area" style={{ "--composer-reserved-space": `${composerReservedSpace}px` } as React.CSSProperties}>
           <div className="conversation-heading" />
           {navigationQuery.isError || activeChatQuery.isError ? <div className="empty-thread"><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Workspace unavailable.</h2><p>Your saved data is unchanged. Check your connection and try again.</p><button className="empty-create-button" onClick={() => { void navigationQuery.refetch(); if (routeChatSlug) void activeChatQuery.refetch(); }}><ArrowUp size={14} /> Retry loading</button></div> : !workspaceReady || migration.isPending ? <AxolotlLoader label="LOADING YOUR WORKSPACE" /> : activeThread?.messages.length || responsePending || liveStreaming ? <div className="message-stack">{activeThread?.messages.map((message, index) => <article ref={message.role === "user" && message.id === latestUserMessageId ? latestUserMessageRef : undefined} className={`message ${message.role}`} key={message.id}><div className="message-meta"><span className={`role-mark ${message.role}`}>{message.role === "assistant" ? <img src={AXOLOTL_ICON} alt="" /> : "You"}</span><span>{message.role === "assistant" ? "Nexuss-Agent" : "You"}</span><span className="message-time">{formatDate(message.createdAt)}</span>{message.role === "assistant" && <button className="copy-button" onClick={() => { void navigator.clipboard?.writeText(message.content); }}><Copy size={13} /> Copy</button>}</div><div className="message-content"><MarkdownMessage content={message.content} /></div>{index < (activeThread?.messages.length || 0) - 1 && <div className="message-divider" />}</article>)}{livePromptVisible && <article ref={livePromptRef} className="message user live-prompt"><div className="message-meta"><span className="role-mark user">You</span><span>You</span><span className="message-time">{formatDate(liveStreaming!.startedAt)}</span></div><div className="message-content"><MarkdownMessage content={liveStreaming!.prompt} /></div><div className="message-divider" /></article>}{liveAssistantVisible && <article className="message assistant live-response"><div className="message-meta"><span className="role-mark assistant"><img src={AXOLOTL_ICON} alt="" /></span><span>Nexuss-Agent</span><span className="live-status" aria-label="Responding" title="Responding" /></div><div className="message-content"><MarkdownMessage content={liveStreaming!.content || "▍"} /></div></article>}{responsePending && <ResponseSkeleton />}<div ref={conversationEndRef} className="conversation-end" aria-hidden="true" /></div> : <div className="empty-thread"><div className="orbit-art axolotl-schematic" aria-hidden="true"><span className="axolotl-loop" /><span className="axolotl-eye axolotl-eye-one" /><span className="axolotl-eye axolotl-eye-two" /><span className="axolotl-gill axolotl-gill-one" /><span className="axolotl-gill axolotl-gill-two" /></div><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Start a thread.</h2><p>Give your work a place to begin.</p><div className="empty-suggestions"><button onClick={() => { setDraft("Help me think through an idea"); composerRef.current?.focus(); }}>Explore an idea</button><button onClick={() => { setDraft("Help me plan my next steps"); composerRef.current?.focus(); }}>Plan next steps</button><button onClick={() => { setDraft("Build something useful"); composerRef.current?.focus(); }}>Build something</button></div><button className="empty-create-button" onClick={createThread} disabled={createThreadMutation.isPending}><Plus size={14} /> New thread <ArrowUp size={13} /></button></div>}
         </section>
-        <div className="composer-wrap"><div className="composer" onClick={() => composerRef.current?.focus()}>
+        <div ref={composerWrapRef} className="composer-wrap"><div className="composer" onClick={() => composerRef.current?.focus()}>
           <div className="composer-top">
             <button className="composer-plus" onClick={(event) => { event.stopPropagation(); attachmentInputRef.current?.click(); }} aria-label="Add attachments" title="Add attachments"><Plus size={16} /></button>
             <input ref={attachmentInputRef} className="attachment-input" type="file" multiple onChange={(event) => chooseAttachments(event.target.files)} aria-label="Choose attachments" />

@@ -645,3 +645,12 @@ body { color: var(--paper); }
 .message.assistant + .message.assistant { margin-top: 2px; }
 .message-content { margin-top: 6px; }
 .message.user .message-content { padding: 10px 15px; }
+
+/* The composer is part of the viewport geometry, never a cover over the chat. */
+@media (min-width: 801px) {
+  .conversation-area { inset: 62px 0 var(--composer-reserved-space, 174px); padding-bottom: 22px; }
+  .composer-wrap { padding-bottom: 18px; }
+}
+@media (max-width: 800px) {
+  .conversation-area { padding-bottom: calc(var(--composer-reserved-space, 190px) + 18px); }
+}
