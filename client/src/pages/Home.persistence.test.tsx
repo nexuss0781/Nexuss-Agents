@@ -415,7 +415,8 @@ describe("persistent workspace client", () => {
     await waitForText(host, "Only this history is loaded");
     expect(calls).toHaveBeenCalledWith("workspace.navigation", undefined);
     expect(calls).toHaveBeenCalledWith("workspace.chat", { chatSlug: "chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" });
-    expect(host.textContent).toContain("chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    expect(host.textContent).not.toContain("chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    expect(host.textContent).toContain("Focused history");
   });
 
   it("renders complete persisted history again after a fresh workspace mount", async () => {

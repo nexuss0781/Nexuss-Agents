@@ -245,7 +245,7 @@ function readWorkspaceChat(db: Db, ownerId: string, chatSlug: string): Workspace
   ))[0];
   if (!thread) return null;
   const messageRows = rows<{ id: string; role: "user" | "assistant"; content: string; created_at: string }>(db.execute(
-    "SELECT id, role, content, created_at FROM workspace_messages WHERE owner_id = ? AND thread_id = ? ORDER BY created_at ASC", [ownerId, thread.id],
+    "SELECT id, role, content, created_at FROM workspace_messages WHERE owner_id = ? AND thread_id = ? ORDER BY created_at ASC, rowid ASC", [ownerId, thread.id],
   ));
   return {
     id: thread.id,
@@ -321,7 +321,7 @@ async function loadProviderForPlayground(ownerId: string, model: string) {
 async function loadThreadMessagesForPlayground(ownerId: string, threadId: string) {
   return withWorkspaceDb(false, (db) => {
     assertThreadOwner(db, ownerId, threadId);
-    const messages = rows<{ role: "user" | "assistant"; content: string }>(db.execute("SELECT role, content FROM workspace_messages WHERE owner_id = ? AND thread_id = ? ORDER BY created_at ASC", [ownerId, threadId]));
+    const messages = rows<{ role: "user" | "assistant"; content: string }>(db.execute("SELECT role, content FROM workspace_messages WHERE owner_id = ? AND thread_id = ? ORDER BY created_at ASC, rowid ASC", [ownerId, threadId]));
     return messages;
   });
 }

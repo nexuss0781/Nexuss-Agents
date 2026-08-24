@@ -432,3 +432,14 @@ The focused validation command was `pnpm check && pnpm exec vitest run client/sr
 - [x] Added owner-scoped direct-message rollback on provider failure so the failed persisted prompt is removed before the client restores it for retry.
 - [x] TypeScript, 20 focused workspace tests, production build, and diff hygiene pass. Encrypted Paradox integration tests remain unavailable locally without deployment credentials.
 - [ ] Live authenticated Render visual verification remains required after deployment.
+
+## Attached Chat UI Redesign Specification
+
+- [x] Fixed chronological conversation rendering with deterministic server ordering and stable client-side sorting.
+- [x] Reworked the visual foundation into three monochrome surface levels with restrained borders, clearer text hierarchy, and the existing brown logo preserved.
+- [x] Rebuilt message presentation with lighter user bubbles, open assistant responses, consistent sender rhythm, inline copy actions, live pulsing status, and subtle message entrance motion.
+- [x] Rebuilt the header with human-readable conversation title, model and relative-time metadata, share, rename, delete, and settings actions; raw chat identifiers are no longer visible.
+- [x] Added sidebar recency groups and readable thread titles, hiding implementation hashes from the visible workspace.
+- [x] Simplified the composer hierarchy with centered model-before-Complex controls, low-emphasis readiness status, rounded send control, and preserved attachment/project behavior.
+- [x] TypeScript, 27 focused frontend/Playground tests, production build, and diff hygiene pass. Encrypted Paradox integration tests remain unavailable locally without deployment credentials.
+- [ ] Live authenticated Render visual verification remains required after deployment.

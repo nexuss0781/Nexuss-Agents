@@ -603,3 +603,30 @@ body { color: var(--paper); }
   .message.user .message-content { max-width: 91%; padding: 10px 13px; }
   .composer-controls-center .composer-picker { max-width: 132px; }
 }
+
+/* Final hierarchy and interaction polish. */
+.topbar-thread-copy { gap: 4px; }
+.topbar-thread-title { max-width: min(48vw, 520px); margin-left: 0 !important; font-size: 15px; font-weight: 560; letter-spacing: -.02em; }
+.topbar-thread-meta { overflow: hidden; color: #77777a; font: 11px "IBM Plex Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
+.thread-group { display: grid; gap: 3px; }
+.thread-group + .thread-group { margin-top: 13px; }
+.thread-group-label { padding: 5px 10px 3px; color: #656568; font: 9px "IBM Plex Mono", monospace; letter-spacing: .12em; text-transform: uppercase; }
+.thread-item-sub { justify-content: space-between; }
+.thread-item-sub .item-more { margin-left: auto; }
+.message { animation: message-appear .15s ease-out both; }
+.message.assistant + .message.assistant { margin-top: 4px; }
+.message.assistant + .message.user, .message.user + .message.assistant { margin-top: 24px; }
+.live-status { display: inline-block; width: 6px; height: 6px; margin-left: 2px; border-radius: 50%; background: #d0916e; box-shadow: 0 0 0 3px rgba(208,145,110,.12); animation: live-pulse 1.5s ease-in-out infinite; }
+@keyframes message-appear { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes live-pulse { 0%, 100% { opacity: .55; transform: scale(.9); } 50% { opacity: 1; transform: scale(1.15); } }
+@media (prefers-reduced-motion: reduce) { .message, .live-status { animation: none; } }
+@media (max-width: 800px) { .topbar-thread-title { max-width: 58vw; font-size: 13px; } .topbar-thread-meta { font-size: 9px; } }
+
+.composer-status-pill { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; color: #77777a; font: 10px "IBM Plex Mono", monospace; }
+.composer-status-dot { width: 5px; height: 5px; border-radius: 50%; background: #8d8d8f; }
+.composer-status-pill:has(+ .composer-controls-center) { margin-right: auto; }
+.composer-send-cluster { position: relative; }
+.send-button { width: 36px; height: 36px; border-radius: 50%; }
+.send-button.stop-button { border-radius: 50%; }
+.send-button:disabled { background: #3a3a3c; color: #77777a; opacity: 1; }
+@media (max-width: 600px) { .composer-status-pill { display: none; } }

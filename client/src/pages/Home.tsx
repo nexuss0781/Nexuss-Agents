@@ -23,6 +23,7 @@ import {
   Plus,
   Search,
   Settings,
+  Share2,
   Square,
   Trash2,
   X,
@@ -85,6 +86,35 @@ function formatDate(value: string) {
   const today = new Date();
   if (date.toDateString() === today.toDateString()) return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function formatRelativeDate(value?: string) {
+  if (!value) return "Ready";
+  const elapsed = Math.max(0, Date.now() - new Date(value).getTime());
+  if (elapsed < 60_000) return "Just now";
+  if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)} min ago`;
+  if (elapsed < 86_400_000) return `${Math.floor(elapsed / 3_600_000)} hr ago`;
+  return formatDate(value);
+}
+
+function displayThreadTitle(thread: Thread) {
+  const title = thread.title.trim();
+  if (title && !/^(hi|hello|hey|new thread|untitled exploration)$/i.test(title)) return title.length > 48 ? `${title.slice(0, 45)}…` : title;
+  const firstUsefulMessage = thread.messages.find((message) => message.role === "user" && message.content.trim().length > 8);
+  if (firstUsefulMessage) return firstUsefulMessage.content.trim().slice(0, 48);
+  return "New chat";
+}
+
+function threadRecencyGroup(value: string) {
+  const date = new Date(value);
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const daysAgo = Math.floor((startOfToday - startOfDate) / 86_400_000);
+  if (daysAgo <= 0) return "Today";
+  if (daysAgo === 1) return "Yesterday";
+  if (daysAgo <= 7) return "Previous 7 days";
+  return "Earlier";
 }
 
 function CodeBlock({ language, content }: { language: string; content: string }) {
@@ -365,7 +395,15 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     setActiveModel((current) => current && selectedModels.includes(current) ? current : selectedModels[0] || null);
   }, [selectedModels]);
   const activeThreadSummary = workspace.threads.find((thread) => thread.chatSlug === routeChatSlug) || workspace.threads.find((thread) => thread.id === activeThreadId) || workspace.threads[0];
-  const activeThread = activeThreadSummary ? { ...activeThreadSummary, messages: activeChatQuery.data?.messages || activeThreadSummary.messages } : undefined;
+  const activeThread = useMemo(() => {
+    if (!activeThreadSummary) return undefined;
+    const source = activeChatQuery.data?.messages || activeThreadSummary.messages;
+    const messages = source.map((message, index) => ({ message, index })).sort((left, right) => {
+      const byTime = left.message.createdAt.localeCompare(right.message.createdAt);
+      return byTime || left.index - right.index;
+    }).map(({ message }) => message);
+    return { ...activeThreadSummary, messages };
+  }, [activeThreadSummary, activeChatQuery.data?.messages]);
   const latestUserMessageId = activeThread?.messages.filter((message) => message.role === "user").at(-1)?.id;
   const workspaceReady = navigationQuery.isSuccess && migrationSettled;
   const activeProject = workspace.projects.find((project) => project.id === activeThread?.projectId);
@@ -382,7 +420,6 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     if (!selectedMissionId && activeMissions[0]) setSelectedMissionId(activeMissions[0].id);
     if (selectedMissionId && !recentMissions.some((mission) => mission.id === selectedMissionId)) setSelectedMissionId(activeMissions[0]?.id || null);
   }, [activeMissions, recentMissions, selectedMissionId]);
-  const activeThreadSlug = activeThread?.chatSlug || (activeThread ? `chat-${activeThread.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}` : undefined);
   const liveStreaming = streamingTurn?.threadId === activeThread?.id ? streamingTurn : null;
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -410,7 +447,14 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const livePromptVisible = Boolean(liveStreaming && !activeThread?.messages.some((message) => message.role === "user" && message.content === liveStreaming.prompt && message.createdAt >= liveStreaming.startedAt));
   const liveAssistantVisible = Boolean(liveStreaming && !activeThread?.messages.some((message) => message.role === "assistant" && message.content === liveStreaming.content && message.content.length > 0 && message.createdAt >= liveStreaming.startedAt));
   const responsePending = createThreadMutation.isPending;
-  const filteredThreads = useMemo(() => workspace.threads.filter((thread) => thread.title.toLowerCase().includes(query.toLowerCase())), [workspace.threads, query]);
+  const groupedThreads = useMemo(() => {
+    const groups = new Map<string, Thread[]>();
+    for (const thread of workspace.threads.filter((item) => displayThreadTitle(item).toLowerCase().includes(query.toLowerCase()))) {
+      const group = threadRecencyGroup(thread.updatedAt);
+      groups.set(group, [...(groups.get(group) || []), thread]);
+    }
+    return ["Today", "Yesterday", "Previous 7 days", "Earlier"].flatMap((group) => groups.has(group) ? [{ label: group, threads: groups.get(group)! }] : []);
+  }, [workspace.threads, query]);
   const profileInitials = profileName.slice(0, 2).toUpperCase();
   const composerStartsMission = executionMode === "complex" && (attachments.length > 0 || isAutonomousWorkRequest(draft));
   const profileAvatar = profileAvatarUrl?.startsWith("https://") && !avatarFailed ? profileAvatarUrl : undefined;
@@ -425,6 +469,15 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     setActiveThreadId(thread.id);
     setMobileNav(false);
     if (thread.chatSlug) setLocation(`/app/chat/${thread.chatSlug}`);
+  }
+
+  async function shareThread() {
+    if (!activeThread) return;
+    try {
+      await navigator.clipboard?.writeText(window.location.href);
+    } catch {
+      toast.error("This conversation link could not be copied");
+    }
   }
 
   function deleteThread(id: string) {
@@ -716,12 +769,12 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         <div className="sidebar-section thread-section">
           <div className="search-field"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter threads" /></div>
           <div className="thread-list">
-            {filteredThreads.map((thread) => (
+            {groupedThreads.map((group) => <div className="thread-group" key={group.label}><div className="thread-group-label">{group.label}</div>{group.threads.map((thread) => (
               <div key={thread.id} className={`thread-item ${thread.id === activeThread?.id ? "active" : ""}`} onClick={() => openThread(thread)}>
-                <div className="thread-item-main"><span className="thread-dot" /> <span className="thread-title">{thread.title}</span></div>
-                <div className="thread-item-sub"><span className="thread-slug">{thread.chatSlug || `chat-${thread.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}`}</span><span>{formatDate(thread.updatedAt)}</span><button className="item-more" onClick={(event) => { event.stopPropagation(); setThreadEditor(thread.id); setThreadName(thread.title); }} aria-label="Thread actions"><MoreHorizontal size={15} /></button></div>
+                <div className="thread-item-main"><span className="thread-dot" /> <span className="thread-title">{displayThreadTitle(thread)}</span></div>
+                <div className="thread-item-sub"><span>{formatRelativeDate(thread.updatedAt)}</span><button className="item-more" onClick={(event) => { event.stopPropagation(); setThreadEditor(thread.id); setThreadName(thread.title); }} aria-label="Thread actions"><MoreHorizontal size={15} /></button></div>
               </div>
-            ))}
+            ))}</div>)}
           </div>
         </div>
         <div className="sidebar-section project-section">
@@ -739,15 +792,16 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       </aside>
 
       <main className="main-stage">
-        <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="topbar-thread-copy"><div className="topbar-thread-title">{activeThread?.title || "New thread"}</div>{activeThreadSlug && <span className="topbar-thread-slug">{activeThreadSlug}</span>}</div></div><div className="topbar-right">{recentMissions.length > 0 && <button className={`mission-activity-button ${activeMissions.length > 0 ? "active" : ""}`} onClick={() => setActiveWorkOpen(true)} aria-label="Open your work" aria-expanded={activeWorkOpen}><span className="mission-activity-dot" aria-hidden="true" />{activeMissions.length > 0 ? `${activeMissions.length} working` : "Your work"}</button>}<button className="icon-button settings-trigger" onClick={() => setSettingsOpen(true)} aria-label="Open settings" aria-haspopup="dialog" aria-expanded={settingsOpen}><Settings size={16} /></button></div></header>
+        <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="topbar-thread-copy"><div className="topbar-thread-title">{activeThread?.title || "New thread"}</div><span className="topbar-thread-meta">{activeModel || "No model selected"} · {formatRelativeDate(activeThread?.updatedAt)}</span></div></div><div className="topbar-right">{recentMissions.length > 0 && <button className={`mission-activity-button ${activeMissions.length > 0 ? "active" : ""}`} onClick={() => setActiveWorkOpen(true)} aria-label="Open your work" aria-expanded={activeWorkOpen}><span className="mission-activity-dot" aria-hidden="true" />{activeMissions.length > 0 ? `${activeMissions.length} working` : "Your work"}</button>}{activeThread && <><button className="icon-button" onClick={() => void shareThread()} aria-label="Share conversation" title="Share conversation"><Share2 size={16} /></button><button className="icon-button" onClick={() => { setThreadEditor(activeThread.id); setThreadName(activeThread.title); }} aria-label="Rename thread" title="Rename conversation"><Pencil size={16} /></button><button className="icon-button danger-hover" onClick={() => deleteThread(activeThread.id)} aria-label="Delete thread" title="Delete conversation"><Trash2 size={16} /></button></>}<button className="icon-button settings-trigger" onClick={() => setSettingsOpen(true)} aria-label="Open settings" aria-haspopup="dialog" aria-expanded={settingsOpen}><Settings size={16} /></button></div></header>
         <div className="mobile-context-strip"><button className="mobile-context-button" onClick={() => setMobileNav(true)}><Menu size={15} /><span>Threads</span></button><div className="mobile-context-title"><strong>{activeThread?.title || "New thread"}</strong></div><button className="mobile-context-button" onClick={createThread} disabled={!workspaceReady || createThreadMutation.isPending}><Plus size={15} /><span>New</span></button></div><section ref={conversationRef} className="conversation-area">
-          <div className="conversation-heading">{activeThread && <div className="heading-actions"><button className="icon-button" onClick={() => { setThreadEditor(activeThread.id); setThreadName(activeThread.title); }} aria-label="Rename thread"><Pencil size={16} /></button><button className="icon-button danger-hover" onClick={() => deleteThread(activeThread.id)} aria-label="Delete thread"><Trash2 size={16} /></button></div>}</div>
-          {navigationQuery.isError || activeChatQuery.isError ? <div className="empty-thread"><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Workspace unavailable.</h2><p>Your saved data is unchanged. Check your connection and try again.</p><button className="empty-create-button" onClick={() => { void navigationQuery.refetch(); if (routeChatSlug) void activeChatQuery.refetch(); }}><ArrowUp size={14} /> Retry loading</button></div> : !workspaceReady || migration.isPending ? <AxolotlLoader label="LOADING YOUR WORKSPACE" /> : activeThread?.messages.length || responsePending || liveStreaming ? <div className="message-stack">{livePromptVisible && <article ref={livePromptRef} className="message user live-prompt"><div className="message-meta"><span className="role-mark user">You</span><span>You</span><span className="message-time">{formatDate(liveStreaming!.startedAt)}</span></div><div className="message-content"><MarkdownMessage content={liveStreaming!.prompt} /></div><div className="message-divider" /></article>}{activeThread?.messages.map((message, index) => <article ref={message.role === "user" && message.id === latestUserMessageId ? latestUserMessageRef : undefined} className={`message ${message.role}`} key={message.id}><div className="message-meta"><span className={`role-mark ${message.role}`}>{message.role === "assistant" ? <img src={AXOLOTL_ICON} alt="" /> : "You"}</span><span>{message.role === "assistant" ? "Nexuss-Agent" : "You"}</span><span className="message-time">{formatDate(message.createdAt)}</span>{message.role === "assistant" && <button className="copy-button" onClick={() => { void navigator.clipboard?.writeText(message.content); }}><Copy size={13} /> Copy</button>}</div><div className="message-content"><MarkdownMessage content={message.content} /></div>{index < (activeThread?.messages.length || 0) - 1 && <div className="message-divider" />}</article>)}{liveAssistantVisible && <article className="message assistant live-response"><div className="message-meta"><span className="role-mark assistant"><img src={AXOLOTL_ICON} alt="" /></span><span>Nexuss-Agent</span><span className="message-time">LIVE</span></div><div className="message-content"><MarkdownMessage content={liveStreaming!.content || "▍"} /></div></article>}{responsePending && <ResponseSkeleton />}<div ref={conversationEndRef} className="conversation-end" aria-hidden="true" /></div> : <div className="empty-thread"><div className="orbit-art axolotl-schematic" aria-hidden="true"><span className="axolotl-loop" /><span className="axolotl-eye axolotl-eye-one" /><span className="axolotl-eye axolotl-eye-two" /><span className="axolotl-gill axolotl-gill-one" /><span className="axolotl-gill axolotl-gill-two" /></div><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Start a thread.</h2><p>Give your work a place to begin.</p><button className="empty-create-button" onClick={createThread} disabled={createThreadMutation.isPending}><Plus size={14} /> New thread <ArrowUp size={13} /></button></div>}
+          <div className="conversation-heading" />
+          {navigationQuery.isError || activeChatQuery.isError ? <div className="empty-thread"><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Workspace unavailable.</h2><p>Your saved data is unchanged. Check your connection and try again.</p><button className="empty-create-button" onClick={() => { void navigationQuery.refetch(); if (routeChatSlug) void activeChatQuery.refetch(); }}><ArrowUp size={14} /> Retry loading</button></div> : !workspaceReady || migration.isPending ? <AxolotlLoader label="LOADING YOUR WORKSPACE" /> : activeThread?.messages.length || responsePending || liveStreaming ? <div className="message-stack">{livePromptVisible && <article ref={livePromptRef} className="message user live-prompt"><div className="message-meta"><span className="role-mark user">You</span><span>You</span><span className="message-time">{formatDate(liveStreaming!.startedAt)}</span></div><div className="message-content"><MarkdownMessage content={liveStreaming!.prompt} /></div><div className="message-divider" /></article>}{activeThread?.messages.map((message, index) => <article ref={message.role === "user" && message.id === latestUserMessageId ? latestUserMessageRef : undefined} className={`message ${message.role}`} key={message.id}><div className="message-meta"><span className={`role-mark ${message.role}`}>{message.role === "assistant" ? <img src={AXOLOTL_ICON} alt="" /> : "You"}</span><span>{message.role === "assistant" ? "Nexuss-Agent" : "You"}</span><span className="message-time">{formatDate(message.createdAt)}</span>{message.role === "assistant" && <button className="copy-button" onClick={() => { void navigator.clipboard?.writeText(message.content); }}><Copy size={13} /> Copy</button>}</div><div className="message-content"><MarkdownMessage content={message.content} /></div>{index < (activeThread?.messages.length || 0) - 1 && <div className="message-divider" />}</article>)}{liveAssistantVisible && <article className="message assistant live-response"><div className="message-meta"><span className="role-mark assistant"><img src={AXOLOTL_ICON} alt="" /></span><span>Nexuss-Agent</span><span className="live-status" aria-label="Responding" title="Responding" /></div><div className="message-content"><MarkdownMessage content={liveStreaming!.content || "▍"} /></div></article>}{responsePending && <ResponseSkeleton />}<div ref={conversationEndRef} className="conversation-end" aria-hidden="true" /></div> : <div className="empty-thread"><div className="orbit-art axolotl-schematic" aria-hidden="true"><span className="axolotl-loop" /><span className="axolotl-eye axolotl-eye-one" /><span className="axolotl-eye axolotl-eye-two" /><span className="axolotl-gill axolotl-gill-one" /><span className="axolotl-gill axolotl-gill-two" /></div><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Start a thread.</h2><p>Give your work a place to begin.</p><button className="empty-create-button" onClick={createThread} disabled={createThreadMutation.isPending}><Plus size={14} /> New thread <ArrowUp size={13} /></button></div>}
         </section>
         <div className="composer-wrap"><div className="composer" onClick={() => composerRef.current?.focus()}>
           <div className="composer-top">
             <button className="composer-plus" onClick={(event) => { event.stopPropagation(); attachmentInputRef.current?.click(); }} aria-label="Add attachments" title="Add attachments"><Plus size={16} /></button>
             <input ref={attachmentInputRef} className="attachment-input" type="file" multiple onChange={(event) => chooseAttachments(event.target.files)} aria-label="Choose attachments" />
+            <span className="composer-status-pill"><span className="composer-status-dot" aria-hidden="true" />{composerStartsMission ? "Work ready" : streamingTurn ? "Talking" : "Ready"}</span>
             <div className="composer-controls-center">
               <div className="composer-menu-anchor composer-model-anchor">
                 <button className="composer-picker model-picker" onClick={(event) => { event.stopPropagation(); setProjectMenuOpen(false); setModelMenuOpen(!modelMenuOpen); }} disabled={!selectedModels.length} aria-label="Select model" aria-expanded={modelMenuOpen}><Bot size={14} /><span>{activeModel || "Select model"}</span><ChevronDown size={13} /></button>
@@ -771,7 +825,6 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
           {attachments.length > 0 && <div className="attachment-tray" aria-live="polite">{attachments.map((attachment) => <div className={`attachment-chip ${attachment.status}`} key={attachment.id}><div className="attachment-chip-main"><span className="attachment-chip-mark" aria-hidden="true" /><span className="attachment-chip-copy"><strong title={attachment.name}>{attachment.name}</strong><small>{attachment.status === "uploading" ? `Uploading ${attachment.progress}%` : attachment.status === "processing" ? "Preparing" : attachment.status === "ready" ? "Ready" : attachment.error || attachment.status}</small></span></div>{(attachment.status === "uploading" || attachment.status === "processing") ? <button className="attachment-action" onClick={(event) => { event.stopPropagation(); cancelAttachment(attachment.id); }} aria-label={`Cancel ${attachment.name}`}><X size={12} /></button> : <button className="attachment-action" onClick={(event) => { event.stopPropagation(); removeAttachment(attachment.id); }} aria-label={`Remove ${attachment.name}`}><X size={12} /></button>}{(attachment.status === "uploading" || attachment.status === "processing") && <span className="attachment-progress" style={{ width: `${attachment.progress}%` }} />}</div>)}</div>}
           <textarea ref={composerRef} value={draft} onChange={(event) => { setDraft(event.target.value); if (!event.target.value.trim()) setQueueMenuOpen(false); }} onKeyDown={handleComposerKey} placeholder={streamingTurn ? "Write a follow-up — it will wait for the current response" : "Write your message…"} rows={2} disabled={!workspaceReady || createThreadMutation.isPending} />
           <div className="composer-bottom">
-            <span className="composer-runtime-status">{composerStartsMission ? (activeMissions.length > 0 ? "Work in progress" : "Ready to start") : streamingTurn ? (promptQueue.length ? `${promptQueue.length} queued` : "Talking with you") : "Ready to send"}</span>
             <div className="composer-send-cluster">
               {promptQueue.length > 0 && <button className="queue-count" onClick={(event) => { event.stopPropagation(); setQueueMenuOpen(!queueMenuOpen); }} aria-label={`${promptQueue.length} prompts queued`}><span>{promptQueue.length}</span> queued</button>}
               {createMissionFromIntakeMutation.isPending || startMissionMutation.isPending ? <button className="send-button" disabled aria-label="Starting work"><span className="send-spinner" /> </button> : streamingTurn && !draft.trim() ? <button className="send-button stop-button" onClick={(event) => { event.stopPropagation(); stopStreaming(); }} aria-label="Stop response" title="Stop current task"><Square size={13} fill="currentColor" /></button> : <div className="composer-menu-anchor send-menu-anchor"><button className="send-button" onClick={(event) => { event.stopPropagation(); void sendMessage(); }} disabled={!workspaceReady || (!draft.trim() && attachments.length === 0) || createThreadMutation.isPending || attachments.some((attachment) => attachment.status === "failed" || attachment.status === "cancelled")} aria-label={composerStartsMission ? "Start work" : streamingTurn ? "Send follow-up" : "Send message"}><ArrowUp size={17} /></button>{streamingTurn && draft.trim() && !composerStartsMission && <><button className="send-queue-toggle" onClick={(event) => { event.stopPropagation(); setQueueMenuOpen(!queueMenuOpen); }} aria-label="Add prompt to queue" aria-expanded={queueMenuOpen}><ChevronDown size={11} /></button>{queueMenuOpen && <div className="composer-menu queue-menu" role="menu"><button onClick={(event) => { event.stopPropagation(); queuePrompt("later"); }}>Add to queue</button><div className="queue-menu-summary">Wait for the current task to finish</div></div>}</>}</div>}
