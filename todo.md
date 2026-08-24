@@ -583,3 +583,9 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 Unified the model, Complex/General/Instant, and project menus around the same compact dark drop-up card design. All use matching rounded surfaces, spacing, hover/selected states, upward placement, and tiny scrollbar treatment; the project menu remains left of its right-aligned trigger so it does not cover the chat card.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Project Menu Matches Model Drop-Up
+
+Normalized the project dropdown to the model and execution menu design with the same dark rounded drop-up surface, compact spacing, header/count treatment, option row height, selected checkmark, hover state, and tiny scrollbar. The project panel remains positioned to the left of the right-aligned project trigger.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
