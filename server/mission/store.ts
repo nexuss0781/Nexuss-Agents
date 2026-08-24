@@ -584,7 +584,11 @@ export type MissionIntakeSource = {
   kind: "raw_prompt" | "plan_text" | "specification";
   name?: string;
   mimeType?: string;
-  text: string;
+  text?: string;
+  attachmentId?: string;
+  size?: number;
+  storageKey?: string;
+  storageUrl?: string;
   contentHash: string;
 };
 

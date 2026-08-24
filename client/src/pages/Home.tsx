@@ -282,6 +282,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const assignThreadProjectMutation = trpc.workspace.assignThreadProject.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Project assignment could not be saved") });
   const saveModelSettingsMutation = trpc.workspace.saveModelSettings.useMutation({ onError: (error) => toast.error(error.message || "Provider settings could not be saved") });
   const discoverModelsMutation = trpc.workspace.discoverModels.useMutation({ onError: (error) => toast.error(error.message || "Models could not be refreshed") });
+  const createMissionFromIntakeMutation = trpc.workspace.mission.createFromIntake.useMutation();
+  const startMissionMutation = trpc.workspace.mission.start.useMutation();
 
   useEffect(() => {
     if (!navigationQuery.isSuccess || migrationStarted.current) return;
@@ -524,9 +526,33 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     }
   }
 
+  async function sendMission() {
+    const content = draft.trim();
+    if (!workspaceReady || (!content && attachments.length === 0) || createMissionFromIntakeMutation.isPending || startMissionMutation.isPending) return;
+    const pendingAttachments = attachments.filter((attachment) => attachment.status === "uploading" || attachment.status === "processing");
+    if (pendingAttachments.length) return toast("Finish attaching your files first.");
+    const failedAttachments = attachments.filter((attachment) => attachment.status !== "ready");
+    if (failedAttachments.length) return toast.error("Remove failed attachments or choose them again.");
+    try {
+      const projectId = activeProject?.id || pendingProjectId || null;
+      const sources = [...(content ? [{ kind: "raw_prompt" as const, text: content }] : []), ...attachments.map((attachment) => ({ kind: "specification" as const, attachmentId: attachment.id, name: attachment.name, mimeType: attachment.mimeType }))];
+      const result = await createMissionFromIntakeMutation.mutateAsync({ projectId, model: activeModel || undefined, sources });
+      await startMissionMutation.mutateAsync({ missionId: result.mission.mission.id });
+      setDraft("");
+      setAttachments([]);
+      toast.success("Work received. The agent has started.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "This work could not be started.");
+    }
+  }
+
   async function sendMessage() {
     const content = draft.trim();
-    if (!workspaceReady || !content || createThreadMutation.isPending) return;
+    if (!workspaceReady || (!content && attachments.length === 0) || createThreadMutation.isPending) return;
+    if (attachments.length > 0) {
+      await sendMission();
+      return;
+    }
     if (streamingTurn) {
       queuePrompt("next");
       return;
@@ -656,7 +682,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
             <span className="composer-runtime-status">{streamingTurn ? (promptQueue.length ? `${promptQueue.length} queued` : "Streaming response") : "Enter to send"}</span>
             <div className="composer-send-cluster">
               {promptQueue.length > 0 && <button className="queue-count" onClick={(event) => { event.stopPropagation(); setQueueMenuOpen(!queueMenuOpen); }} aria-label={`${promptQueue.length} prompts queued`}><span>{promptQueue.length}</span> queued</button>}
-              {streamingTurn && !draft.trim() ? <button className="send-button stop-button" onClick={(event) => { event.stopPropagation(); stopStreaming(); }} aria-label="Stop response" title="Stop current task"><Square size={13} fill="currentColor" /></button> : <div className="composer-menu-anchor send-menu-anchor"><button className="send-button" onClick={(event) => { event.stopPropagation(); void sendMessage(); }} disabled={!workspaceReady || !draft.trim() || createThreadMutation.isPending} aria-label={streamingTurn ? "Send follow-up" : "Send message"}><ArrowUp size={17} /></button>{streamingTurn && draft.trim() && <><button className="send-queue-toggle" onClick={(event) => { event.stopPropagation(); setQueueMenuOpen(!queueMenuOpen); }} aria-label="Add prompt to queue" aria-expanded={queueMenuOpen}><ChevronDown size={11} /></button>{queueMenuOpen && <div className="composer-menu queue-menu" role="menu"><button onClick={(event) => { event.stopPropagation(); queuePrompt("later"); }}>Add to queue</button><div className="queue-menu-summary">Wait for the current task to finish</div></div>}</>}</div>}
+              {createMissionFromIntakeMutation.isPending || startMissionMutation.isPending ? <button className="send-button" disabled aria-label="Starting work"><span className="send-spinner" /> </button> : streamingTurn && !draft.trim() ? <button className="send-button stop-button" onClick={(event) => { event.stopPropagation(); stopStreaming(); }} aria-label="Stop response" title="Stop current task"><Square size={13} fill="currentColor" /></button> : <div className="composer-menu-anchor send-menu-anchor"><button className="send-button" onClick={(event) => { event.stopPropagation(); void sendMessage(); }} disabled={!workspaceReady || (!draft.trim() && attachments.length === 0) || createThreadMutation.isPending || attachments.some((attachment) => attachment.status === "failed" || attachment.status === "cancelled")} aria-label={streamingTurn ? "Send follow-up" : "Send message"}><ArrowUp size={17} /></button>{streamingTurn && draft.trim() && <><button className="send-queue-toggle" onClick={(event) => { event.stopPropagation(); setQueueMenuOpen(!queueMenuOpen); }} aria-label="Add prompt to queue" aria-expanded={queueMenuOpen}><ChevronDown size={11} /></button>{queueMenuOpen && <div className="composer-menu queue-menu" role="menu"><button onClick={(event) => { event.stopPropagation(); queuePrompt("later"); }}>Add to queue</button><div className="queue-menu-summary">Wait for the current task to finish</div></div>}</>}</div>}
             </div>
           </div>
         </div></div><div className="mobile-bottom-bar"><button onClick={() => setMobileNav(true)}><Menu size={16} /><span>Threads</span></button><button onClick={() => { composerRef.current?.focus(); setProjectMenuOpen(true); }} disabled={!workspaceReady || workspace.projects.length === 0}><Folder size={16} /><span>{activeProject?.name || workspace.projects.find((project) => project.id === pendingProjectId)?.name || "Project"}</span></button><button onClick={() => composerRef.current?.focus()} disabled={!workspaceReady}><ArrowUp size={16} /><span>Write</span></button></div>

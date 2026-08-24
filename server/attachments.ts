@@ -10,7 +10,7 @@ export const MAX_ATTACHMENT_NAME_LENGTH = 240;
 
 type AttachmentSourceKind = "raw_prompt" | "plan_text" | "specification";
 
-type StoredAttachment = {
+export type StoredAttachment = {
   id: string;
   ownerId: string;
   projectId?: string;

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { streamWorkspaceModel } from "../paradoxWorkspace";
+import { getAttachment } from "../attachments";
 import { redactSensitiveData } from "./redaction";
 import { MISSION_INTAKE_SYSTEM_PROMPT } from "./intakePrompt";
 import { getAgentContract } from "./agentContracts";
@@ -17,7 +18,8 @@ import type { AcceptanceCriterion, MissionBudget } from "./constitution";
 
 export type IntakeSourceInput = {
   kind: MissionIntakeSource["kind"];
-  text: string;
+  text?: string;
+  attachmentId?: string;
   name?: string;
   mimeType?: string;
 };
@@ -69,18 +71,23 @@ function sourceId(index: number, source: IntakeSourceInput) {
   return `source-${index + 1}-${source.kind}`;
 }
 
-function normalizeSources(sources: IntakeSourceInput[]) {
+async function normalizeSources(ownerId: string, sources: IntakeSourceInput[]) {
   if (!sources.length) throw new Error("Mission intake requires at least one prompt or specification source");
   if (sources.length > 20) throw new Error("Mission intake supports at most 20 sources");
-  return sources.map((source, index) => {
-    const text = bounded(source.text, MAX_SOURCE_LENGTH);
+  return Promise.all(sources.map(async (source, index) => {
+    if (source.attachmentId) {
+      const attachment = await getAttachment(ownerId, source.attachmentId);
+      const text = bounded(source.text || `Attached file: ${attachment.name} (${attachment.mimeType}, ${attachment.size} bytes)`, MAX_SOURCE_LENGTH);
+      return { id: sourceId(index, source), kind: source.kind, name: attachment.name, mimeType: attachment.mimeType, text, attachmentId: attachment.id, size: attachment.size, storageKey: attachment.storageKey, storageUrl: attachment.storageUrl, contentHash: attachment.contentHash } satisfies MissionIntakeSource;
+    }
+    const text = bounded(source.text || "", MAX_SOURCE_LENGTH);
     if (!text) throw new Error(`Mission intake source ${index + 1} is empty`);
     return { id: sourceId(index, source), kind: source.kind, ...(source.name ? { name: bounded(source.name, 240) } : {}), ...(source.mimeType ? { mimeType: bounded(source.mimeType, 120) } : {}), text, contentHash: hashText(text) } satisfies MissionIntakeSource;
-  });
+  }));
 }
 
 function linesFor(sources: MissionIntakeSource[]) {
-  return sources.flatMap((source) => source.text.split(/\r?\n/).map((text, index) => ({ text: text.trim(), sourceId: source.id, line: index + 1 }))).filter((line) => line.text);
+  return sources.flatMap((source) => (source.text || "").split(/\r?\n/).map((text, index) => ({ text: text.trim(), sourceId: source.id, line: index + 1 }))).filter((line) => line.text);
 }
 
 function cleanLine(value: string) {
@@ -213,7 +220,7 @@ export async function runMissionIntake(ownerId: string, input: { projectId?: str
   assertSkillAllowed(intakeContract, "source_traceability");
   assertSkillAllowed(intakeContract, "risk_classification");
   assertHarnessAllowed(intakeContract, { harness: "mission_intake", operation: "ingest_text", input: { sourceCount: input.sources.length } });
-  const sources = normalizeSources(input.sources);
+  const sources = await normalizeSources(ownerId, input.sources);
   if (JSON.stringify(sources).length > MAX_COMBINED_LENGTH) throw new Error("Mission intake sources exceed the combined safety limit");
   const deterministic = deterministicBrief(sources);
   let brief = deterministic.brief;

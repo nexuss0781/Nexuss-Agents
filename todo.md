@@ -335,3 +335,12 @@ Validation evidence for this slice: TypeScript check passed and 15 focused intak
 - [x] Added the durable `workspace_attachments` metadata table and indexes without storing file bytes in Paradox.
 - [x] Added attachment-input regression coverage; TypeScript, 24 focused frontend/server tests, production build, and diff hygiene pass.
 - [ ] Connecting ready attachment references into intake-created mission sources is reserved for the next mission-submission phase.
+
+## Frontend Phase 3 — Attachment-Aware Mission Submission
+
+- [x] Extended intake sources to accept owner-scoped uploaded attachment references alongside inline prompt text.
+- [x] Added owner validation when the intake engine resolves each attachment, preserving file name, MIME type, size, storage reference, and content hash for traceability.
+- [x] Updated authenticated intake preview and mission-creation procedures to accept either text sources or attachment references.
+- [x] Connected the composer’s ready attachments and optional prompt text into the intake-based mission submission path; attachment-only submissions are supported.
+- [x] Kept ordinary text-only playground conversation behavior unchanged in this phase.
+- [x] Added attachment-aware intake regression coverage; TypeScript, 25 focused tests, production build, and diff hygiene pass.

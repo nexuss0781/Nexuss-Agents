@@ -1,20 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const streamWorkspaceModel = vi.hoisted(() => vi.fn());
+const getAttachment = vi.hoisted(() => vi.fn());
 const store = vi.hoisted(() => ({ createMissionIntake: vi.fn(), getMissionIntake: vi.fn(), createMission: vi.fn() }));
 
 vi.mock("../paradoxWorkspace", () => ({ streamWorkspaceModel }));
+vi.mock("../attachments", () => ({ getAttachment }));
 vi.mock("./store", () => store);
 
 import { createMissionFromIntake, runMissionIntake } from "./intake";
 
 beforeEach(() => {
   streamWorkspaceModel.mockReset();
+  getAttachment.mockReset();
   store.createMissionIntake.mockReset();
   store.getMissionIntake.mockReset();
   store.createMission.mockReset();
   store.createMissionIntake.mockImplementation(async (ownerId: string, input: Record<string, unknown>) => ({ id: "intake-1", ownerId, ...input, createdAt: "2026-08-24T00:00:00.000Z", updatedAt: "2026-08-24T00:00:00.000Z" }));
   store.createMission.mockResolvedValue({ mission: { id: "mission-1", goal: "Implement recovery" }, workItems: [], events: [] });
+  getAttachment.mockResolvedValue({ id: "attachment-1", ownerId: "owner-1", name: "requirements.weird", mimeType: "application/x-custom", size: 42, contentHash: "a".repeat(64), storageKey: "nexuss/owner-1/attachments/attachment-1", storageUrl: "/manus-storage/nexuss/owner-1/attachments/attachment-1", sourceKind: "specification", createdAt: "2026-08-24T00:00:00.000Z" });
 });
 
 describe("Mission Intake Engine", () => {
@@ -37,6 +41,13 @@ describe("Mission Intake Engine", () => {
     const result = await runMissionIntake("owner-1", { sources: [{ kind: "raw_prompt", text: "Fix it" }] });
     expect(result.decision).toBe("needs_clarification");
     expect(result.issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: "MATERIAL_AMBIGUITY", severity: "blocking" })]));
+  });
+
+  it("resolves uploaded attachment references into traceable intake sources", async () => {
+    const result = await runMissionIntake("owner-1", { sources: [{ kind: "raw_prompt", text: "Use the attached requirements to implement the requested change." }, { kind: "specification", attachmentId: "attachment-1", name: "requirements.weird", mimeType: "application/x-custom" }] });
+    expect(getAttachment).toHaveBeenCalledWith("owner-1", "attachment-1");
+    expect(result.intake.sources[1]).toMatchObject({ attachmentId: "attachment-1", name: "requirements.weird", mimeType: "application/x-custom", contentHash: "a".repeat(64), storageKey: expect.stringContaining("attachments") });
+    expect(result.sourceReferences[1]).toBe(`source-2-specification:${"a".repeat(64)}`);
   });
 
   it("uses a validated structured model brief when available", async () => {
