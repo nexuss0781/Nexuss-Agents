@@ -505,3 +505,9 @@ Validated with TypeScript, 27 focused chat/Playground tests, production build, a
 Replaced the clipping absolute-position override with a normal in-flow composer bottom row. The composer no longer caps its height or clips overflow, the bottom row has a dedicated 52px height, and the Send/Stop cluster is aligned inside that row with a stable 36px control basis. This makes the measured composer reservation reflect the actual visible control geometry.
 
 Validated with TypeScript, 27 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Empty-State Action Row and Fresh Thread Repair
+
+Moved the three suggestions and New thread action into one consecutive bottom row in the empty-state card, with a responsive two-column fallback on narrow screens. Added an explicit force-new thread path so the visible New thread actions no longer reuse an existing blank thread and reliably route to the newly created chat.
+
+Validated with TypeScript, 28 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.

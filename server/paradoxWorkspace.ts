@@ -467,10 +467,10 @@ export async function deleteProject(ownerId: string, id: string) {
   });
 }
 
-export async function createThread(ownerId: string, projectId?: string | null) {
+export async function createThread(ownerId: string, projectId?: string | null, forceNew = false) {
   return withWorkspaceDb(true, (db) => {
     if (projectId) assertProjectOwner(db, ownerId, projectId);
-    const existing = rows<{ id: string; chat_slug: string | null; title: string; project_id: string | null; updated_at: string }>(db.execute(
+    const existing = forceNew ? undefined : rows<{ id: string; chat_slug: string | null; title: string; project_id: string | null; updated_at: string }>(db.execute(
       "SELECT t.id, t.chat_slug, t.title, t.project_id, t.updated_at FROM workspace_threads t WHERE t.owner_id = ? AND NOT EXISTS (SELECT 1 FROM workspace_messages m WHERE m.thread_id = t.id AND m.owner_id = t.owner_id) ORDER BY t.updated_at DESC LIMIT 1",
       [ownerId],
     ))[0];

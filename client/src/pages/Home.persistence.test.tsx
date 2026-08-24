@@ -474,6 +474,24 @@ describe("persistent workspace client", () => {
     } finally {
       consoleError.mockRestore();
     }
+    });
+  it("creates a fresh thread from the empty-state New thread action", async () => {
+    const inputs = vi.fn();
+    const initial: WorkspaceSnapshot = { projects: [], threads: [{ id: "empty-thread", chatSlug: "chat-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", title: "New thread", updatedAt: "2026-08-24T00:00:00.000Z", messages: [] }] };
+    const created = { id: "fresh-thread", chatSlug: "chat-ffffffffffffffffffffffffffffffff", title: "Untitled exploration", updatedAt: "2026-08-24T00:00:00.000Z", messages: [] };
+    const host = await mountWorkspace((path, input) => {
+      inputs(path, input);
+      if (path === "workspace.navigation") return initial;
+      if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-live"], availableModels: ["model-live"], apiKeyConfigured: true };
+      if (path === "workspace.createThread") return created;
+      return initial;
+    });
+
+    await waitForText(host, "Start a thread.");
+    const button = host.querySelector<HTMLButtonElement>(".empty-create-button");
+    expect(button).not.toBeNull();
+    await act(async () => { button?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+    expect(inputs).toHaveBeenCalledWith("workspace.createThread", { forceNew: true });
   });
 
 });

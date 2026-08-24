@@ -90,8 +90,8 @@ export const appRouter = router({
     deleteProject: publicProcedure.input(z.object({ id: z.string().min(1).max(128) })).mutation(async ({ ctx, input }) => {
       try { return await deleteProject(await workspaceOwner(ctx), input.id); } catch (error) { return workspaceFailure(error); }
     }),
-    createThread: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128).nullable().optional() }).optional()).mutation(async ({ ctx, input }) => {
-      try { return await createThread(await workspaceOwner(ctx), input?.projectId); } catch (error) { return workspaceFailure(error); }
+    createThread: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128).nullable().optional(), forceNew: z.boolean().optional() }).optional()).mutation(async ({ ctx, input }) => {
+      try { return await createThread(await workspaceOwner(ctx), input?.projectId, input?.forceNew === true); } catch (error) { return workspaceFailure(error); }
     }),
     renameThread: publicProcedure.input(z.object({ id: z.string().min(1).max(128), title: z.string().trim().min(1).max(240) })).mutation(async ({ ctx, input }) => {
       try { return await renameThread(await workspaceOwner(ctx), input.id, input.title); } catch (error) { return workspaceFailure(error); }
