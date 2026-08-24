@@ -293,7 +293,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const livePromptRef = useRef<HTMLElement>(null);
   const latestUserMessageRef = useRef<HTMLElement>(null);
-  const focusNewPromptRef = useRef(false);
+  const focusNewPromptThreadRef = useRef<string | null>(null);
   const workspace = navigationQuery.data || seed;
   const migration = trpc.workspace.migrate.useMutation({
     onSuccess: () => {
@@ -387,18 +387,20 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       const container = conversationRef.current;
-      if (focusNewPromptRef.current) {
+      if (focusNewPromptThreadRef.current === activeThread?.id) {
         const target = livePromptRef.current || latestUserMessageRef.current;
         if (target) {
           target.scrollIntoView?.({ behavior: "smooth", block: "start" });
-          focusNewPromptRef.current = false;
+          focusNewPromptThreadRef.current = null;
           return;
         }
         if (container?.scrollTo) {
           container.scrollTo({ top: 0, behavior: "smooth" });
-          focusNewPromptRef.current = false;
+          focusNewPromptThreadRef.current = null;
           return;
         }
+      } else if (focusNewPromptThreadRef.current) {
+        focusNewPromptThreadRef.current = null;
       }
       if (container?.scrollTo) container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
       else conversationEndRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
@@ -545,7 +547,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     stopNoticeRef.current = false;
     streamAbortRef.current = controller;
     streamThreadRef.current = targetThread.id;
-    focusNewPromptRef.current = true;
+    focusNewPromptThreadRef.current = targetThread.id;
     setStreamingTurn({ threadId: targetThread.id, prompt: content, content: "", startedAt: new Date().toISOString() });
     let streamedContent = "";
     let finished = false;
@@ -615,7 +617,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       }
       await startMissionMutation.mutateAsync({ missionId: result.mission.mission.id });
       const acknowledgment = "I’m taking this on now. I’ll work through the request, check the result, and bring the finished work back here.";
-      focusNewPromptRef.current = true;
+      focusNewPromptThreadRef.current = targetThread.id;
       await appendMessagesMutation.mutateAsync({ threadId: targetThread.id, messages: [...userMessages, { role: "assistant", content: acknowledgment }], ...(targetThread.messages.length === 0 && content ? { title: content.slice(0, 42) } : {}) });
       void utils.workspace.mission.list.invalidate();
       setSelectedMissionId(result.mission.mission.id);

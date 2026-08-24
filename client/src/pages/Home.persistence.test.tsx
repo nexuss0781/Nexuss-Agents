@@ -247,6 +247,8 @@ describe("persistent workspace client", () => {
     await waitForText(host, "model-alpha");
     const executionPicker = host.querySelector<HTMLButtonElement>('button[aria-label="Choose execution style"]');
     expect(executionPicker?.textContent).toContain("Complex");
+    const composerPickers = Array.from(host.querySelectorAll<HTMLButtonElement>(".composer-controls-center .composer-picker"));
+    expect(composerPickers.map((picker) => picker.getAttribute("aria-label"))).toEqual(["Select model", "Choose execution style"]);
     await act(async () => { executionPicker?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
     expect(host.querySelector(".execution-menu")?.textContent).toContain("Complex");
     expect(host.querySelector(".execution-menu")?.textContent).toContain("General");

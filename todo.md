@@ -423,3 +423,12 @@ The focused validation command was `pnpm check && pnpm exec vitest run client/sr
 - [x] Added owner-scoped server rollback for failed direct model requests, removing the just-sent persisted prompt before the client restores it to the composer.
 - [x] Added regression coverage for top-position scrolling and retry restoration. TypeScript, 20 focused workspace tests, production build, and diff hygiene pass.
 - [ ] Live authenticated Render visual and failure-retry verification remains required after deployment.
+
+## Chat Window Visual Rebuild
+
+- [x] Rebuilt the chat window styling into a restrained black-and-white workspace with stronger hierarchy, rounded controls, quieter borders, compact message rhythm, and a floating composer inspired by the supplied reference.
+- [x] Retained the existing Nexuss-Agent brown logo as the only warm accent and kept conversation, attachments, model selection, work-style selection, project assignment, streaming, autonomous work, and retry interactions intact.
+- [x] Placed the newly sent prompt at the top of the visible conversation with a small offset, kept automatic live scrolling, and added a centered model-before-Complex control group.
+- [x] Added owner-scoped direct-message rollback on provider failure so the failed persisted prompt is removed before the client restores it for retry.
+- [x] TypeScript, 20 focused workspace tests, production build, and diff hygiene pass. Encrypted Paradox integration tests remain unavailable locally without deployment credentials.
+- [ ] Live authenticated Render visual verification remains required after deployment.
