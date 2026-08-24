@@ -700,3 +700,15 @@ body { color: var(--paper); }
   .project-section { max-height: 145px; }
   .sidebar-footer .profile-row { padding: 9px 8px; }
 }
+
+/* Final neutral sidebar surfaces: no brown treatment beyond the existing brand mark. */
+.thread-item.active { border-left-color: #c7d0d4; background: #2a3034; }
+.thread-item.active:hover { background: #30373b; }
+.active .thread-slug { color: #aeb9bd; }
+.project-section { background: #20272b; border-color: rgba(203,214,219,.18); }
+.sidebar-footer .profile-row { background: #20272b; border-color: rgba(203,214,219,.18); }
+
+/* Keep the send/stop control fully inside the composer border. */
+.composer-bottom { height: 44px; min-height: 44px; padding: 0 13px 0 16px; align-items: center; }
+.composer-send-cluster { height: 36px; min-height: 36px; align-items: center; }
+.send-button { flex: 0 0 36px; width: 36px; height: 36px; }

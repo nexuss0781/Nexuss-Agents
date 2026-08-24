@@ -481,3 +481,9 @@ Validated with TypeScript, 27 focused chat/Playground tests, production build, a
 Added a dedicated independently scrollable thread region so a long thread history cannot be covered by or displaced by projects. Projects now occupy a bounded cool-grey surface below the thread list, and the signed-in profile uses a matching restrained cool-grey surface at the sidebar base. The composer send cluster is explicitly flex-aligned to the bottom control baseline so the send/stop button no longer drifts.
 
 Validated with TypeScript, 27 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Neutral Sidebar and Composer Control Correction
+
+Replaced the active thread’s brown surface with a neutral cool-grey state, strengthened the cool-grey project and profile surfaces, and kept the existing brown only within the brand mark. The thread list remains the flexible independently scrollable region. The composer bottom row now has a fixed height and the Send/Stop control has a fixed flex basis, keeping it fully inside the composer border and aligned to the control baseline.
+
+Validated with TypeScript, 27 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
