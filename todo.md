@@ -499,3 +499,9 @@ Validated with TypeScript, 27 focused chat/Playground tests, production build, a
 Expanded the thread area into a larger styled cool-grey workspace card while retaining its independent scrolling. The active thread now has a clearer, more spacious selected state. The composer’s lower row now owns the Send/Stop position directly, pinning the control inside the lower-right corner of the composer rather than relying on drifting flex content.
 
 Validated with TypeScript, 27 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Structural Composer Repair
+
+Replaced the clipping absolute-position override with a normal in-flow composer bottom row. The composer no longer caps its height or clips overflow, the bottom row has a dedicated 52px height, and the Send/Stop cluster is aligned inside that row with a stable 36px control basis. This makes the measured composer reservation reflect the actual visible control geometry.
+
+Validated with TypeScript, 27 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
