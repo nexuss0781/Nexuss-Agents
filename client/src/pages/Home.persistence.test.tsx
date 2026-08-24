@@ -269,6 +269,52 @@ describe("persistent workspace client", () => {
     expect(host.querySelector('button[aria-label="Add attachments"]')).not.toBeNull();
   });
 
+  it("shows active work from the server with simple progress and controls", async () => {
+    const mission = { id: "mission-active", ownerId: "owner-1", goal: "Prepare the project update", status: "executing", version: 2, createdAt: "2026-08-24T00:00:00.000Z", updatedAt: "2026-08-24T00:00:00.000Z" };
+    const host = await mountWorkspace((path) => {
+      if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-alpha"], apiKeyConfigured: true };
+      if (path === "workspace.mission.list") return [mission];
+      if (path === "workspace.mission.get") return { mission, workItems: [{ id: "work-1", status: "completed" }], events: [{ id: "event-1" }] };
+      return { projects: [], threads: [] };
+    });
+
+    await waitForText(host, "1 working");
+    const activity = host.querySelector<HTMLButtonElement>('button[aria-label="Open your work"]');
+    await act(async () => { activity?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+    await waitForText(host, "Prepare the project update");
+    await waitForText(host, "1 of 1 steps complete");
+    expect(host.textContent).toContain("Working");
+    expect(host.querySelector('button[aria-label="Close your work"]')).not.toBeNull();
+  });
+
+  it("uses server-driven controls to pause and continue active work", async () => {
+    let status: "executing" | "paused" = "executing";
+    const calls = vi.fn();
+    const baseMission = { id: "mission-controls", ownerId: "owner-1", goal: "Review the release notes", status: "executing", version: 1, createdAt: "2026-08-24T00:00:00.000Z", updatedAt: "2026-08-24T00:00:00.000Z" };
+    const host = await mountWorkspace((path) => {
+      calls(path);
+      if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-alpha"], apiKeyConfigured: true };
+      if (path === "workspace.mission.list") return [{ ...baseMission, status }];
+      if (path === "workspace.mission.get") return { mission: { ...baseMission, status }, workItems: [{ id: "work-controls", status: status === "paused" ? "pending" : "executing" }], events: [{ id: "event-controls" }] };
+      if (path === "workspace.mission.pause") { status = "paused"; return { ...baseMission, status }; }
+      if (path === "workspace.mission.resume") { status = "executing"; return { ...baseMission, status }; }
+      return { projects: [], threads: [] };
+    });
+
+    await waitForText(host, "1 working");
+    await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Open your work"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+    await waitForSelector(host, 'button[aria-label="Pause work"]');
+    expect(host.querySelector('button[aria-label="Stop work"]')).not.toBeNull();
+
+    await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Pause work"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+    await waitForSelector(host, 'button[aria-label="Continue work"]');
+    expect(calls).toHaveBeenCalledWith("workspace.mission.pause");
+
+    await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Continue work"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+    await waitForSelector(host, 'button[aria-label="Pause work"]');
+    expect(calls).toHaveBeenCalledWith("workspace.mission.resume");
+  });
+
   it("creates a project-linked thread from the first message and starts the selected model stream", async () => {
     const inputs = vi.fn();
     const project: WorkspaceSnapshot["projects"][number] = { id: "pntp", name: "PNTP", description: "", tone: "#f4f4f0" };
