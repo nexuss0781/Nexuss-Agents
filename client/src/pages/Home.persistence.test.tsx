@@ -355,6 +355,9 @@ describe("persistent workspace client", () => {
     const empty: WorkspaceSnapshot = { projects: [], threads: [] };
     const stream = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new TextEncoder().encode(`data: {"type":"token","text":"Hello — I’m here."}\n\n`)); } });
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } }));
+    const originalScrollTo = HTMLElement.prototype.scrollTo;
+    const scrollTo = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: scrollTo });
     try {
       const host = await mountWorkspace((path, input) => {
         inputs(path, input);
@@ -371,9 +374,12 @@ describe("persistent workspace client", () => {
       expect(host.querySelector<HTMLButtonElement>('button[aria-label="Send message"]')).not.toBeNull();
       await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Send message"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
       await waitForSelector(host, 'button[aria-label="Stop response"]');
+      await act(async () => { await new Promise((resolveTick) => setTimeout(resolveTick, 25)); });
       expect(inputs).not.toHaveBeenCalledWith("workspace.mission.createFromIntake", expect.anything());
       expect(fetchMock).toHaveBeenCalledWith("/api/playground/stream", expect.objectContaining({ method: "POST" }));
+      expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
     } finally {
+      Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: originalScrollTo });
       fetchMock.mockRestore();
     }
   });

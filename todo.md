@@ -399,3 +399,11 @@ The focused validation command was `pnpm check && pnpm exec vitest run client/sr
 - [x] Added an intent boundary so explicit work requests and attachments use Mission Intake, while ordinary conversation reaches the agent directly.
 - [x] Added regressions for greeting routing and actual system-prompt payload presence. TypeScript, 37 focused tests, production build, and diff hygiene pass.
 - [ ] Live authenticated Render verification remains required after deployment.
+
+## Compact Conversation Layout
+
+- [x] Reduced the oversized vertical gap between conversation entries and tightened divider and paragraph spacing.
+- [x] Reduced message metadata and body typography while preserving readable line height and code formatting.
+- [x] Added automatic smooth scrolling to the conversation container bottom whenever a prompt is sent, a response arrives, or live response content grows.
+- [x] Added a mounted-client regression for send-time bottom scrolling. TypeScript, 19 focused workspace tests, production build, and diff hygiene pass.
+- [ ] Live authenticated Render visual verification remains required after deployment.
