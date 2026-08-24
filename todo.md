@@ -523,3 +523,9 @@ Validated with TypeScript, 28 focused chat/Playground tests, production build, a
 Increased the left-sidebar New thread action to a clearly visible 52px desktop control with a neutral cool-grey gradient, rounded surface, stronger contrast, and restrained depth. Its existing fresh-thread behavior remains unchanged; the central card, composer, and Send control were not modified.
 
 Validated with TypeScript, 28 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Compact One-Page Sidebar
+
+Reduced the left-sidebar New thread control to a balanced 44px desktop height, tightened the gap before the Filter threads field, and reduced section spacing so threads, projects, and profile fit cleanly within one viewport. The thread panel remains flexible and independently scrollable, preserving the cool-grey styling.
+
+Validated with TypeScript, 28 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
