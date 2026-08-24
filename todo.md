@@ -601,3 +601,9 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 Restyled the left-panel Projects card as a distinct cool-slate surface with restrained diagonal texture, stronger card hierarchy, polished carousel controls, and a clearer selected-project state. The project carousel, selection/filtering, thread list, and composer were not behaviorally changed.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Dark Welcome-Style Projects Card
+
+Darkened the left Projects card to match the welcome card’s near-black textured treatment, using subtle grid and diagonal stripe layers, quiet borders, restrained shadows, and dark project rows. Existing project carousel, selection, filtering, and Add project behavior remain unchanged.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
