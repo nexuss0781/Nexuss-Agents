@@ -517,3 +517,9 @@ Validated with TypeScript, 28 focused chat/Playground tests, production build, a
 Expanded the central Start a thread card to a larger, rounded workspace surface with a polished neutral cool-grey gradient, subtle depth, and improved contrast. The existing four-action bottom row and all thread/composer interactions remain unchanged.
 
 Validated with TypeScript, 28 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Enlarged Sidebar New Thread Control
+
+Increased the left-sidebar New thread action to a clearly visible 52px desktop control with a neutral cool-grey gradient, rounded surface, stronger contrast, and restrained depth. Its existing fresh-thread behavior remains unchanged; the central card, composer, and Send control were not modified.
+
+Validated with TypeScript, 28 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
