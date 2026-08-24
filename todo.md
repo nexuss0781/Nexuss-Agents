@@ -547,3 +547,9 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 Reduced the main chat window and top bar to a restrained near-black backdrop so the cool-grey left panel carries the visual emphasis. The central Start a thread card remains readable with a quieter dark gradient and softer controls; sidebar project selection, filtering, and composer behavior remain unchanged.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Compact Thread Rows
+
+Stopped sparse thread history from stretching an individual thread row to fill the entire scroll panel. The thread list and groups now align content to the start, while each thread keeps its compact intrinsic height and the list remains independently scrollable.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
