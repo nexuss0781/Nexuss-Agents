@@ -375,3 +375,11 @@ The focused validation command was `pnpm check && pnpm exec vitest run client/sr
 - [x] Kept the live `Your work` drawer as the progress surface while making the conversation the first place the user hears from the agent.
 - [x] Added regression coverage for the mission submission payload and durable acknowledgment; TypeScript, 27 focused tests, production build, diff hygiene, and non-error-toast scan pass.
 - [ ] Live authenticated Render verification remains required after deployment.
+
+## Clarification Response Hardening
+
+- [x] Added a fallback when the model normalizer returns a materially vague objective for a detailed request; the deterministic objective is retained instead of producing a false clarification block.
+- [x] Changed `createMissionFromIntake` to return a structured clarification result rather than throwing an internal decision error.
+- [x] A genuinely vague request now receives the first agent’s clarification in the conversation and does not start work; accepted work still receives the start acknowledgment only after mission creation succeeds.
+- [x] Added server and mounted-client regressions for both paths. TypeScript, 29 focused tests, production build, and diff hygiene pass.
+- [ ] Live authenticated Render verification remains required after deployment.

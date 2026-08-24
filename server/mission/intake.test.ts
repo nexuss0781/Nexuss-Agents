@@ -50,6 +50,14 @@ describe("Mission Intake Engine", () => {
     expect(result.brief.objective).toBe("Build app");
   });
 
+  it("returns clarification to the conversation without creating a mission", async () => {
+    const result = await createMissionFromIntake("owner-1", { sources: [{ kind: "raw_prompt", text: "Fix it" }] });
+    expect(result.decision).toBe("needs_clarification");
+    expect(result.mission).toBeNull();
+    expect(result.issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: "MATERIAL_AMBIGUITY" })]));
+    expect(store.createMission).not.toHaveBeenCalled();
+  });
+
   it("resolves uploaded attachment references into traceable intake sources", async () => {
     const result = await runMissionIntake("owner-1", { sources: [{ kind: "raw_prompt", text: "Use the attached requirements to implement the requested change." }, { kind: "specification", attachmentId: "attachment-1", name: "requirements.weird", mimeType: "application/x-custom" }] });
     expect(getAttachment).toHaveBeenCalledWith("owner-1", "attachment-1");

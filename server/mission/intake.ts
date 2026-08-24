@@ -243,6 +243,7 @@ export async function runMissionIntake(ownerId: string, input: { projectId?: str
       const result = await streamWorkspaceModel(ownerId, { model: input.model, messages: [{ role: "system", content: MISSION_INTAKE_SYSTEM_PROMPT }, { role: "user", content: JSON.stringify(modelInput) }] }, signal);
       if (result.stopped || !result.finished) throw new Error("Intake normalization was not completed");
       brief = validateModelBrief(extractJson(result.content), deterministic.brief, sources);
+      if (isMateriallyVagueObjective(brief.objective) && !isMateriallyVagueObjective(deterministic.brief.objective)) brief = { ...brief, objective: deterministic.brief.objective };
       issues = detectIssues(sources, brief.objective, brief.constraints);
       normalizationSource = "model";
     } catch (error) {
@@ -262,9 +263,10 @@ export async function getStoredMissionIntake(ownerId: string, intakeId: string) 
   return getMissionIntake(ownerId, intakeId);
 }
 
-export async function createMissionFromIntake(ownerId: string, input: { projectId?: string | null; model?: string; sources: IntakeSourceInput[]; budget?: MissionBudget; signal?: AbortSignal }): Promise<{ intake: MissionIntakeRecord; mission: Awaited<ReturnType<typeof createMission>> }> {
+export async function createMissionFromIntake(ownerId: string, input: { projectId?: string | null; model?: string; sources: IntakeSourceInput[]; budget?: MissionBudget; signal?: AbortSignal }): Promise<{ intake: MissionIntakeRecord; mission: Awaited<ReturnType<typeof createMission>> | null; decision: IntakeDecision; issues: IntakeIssue[] }> {
   const result = await runMissionIntake(ownerId, input);
-  if (result.decision !== "ready_for_planning" && result.decision !== "ready_with_assumptions") throw new Error(`Mission intake cannot create a mission from decision ${result.decision}`);
+  if (result.decision === "needs_clarification") return { intake: result.intake, mission: null, decision: result.decision, issues: result.issues };
+  if (result.decision === "blocked") throw new Error("Mission intake blocked this request because it needs a safety or permission correction.");
   const contract: CreateMissionInput["contract"] = {
     intakeId: result.intake.id,
     model: input.model,
@@ -281,5 +283,5 @@ export async function createMissionFromIntake(ownerId: string, input: { projectI
     completionPolicy: result.brief.verificationExpectations,
   };
   const mission = await createMission(ownerId, { projectId: input.projectId, goal: result.brief.objective, contract, budget: input.budget });
-  return { intake: result.intake, mission };
+  return { intake: result.intake, mission, decision: result.decision, issues: result.issues };
 }

@@ -350,6 +350,27 @@ describe("persistent workspace client", () => {
     expect(inputs).toHaveBeenCalledWith("workspace.appendMessages", { threadId: "first-thread", messages: [{ role: "user", content: "Build the release workflow" }, { role: "assistant", content: "I’m taking this on now. I’ll work through the request, check the result, and bring the finished work back here." }], title: "Build the release workflow" });
   });
 
+  it("answers a clarification request in the conversation without starting work", async () => {
+    const inputs = vi.fn();
+    const empty: WorkspaceSnapshot = { projects: [], threads: [] };
+    const host = await mountWorkspace((path, input) => {
+      inputs(path, input);
+      if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-live"], availableModels: ["model-live"], apiKeyConfigured: true };
+      if (path === "workspace.createThread") return { id: "clarification-thread", chatSlug: "chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", title: "New thread", updatedAt: "2026-08-24T00:00:00.000Z", messages: [] };
+      if (path === "workspace.mission.createFromIntake") return { intake: { id: "intake-clarification" }, mission: null, decision: "needs_clarification", issues: [{ code: "MATERIAL_AMBIGUITY", summary: "The desired outcome is too vague to plan reliably." }] };
+      if (path === "workspace.appendMessages") return { threadId: "clarification-thread", messages: [] };
+      return empty;
+    });
+    await waitForText(host, "Start a thread.");
+    await waitForText(host, "model-live");
+    const composer = host.querySelector<HTMLTextAreaElement>("textarea");
+    if (!composer) throw new Error("Composer was not rendered");
+    const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    await act(async () => { setValue?.call(composer, "Fix it"); composer.dispatchEvent(new Event("input", { bubbles: true })); host.querySelector<HTMLButtonElement>('button[aria-label="Start work"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+    expect(inputs).toHaveBeenCalledWith("workspace.appendMessages", expect.objectContaining({ threadId: "clarification-thread", messages: [{ role: "user", content: "Fix it" }, { role: "assistant", content: expect.stringContaining("I need a little more detail") }] }));
+    expect(inputs).not.toHaveBeenCalledWith("workspace.mission.start", expect.anything());
+  });
+
   it("requests full message history only for the browser-selected chat slug", async () => {
     window.history.replaceState({}, "", "/app/chat/chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
     const calls = vi.fn();

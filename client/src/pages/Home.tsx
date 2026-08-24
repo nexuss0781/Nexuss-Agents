@@ -569,10 +569,18 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       const projectId = activeProject?.id || pendingProjectId || null;
       const sources = [...(content ? [{ kind: "raw_prompt" as const, text: content }] : []), ...attachments.map((attachment) => ({ kind: "specification" as const, attachmentId: attachment.id, name: attachment.name, mimeType: attachment.mimeType }))];
       const result = await createMissionFromIntakeMutation.mutateAsync({ projectId, model: activeModel || undefined, sources });
-      await startMissionMutation.mutateAsync({ missionId: result.mission.mission.id });
       const targetThread = activeThread || await createThreadMutation.mutateAsync({ projectId: pendingProjectId });
+      const userMessages = content ? [{ role: "user" as const, content }] : [];
+      if (!result.mission) {
+        const detail = result.issues.find((issue) => issue.code === "MATERIAL_AMBIGUITY")?.summary;
+        await appendMessagesMutation.mutateAsync({ threadId: targetThread.id, messages: [...userMessages, { role: "assistant", content: detail ? `I need a little more detail before I start. ${detail}` : "I need a little more detail before I start this work." }], ...(targetThread.messages.length === 0 && content ? { title: content.slice(0, 42) } : {}) });
+        setDraft("");
+        setAttachments([]);
+        return;
+      }
+      await startMissionMutation.mutateAsync({ missionId: result.mission.mission.id });
       const acknowledgment = "I’m taking this on now. I’ll work through the request, check the result, and bring the finished work back here.";
-      await appendMessagesMutation.mutateAsync({ threadId: targetThread.id, messages: [...(content ? [{ role: "user" as const, content }] : []), { role: "assistant", content: acknowledgment }], ...(targetThread.messages.length === 0 && content ? { title: content.slice(0, 42) } : {}) });
+      await appendMessagesMutation.mutateAsync({ threadId: targetThread.id, messages: [...userMessages, { role: "assistant", content: acknowledgment }], ...(targetThread.messages.length === 0 && content ? { title: content.slice(0, 42) } : {}) });
       void utils.workspace.mission.list.invalidate();
       setSelectedMissionId(result.mission.mission.id);
       setActiveWorkOpen(true);
@@ -580,8 +588,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       setAttachments([]);
     } catch (error) {
       const detail = error instanceof Error ? error.message : "";
-      if (detail.includes("needs_clarification")) toast.error("I need a little more detail before I can start this work.");
-      else if (detail.includes("blocked")) toast.error("I cannot start this work safely yet. Please revise the request.");
+      if (detail.includes("blocked")) toast.error("I cannot start this work safely yet. Please revise the request.");
       else toast.error(detail || "This work could not be started.");
     }
   }
