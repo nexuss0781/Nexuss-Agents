@@ -913,3 +913,12 @@ body { color: var(--paper); }
 .thread-list::-webkit-scrollbar-track, .project-section::-webkit-scrollbar-track, .model-list::-webkit-scrollbar-track { background: transparent; }
 .thread-list::-webkit-scrollbar-thumb, .project-section::-webkit-scrollbar-thumb, .model-list::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(203,214,219,.28); }
 .thread-list::-webkit-scrollbar-thumb:hover, .project-section::-webkit-scrollbar-thumb:hover, .model-list::-webkit-scrollbar-thumb:hover { background: rgba(221,231,234,.5); }
+
+/* Keep composer menus inside the visible viewport: compact upward-opening surfaces. */
+.composer-menu { z-index: 40; max-height: min(210px, calc(100dvh - 190px)); }
+.model-menu { top: auto; bottom: calc(100% + 8px); left: 0; width: min(260px, calc(100vw - 32px)); }
+.composer-project-anchor .project-menu { top: auto; right: calc(100% + 8px); bottom: calc(100% + 8px); left: auto; width: min(200px, calc(100vw - 32px)); }
+@media (max-width: 800px) {
+  .model-menu { width: min(250px, calc(100vw - 24px)); }
+  .composer-project-anchor .project-menu { width: min(190px, calc(100vw - 24px)); }
+}

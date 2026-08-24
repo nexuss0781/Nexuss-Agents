@@ -565,3 +565,9 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 Modernized the model dropdown with a rounded dark premium surface, clearer selected/hover states, and compact typography. The project menu now opens fully to the left of its composer trigger instead of overlapping the right edge. Thread, project, model, and dropdown scrollbars now use tiny 4px tracks with subtle neutral thumbs and hover feedback.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Narrow Visible Dropdowns
+
+Refined the model and project menus to open upward within the visible composer area, narrowed both menu surfaces, and kept the project menu fully to the left of its trigger. The 4px scrollbar treatment remains applied across menus and sidebar history lists so dropdowns no longer obscure the chat card or extend below the viewport.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
