@@ -625,3 +625,9 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 Removed the visible “You” role mark and label from persisted and live user messages. User bubbles remain right-aligned with their timestamps, while Nexuss-Agent assistant metadata and copy controls remain unchanged.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Pasted Images and Composer Drop Zone
+
+Added image paste support from the clipboard and made the full composer a drag-and-drop target for files. Image attachments receive an immediate local preview tile, then show real upload progress and processing state. Failed uploads remain visible with their error state and a retry action; in-progress uploads can be cancelled and completed attachments can be removed. Existing file input, project association, attachment persistence, and prompt submission behavior remain intact.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.

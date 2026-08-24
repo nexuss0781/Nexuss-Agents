@@ -1062,3 +1062,21 @@ body { color: var(--paper); }
   .message.user .message-content,
   .live-prompt .message-content { max-width: 100%; }
 }
+
+/* Attachment previews and full-composer drag-and-drop feedback. */
+.composer.drag-active { border-color: rgba(221,231,234,.5); box-shadow: 0 0 0 1px rgba(221,231,234,.12), 0 18px 42px rgba(0,0,0,.24); }
+.composer.drag-active::after { position: absolute; inset: 8px; z-index: 2; pointer-events: none; content: "Drop files to attach"; display: grid; place-items: center; border: 1px dashed rgba(221,231,234,.38); border-radius: 10px; background: rgba(8,11,13,.72); color: #d7e0e2; font: 10px "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
+.attachment-tray { display: flex; flex-wrap: wrap; gap: 7px; padding: 6px 13px 0; }
+.attachment-chip { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; max-width: min(280px, 100%); min-height: 48px; padding: 5px 7px; overflow: hidden; border: 1px solid rgba(203,214,219,.14); border-radius: 9px; background: rgba(13,16,18,.72); }
+.attachment-chip-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.attachment-preview { width: 38px; height: 38px; flex: 0 0 auto; object-fit: cover; border: 1px solid rgba(221,231,234,.16); border-radius: 6px; background: #111518; }
+.attachment-chip-copy { display: grid; min-width: 0; gap: 3px; }
+.attachment-chip-copy strong { overflow: hidden; color: #d7e0e2; font: 10px "IBM Plex Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-chip-copy small { overflow: hidden; color: #7e8b90; font: 9px "IBM Plex Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-chip.failed { border-color: rgba(202,126,115,.42); }
+.attachment-chip.failed .attachment-chip-copy small { color: #c99188; }
+.attachment-chip.cancelled { opacity: .66; }
+.attachment-action { display: grid; place-items: center; width: 24px; height: 24px; flex: 0 0 auto; margin-left: auto; border: 1px solid rgba(203,214,219,.14); border-radius: 6px; background: rgba(203,214,219,.05); color: #aebbc0; }
+.attachment-action:hover { border-color: rgba(235,242,244,.34); background: rgba(221,231,234,.1); color: #f0f4f5; }
+.attachment-progress { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; border-radius: inherit; background: #c4d1d4; transition: width .16s ease-out; }
+@media (max-width: 500px) { .attachment-tray { padding-right: 10px; padding-left: 10px; }.attachment-chip { max-width: 100%; flex: 1 1 100%; } }

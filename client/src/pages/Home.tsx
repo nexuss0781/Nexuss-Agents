@@ -24,6 +24,7 @@ import {
   Pencil,
   Plus,
   Search,
+  RotateCcw,
   Settings,
   Share2,
   Square,
@@ -46,7 +47,7 @@ type StreamingTurn = { threadId: string; prompt: string; content: string; starte
 type QueuedPrompt = { id: string; content: string; mode: "next" | "later" };
 type ExecutionMode = "complex" | "general" | "instant";
 type AttachmentStatus = "uploading" | "processing" | "ready" | "failed" | "cancelled";
-type UploadedAttachment = { id: string; name: string; mimeType: string; size: number; contentHash: string; storageUrl: string; status: AttachmentStatus; progress: number; error?: string };
+type UploadedAttachment = { id: string; name: string; mimeType: string; size: number; contentHash: string; storageUrl: string; status: AttachmentStatus; progress: number; error?: string; file?: File; previewUrl?: string };
 type MissionStatus = "created" | "queued" | "planning" | "planned" | "executing" | "verifying" | "repairing" | "paused" | "stopped" | "failed" | "completed";
 
 function missionStatusLabel(status: MissionStatus) {
@@ -312,6 +313,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const [queueMenuOpen, setQueueMenuOpen] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [attachments, setAttachments] = useState<UploadedAttachment[]>([]);
+  const [dragActive, setDragActive] = useState(false);
   const [activeWorkOpen, setActiveWorkOpen] = useState(false);
   const [selectedMissionId, setSelectedMissionId] = useState<string | null>(null);
   const [migrationSettled, setMigrationSettled] = useState(false);
@@ -562,9 +564,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     setAttachments((current) => current.map((attachment) => attachment.id === id ? { ...attachment, ...patch } : attachment));
   }
 
-  function uploadAttachment(file: File) {
-    const id = crypto.randomUUID();
-    setAttachments((current) => [...current, { id, name: file.name || "attachment", mimeType: file.type || "application/octet-stream", size: file.size, contentHash: "", storageUrl: "", status: "uploading", progress: 0 }]);
+  function beginAttachmentUpload(id: string, file: File) {
     const request = new XMLHttpRequest();
     attachmentRequestsRef.current.set(id, request);
     request.open("POST", "/api/workspace/attachments/upload");
@@ -572,7 +572,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     request.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
       const progress = Math.min(99, Math.round((event.loaded / event.total) * 100));
-      updateAttachment(id, { progress, status: progress >= 99 ? "processing" : "uploading" });
+      updateAttachment(id, { progress, status: progress >= 99 ? "processing" : "uploading", error: undefined });
     };
     request.onload = () => {
       attachmentRequestsRef.current.delete(id);
@@ -587,17 +587,55 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     request.onerror = () => { attachmentRequestsRef.current.delete(id); updateAttachment(id, { status: "failed", progress: 0, error: "Upload could not be completed." }); };
     request.onabort = () => { attachmentRequestsRef.current.delete(id); updateAttachment(id, { status: "cancelled", error: "Upload cancelled." }); };
     const form = new FormData();
-    form.append("file", file, file.name);
+    form.append("file", file, file.name || "attachment");
     const projectId = activeProject?.id || pendingProjectId;
     if (projectId) form.append("projectId", projectId);
     form.append("sourceKind", "specification");
     request.send(form);
   }
 
-  function chooseAttachments(files: FileList | null) {
+  function uploadAttachment(file: File) {
+    const id = crypto.randomUUID();
+    const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
+    setAttachments((current) => [...current, { id, name: file.name || "attachment", mimeType: file.type || "application/octet-stream", size: file.size, contentHash: "", storageUrl: "", status: "uploading", progress: 0, file, previewUrl }]);
+    beginAttachmentUpload(id, file);
+  }
+
+  function chooseAttachments(files: FileList | File[] | null) {
     if (!files) return;
     Array.from(files).forEach(uploadAttachment);
     if (attachmentInputRef.current) attachmentInputRef.current.value = "";
+  }
+
+  function retryAttachment(attachment: UploadedAttachment) {
+    if (!attachment.file) return;
+    updateAttachment(attachment.id, { status: "uploading", progress: 0, error: undefined });
+    beginAttachmentUpload(attachment.id, attachment.file);
+  }
+
+  function handleComposerPaste(event: React.ClipboardEvent<HTMLDivElement>) {
+    const imageFiles = Array.from(event.clipboardData.items).filter((item) => item.kind === "file" && item.type.startsWith("image/")).map((item) => item.getAsFile()).filter((file): file is File => Boolean(file));
+    if (imageFiles.length === 0) return;
+    event.preventDefault();
+    chooseAttachments(imageFiles);
+  }
+
+  function handleComposerDragOver(event: React.DragEvent<HTMLDivElement>) {
+    if (!Array.from(event.dataTransfer.types).includes("Files")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setDragActive(true);
+  }
+
+  function handleComposerDragLeave(event: React.DragEvent<HTMLDivElement>) {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setDragActive(false);
+  }
+
+  function handleComposerDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragActive(false);
+    chooseAttachments(event.dataTransfer.files);
   }
 
   function cancelAttachment(id: string) {
@@ -836,7 +874,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
           <div className="conversation-heading" />
           {navigationQuery.isError || activeChatQuery.isError ? <div className="empty-thread"><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Workspace unavailable.</h2><p>Your saved data is unchanged. Check your connection and try again.</p><button className="empty-create-button" onClick={() => { void navigationQuery.refetch(); if (routeChatSlug) void activeChatQuery.refetch(); }}><ArrowUp size={14} /> Retry loading</button></div> : !workspaceReady || migration.isPending ? <AxolotlLoader label="LOADING YOUR WORKSPACE" /> : activeThread?.messages.length || responsePending || liveStreaming ? <div className="message-stack">{activeThread?.messages.map((message, index) => <article ref={message.role === "user" && message.id === latestUserMessageId ? latestUserMessageRef : undefined} className={`message ${message.role}`} key={message.id}><div className="message-meta">{message.role === "assistant" && <><span className="role-mark assistant"><img src={AXOLOTL_ICON} alt="" /></span><span>Nexuss-Agent</span></>}<span className="message-time">{formatDate(message.createdAt)}</span>{message.role === "assistant" && <button className="copy-button" onClick={() => { void navigator.clipboard?.writeText(message.content); }}><Copy size={13} /> Copy</button>}</div><div className="message-content"><MarkdownMessage content={message.content} /></div>{index < (activeThread?.messages.length || 0) - 1 && <div className="message-divider" />}</article>)}{livePromptVisible && <article ref={livePromptRef} className="message user live-prompt"><div className="message-meta"><span className="message-time">{formatDate(liveStreaming!.startedAt)}</span></div><div className="message-content"><MarkdownMessage content={liveStreaming!.prompt} /></div><div className="message-divider" /></article>}{liveAssistantVisible && <article className="message assistant live-response"><div className="message-meta"><span className="role-mark assistant"><img src={AXOLOTL_ICON} alt="" /></span><span>Nexuss-Agent</span><span className="live-status" aria-label="Responding" title="Responding" /></div><div className="message-content"><MarkdownMessage content={liveStreaming!.content || "▍"} /></div></article>}{responsePending && <ResponseSkeleton />}<div ref={conversationEndRef} className="conversation-end" aria-hidden="true" /></div> : <div className="empty-thread"><div className="orbit-art axolotl-schematic" aria-hidden="true"><span className="axolotl-loop" /><span className="axolotl-eye axolotl-eye-one" /><span className="axolotl-eye axolotl-eye-two" /><span className="axolotl-gill axolotl-gill-one" /><span className="axolotl-gill axolotl-gill-two" /></div><div className="empty-brand-mark"><img src={AXOLOTL_ICON} alt="" /></div><h2>Start a thread.</h2><p>Give your work a place to begin.</p><div className="empty-actions"><div className="empty-suggestions"><button onClick={() => { setDraft("Help me think through an idea"); composerRef.current?.focus(); }}>Explore an idea</button><button onClick={() => { setDraft("Help me plan my next steps"); composerRef.current?.focus(); }}>Plan next steps</button><button onClick={() => { setDraft("Build something useful"); composerRef.current?.focus(); }}>Build something</button></div><button className="empty-create-button" onClick={createThread} disabled={createThreadMutation.isPending}><Plus size={14} /> New thread <ArrowUp size={13} /></button></div></div>}
         </section>
-        <div ref={composerWrapRef} className="composer-wrap"><div className="composer" onClick={() => composerRef.current?.focus()}>
+        <div ref={composerWrapRef} className="composer-wrap"><div className={`composer ${dragActive ? "drag-active" : ""}`} onClick={() => composerRef.current?.focus()} onPaste={handleComposerPaste} onDragOver={handleComposerDragOver} onDragLeave={handleComposerDragLeave} onDrop={handleComposerDrop}>
           <div className="composer-top">
             <button className="composer-plus" onClick={(event) => { event.stopPropagation(); attachmentInputRef.current?.click(); }} aria-label="Add attachments" title="Add attachments"><Plus size={16} /></button>
             <input ref={attachmentInputRef} className="attachment-input" type="file" multiple onChange={(event) => chooseAttachments(event.target.files)} aria-label="Choose attachments" />
@@ -860,7 +898,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
               {projectMenuOpen && <div className="composer-menu project-menu" role="menu"><div className="model-menu-header project-menu-header"><span>Projects</span><b>{workspace.projects.length}</b></div><button className={`project-option ${!(activeThread?.projectId || pendingProjectId) ? "selected" : ""}`} onClick={(event) => { event.stopPropagation(); chooseProject(null); }}><span>No project</span>{!(activeThread?.projectId || pendingProjectId) && <Check size={13} />}</button>{workspace.projects.map((project) => { const selected = project.id === (activeThread?.projectId || pendingProjectId); return <button key={project.id} className={`project-option ${selected ? "selected" : ""}`} onClick={(event) => { event.stopPropagation(); chooseProject(project.id); }}><Folder size={14} /><span>{project.name}</span>{selected && <Check size={13} />}</button>; })}</div>}
             </div>
           </div>
-          {attachments.length > 0 && <div className="attachment-tray" aria-live="polite">{attachments.map((attachment) => <div className={`attachment-chip ${attachment.status}`} key={attachment.id}><div className="attachment-chip-main"><span className="attachment-chip-mark" aria-hidden="true" /><span className="attachment-chip-copy"><strong title={attachment.name}>{attachment.name}</strong><small>{attachment.status === "uploading" ? `Uploading ${attachment.progress}%` : attachment.status === "processing" ? "Preparing" : attachment.status === "ready" ? "Ready" : attachment.error || attachment.status}</small></span></div>{(attachment.status === "uploading" || attachment.status === "processing") ? <button className="attachment-action" onClick={(event) => { event.stopPropagation(); cancelAttachment(attachment.id); }} aria-label={`Cancel ${attachment.name}`}><X size={12} /></button> : <button className="attachment-action" onClick={(event) => { event.stopPropagation(); removeAttachment(attachment.id); }} aria-label={`Remove ${attachment.name}`}><X size={12} /></button>}{(attachment.status === "uploading" || attachment.status === "processing") && <span className="attachment-progress" style={{ width: `${attachment.progress}%` }} />}</div>)}</div>}
+          {attachments.length > 0 && <div className="attachment-tray" aria-live="polite">{attachments.map((attachment) => <div className={`attachment-chip ${attachment.status}`} key={attachment.id}><div className="attachment-chip-main">{attachment.previewUrl ? <img className="attachment-preview" src={attachment.previewUrl} alt="" /> : <span className="attachment-chip-mark" aria-hidden="true" />}<span className="attachment-chip-copy"><strong title={attachment.name}>{attachment.name}</strong><small>{attachment.status === "uploading" ? `Uploading ${attachment.progress}%` : attachment.status === "processing" ? "Preparing" : attachment.status === "ready" ? "Ready" : attachment.error || attachment.status}</small></span></div>{(attachment.status === "uploading" || attachment.status === "processing") ? <button className="attachment-action" onClick={(event) => { event.stopPropagation(); cancelAttachment(attachment.id); }} aria-label={`Cancel ${attachment.name}`}><X size={12} /></button> : attachment.status === "failed" ? <button className="attachment-action" onClick={(event) => { event.stopPropagation(); retryAttachment(attachment); }} aria-label={`Retry ${attachment.name}`}><RotateCcw size={12} /></button> : <button className="attachment-action" onClick={(event) => { event.stopPropagation(); removeAttachment(attachment.id); }} aria-label={`Remove ${attachment.name}`}><X size={12} /></button>}{(attachment.status === "uploading" || attachment.status === "processing") && <span className="attachment-progress" style={{ width: `${attachment.progress}%` }} />}</div>)}</div>}
           <textarea ref={composerRef} value={draft} onChange={(event) => { setDraft(event.target.value); if (!event.target.value.trim()) setQueueMenuOpen(false); }} onKeyDown={handleComposerKey} placeholder={streamingTurn ? "Write a follow-up — it will wait for the current response" : "Write your message…"} rows={2} disabled={!workspaceReady || createThreadMutation.isPending} />
           <div className="composer-bottom">
             <div className="composer-send-cluster">
