@@ -664,3 +664,39 @@ body { color: var(--paper); }
 @media (max-width: 800px) {
   .composer-wrap { background: transparent !important; }
 }
+
+/* Sidebar hierarchy: threads own the flexible scroll region; projects and profile stay below it. */
+.sidebar { overflow: hidden; }
+.thread-section { display: flex; flex: 1 1 auto; min-height: 0; flex-direction: column; overflow: hidden; }
+.thread-section .search-field { flex: 0 0 auto; }
+.thread-list { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #4a5054 transparent; padding-right: 3px; }
+.thread-list::-webkit-scrollbar, .project-section::-webkit-scrollbar { width: 6px; }
+.thread-list::-webkit-scrollbar-track, .project-section::-webkit-scrollbar-track { background: transparent; }
+.thread-list::-webkit-scrollbar-thumb, .project-section::-webkit-scrollbar-thumb { border-radius: 999px; background: #4a5054; }
+.project-section { flex: 0 0 auto; max-height: 170px; overflow-y: auto; margin-top: 14px; padding: 8px; border: 1px solid rgba(187,198,204,.12); border-radius: 8px; background: #1b2024; }
+.project-section .project-list { gap: 2px; }
+.project-section .sidebar-list-label { margin: 1px 8px 6px; color: #9ca8ad; }
+.project-section .project-row { border-radius: 5px; color: #c0c9cc; }
+.project-section .project-row:hover { background: rgba(198,210,216,.09); }
+.project-section .project-row-copy span { color: #d1d8da; }
+.project-section .project-row-copy small { color: #89969b; }
+.project-section .add-project { color: #9eaaae; border-radius: 5px; }
+.project-section .add-project:hover { background: rgba(198,210,216,.09); color: #e0e6e8; }
+.sidebar-footer { flex: 0 0 auto; margin-top: 12px; padding: 8px 0 0; border-top-color: rgba(187,198,204,.14); }
+.sidebar-footer .profile-row { margin: 0; padding: 10px 10px; border: 1px solid rgba(187,198,204,.12); border-radius: 8px; background: #1b2024; }
+.sidebar-footer .profile-avatar { border-color: rgba(198,210,216,.38); background: #303a3f; }
+.sidebar-footer .profile-copy strong { color: #e0e6e8; }
+.sidebar-footer .profile-copy span { color: #9eaaae; }
+.sidebar-footer .profile-signout { color: #aeb9bd; }
+.sidebar-footer .profile-signout:hover { color: #edf2f3; }
+
+/* Keep the send control on the composer’s bottom baseline instead of drifting with content. */
+.composer-bottom { min-height: 44px; align-items: center; }
+.composer-send-cluster { display: flex; align-items: center; justify-content: flex-end; min-height: 36px; margin-left: auto; }
+.send-menu-anchor { display: flex; align-items: center; position: relative; }
+.send-button { position: relative; inset: auto; transform: none; margin: 0; }
+.send-button:hover:not(:disabled) { transform: translateY(-1px); }
+@media (max-width: 800px) {
+  .project-section { max-height: 145px; }
+  .sidebar-footer .profile-row { padding: 9px 8px; }
+}

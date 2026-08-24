@@ -475,3 +475,9 @@ TypeScript, 27 focused frontend/Playground tests, production build, and diff hyg
 Restored the compact pre-regression sidebar proportions and brown active-thread treatment without changing sidebar behavior. The fixed composer now aligns to the restored 280px workspace rail, and both desktop and mobile positioning layers explicitly remain transparent with no black shelf or shadow. Conversation rendering, streaming, retry rollback, and prompt ordering remain unchanged.
 
 Validated with TypeScript, 27 focused chat/Playground tests, production build, and `git diff --check`.
+
+## Sidebar Hierarchy and Composer Alignment
+
+Added a dedicated independently scrollable thread region so a long thread history cannot be covered by or displaced by projects. Projects now occupy a bounded cool-grey surface below the thread list, and the signed-in profile uses a matching restrained cool-grey surface at the sidebar base. The composer send cluster is explicitly flex-aligned to the bottom control baseline so the send/stop button no longer drifts.
+
+Validated with TypeScript, 27 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
