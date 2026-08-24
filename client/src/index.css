@@ -654,3 +654,12 @@ body { color: var(--paper); }
 @media (max-width: 800px) {
   .conversation-area { padding-bottom: calc(var(--composer-reserved-space, 190px) + 18px); }
 }
+
+/* Fixed composer: transparent positioning layer, stable bottom anchor, no black shelf. */
+@media (min-width: 801px) {
+  .composer-wrap { position: fixed; left: 296px; right: 0; bottom: 0; z-index: 20; display: flex; justify-content: center; width: auto; padding: 0 20px 18px; background: transparent; pointer-events: none; }
+  .composer-wrap > .composer { width: min(860px, 100%); pointer-events: auto; }
+}
+@media (max-width: 800px) {
+  .composer-wrap { background: transparent; }
+}

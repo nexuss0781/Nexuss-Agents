@@ -463,3 +463,9 @@ The deeper v2 styling remains available where it improves hierarchy, but large s
 The screenshot revealed that the prior deployment still presented the live prompt before older history and allowed the fixed composer layer to visually cover the lower conversation. The corrected implementation now renders persisted history first, appends the live prompt directly after it, uses one-shot top alignment for the newly sent turn, and reserves the composer’s measured height in the scroll viewport with a small margin. The message order is backed by a per-thread database sequence and stable client sorting, while the active response still changes Send to Stop.
 
 TypeScript, 27 focused frontend/Playground tests, production build, and diff hygiene pass. Live Render verification remains required after deployment to confirm the deployed asset reflects this commit.
+
+## Fixed Composer Correction
+
+The live screenshot showed that the composer’s black backing strip and viewport overlap made the chat feel unstable. The latest correction makes the composer a true fixed bottom layer aligned to the workspace content area, removes the backing shelf by making the positioning layer transparent, and reserves the measured composer height inside the conversation viewport. The newest prompt remains directly after prior history and stays top-anchored while its response streams; the anchor is released only after the response or immediate follow-up completes.
+
+TypeScript, 27 focused frontend/Playground tests, production build, and diff hygiene pass. Live authenticated Render verification remains required after deployment.

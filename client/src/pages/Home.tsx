@@ -440,12 +440,10 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         const target = livePromptRef.current || latestUserMessageRef.current;
         if (target) {
           target.scrollIntoView?.({ behavior: "smooth", block: "start" });
-          focusNewPromptThreadRef.current = null;
           return;
         }
         if (container?.scrollTo) {
           container.scrollTo({ top: 0, behavior: "smooth" });
-          focusNewPromptThreadRef.current = null;
           return;
         }
       } else if (focusNewPromptThreadRef.current) {
@@ -655,7 +653,10 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       setPromptQueue([...promptQueueRef.current]);
       if (next) {
         window.setTimeout(() => void runPrompt(next.content, targetThread), 0);
-      } else if (finished && streamedContent) {
+      } else {
+        focusNewPromptThreadRef.current = null;
+      }
+      if (finished && streamedContent) {
       }
     }
   }
