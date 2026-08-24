@@ -630,3 +630,11 @@ body { color: var(--paper); }
 .send-button.stop-button { border-radius: 50%; }
 .send-button:disabled { background: #3a3a3c; color: #77777a; opacity: 1; }
 @media (max-width: 600px) { .composer-status-pill { display: none; } }
+
+.empty-suggestions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 20px 0 18px; }
+.empty-suggestions button { padding: 8px 12px; border: 1px solid #39393c; border-radius: 999px; background: #202022; color: #bdbdb9; font-size: 11px; transition: border-color .16s var(--ease-out, ease-out), background .16s var(--ease-out, ease-out), color .16s var(--ease-out, ease-out), transform .16s var(--ease-out, ease-out); }
+.empty-suggestions button:hover { border-color: #707074; background: #2a2a2d; color: #f4f4f0; transform: translateY(-1px); }
+.empty-suggestions button:active { transform: scale(.97); }
+.copy-button { opacity: 0; transition: opacity .12s ease-out, color .12s ease-out, background .12s ease-out; }
+.message:hover .copy-button, .copy-button:focus-visible { opacity: 1; }
+@media (max-width: 600px) { .empty-suggestions { max-width: 300px; } .copy-button { opacity: 1; } }

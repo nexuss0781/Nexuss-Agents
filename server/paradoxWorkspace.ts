@@ -138,7 +138,17 @@ async function openFreshWorkspaceDb() {
 
   db.execute("CREATE TABLE IF NOT EXISTS workspace_projects (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, name TEXT NOT NULL, description TEXT NOT NULL, tone TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_threads (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, chat_slug TEXT, title TEXT NOT NULL, project_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
-  db.execute("CREATE TABLE IF NOT EXISTS workspace_messages (id TEXT PRIMARY KEY, thread_id TEXT NOT NULL, owner_id TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL)");
+  db.execute("CREATE TABLE IF NOT EXISTS workspace_messages (id TEXT PRIMARY KEY, thread_id TEXT NOT NULL, owner_id TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL, sequence INTEGER)");
+  try { db.execute("ALTER TABLE workspace_messages ADD COLUMN sequence INTEGER"); } catch { /* Existing encrypted workspaces already have the sequence column. */ }
+  const sequenceRows = rows<{ id: string; thread_id: string; sequence: number | null }>(db.execute("SELECT id, thread_id, sequence FROM workspace_messages ORDER BY thread_id ASC, created_at ASC, rowid ASC"));
+  let sequenceThread = "";
+  let sequenceValue = 0;
+  for (const message of sequenceRows) {
+    if (message.thread_id !== sequenceThread) { sequenceThread = message.thread_id; sequenceValue = 0; }
+    sequenceValue += 1;
+    if (message.sequence !== sequenceValue) db.execute("UPDATE workspace_messages SET sequence = ? WHERE id = ?", [sequenceValue, message.id]);
+  }
+  db.execute("CREATE INDEX IF NOT EXISTS workspace_messages_thread_sequence ON workspace_messages(thread_id, sequence ASC)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_imports (owner_id TEXT PRIMARY KEY, imported_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_model_providers (owner_id TEXT PRIMARY KEY, base_url TEXT NOT NULL, api_key TEXT NOT NULL, selected_models_json TEXT NOT NULL, available_models_json TEXT NOT NULL DEFAULT '[]', updated_at TEXT NOT NULL)");
   try { db.execute("ALTER TABLE workspace_model_providers ADD COLUMN available_models_json TEXT NOT NULL DEFAULT '[]'"); } catch { /* Existing encrypted workspaces already have the catalog column. */ }
@@ -245,7 +255,7 @@ function readWorkspaceChat(db: Db, ownerId: string, chatSlug: string): Workspace
   ))[0];
   if (!thread) return null;
   const messageRows = rows<{ id: string; role: "user" | "assistant"; content: string; created_at: string }>(db.execute(
-    "SELECT id, role, content, created_at FROM workspace_messages WHERE owner_id = ? AND thread_id = ? ORDER BY created_at ASC, rowid ASC", [ownerId, thread.id],
+    "SELECT id, role, content, created_at FROM workspace_messages WHERE owner_id = ? AND thread_id = ? ORDER BY sequence ASC, created_at ASC, rowid ASC", [ownerId, thread.id],
   ));
   return {
     id: thread.id,
@@ -321,7 +331,7 @@ async function loadProviderForPlayground(ownerId: string, model: string) {
 async function loadThreadMessagesForPlayground(ownerId: string, threadId: string) {
   return withWorkspaceDb(false, (db) => {
     assertThreadOwner(db, ownerId, threadId);
-    const messages = rows<{ role: "user" | "assistant"; content: string }>(db.execute("SELECT role, content FROM workspace_messages WHERE owner_id = ? AND thread_id = ? ORDER BY created_at ASC, rowid ASC", [ownerId, threadId]));
+    const messages = rows<{ role: "user" | "assistant"; content: string }>(db.execute("SELECT role, content FROM workspace_messages WHERE owner_id = ? AND thread_id = ? ORDER BY sequence ASC, created_at ASC, rowid ASC", [ownerId, threadId]));
     return messages;
   });
 }
@@ -511,8 +521,9 @@ export async function appendThreadMessages(ownerId: string, threadId: string, me
   return withWorkspaceDb(true, (db) => {
     assertThreadOwner(db, ownerId, threadId);
     const timestamp = now();
+    const currentSequence = rows<{ max_sequence: number | null }>(db.execute("SELECT MAX(sequence) AS max_sequence FROM workspace_messages WHERE owner_id = ? AND thread_id = ?", [ownerId, threadId]))[0]?.max_sequence || 0;
     const inserted: WorkspaceMessage[] = messages.map((message, index) => ({ id: randomUUID(), role: message.role, content: message.content, createdAt: new Date(Date.now() + index).toISOString() }));
-    for (const message of inserted) db.execute("INSERT INTO workspace_messages (id, thread_id, owner_id, role, content, created_at) VALUES (?, ?, ?, ?, ?, ?)", [message.id, threadId, ownerId, message.role, message.content, message.createdAt]);
+    inserted.forEach((message, index) => db.execute("INSERT INTO workspace_messages (id, thread_id, owner_id, role, content, created_at, sequence) VALUES (?, ?, ?, ?, ?, ?, ?)", [message.id, threadId, ownerId, message.role, message.content, message.createdAt, currentSequence + index + 1]));
     if (title) db.execute("UPDATE workspace_threads SET title = ?, updated_at = ? WHERE id = ? AND owner_id = ?", [title, timestamp, threadId, ownerId]);
     else db.execute("UPDATE workspace_threads SET updated_at = ? WHERE id = ? AND owner_id = ?", [timestamp, threadId, ownerId]);
     return { threadId, title, updatedAt: timestamp, messages: inserted };
@@ -522,7 +533,7 @@ export async function appendThreadMessages(ownerId: string, threadId: string, me
 export async function removeLatestThreadMessage(ownerId: string, threadId: string, message: Pick<WorkspaceMessage, "role" | "content">) {
   return withWorkspaceDb(true, (db) => {
     assertThreadOwner(db, ownerId, threadId);
-    db.execute("DELETE FROM workspace_messages WHERE id = (SELECT id FROM workspace_messages WHERE thread_id = ? AND owner_id = ? AND role = ? AND content = ? ORDER BY created_at DESC LIMIT 1) AND owner_id = ?", [threadId, ownerId, message.role, message.content, ownerId]);
+    db.execute("DELETE FROM workspace_messages WHERE id = (SELECT id FROM workspace_messages WHERE thread_id = ? AND owner_id = ? AND role = ? AND content = ? ORDER BY sequence DESC, created_at DESC, rowid DESC LIMIT 1) AND owner_id = ?", [threadId, ownerId, message.role, message.content, ownerId]);
     db.execute("UPDATE workspace_threads SET updated_at = ? WHERE id = ? AND owner_id = ?", [now(), threadId, ownerId]);
     return { threadId, removed: true };
   });
@@ -539,7 +550,7 @@ export async function migrateWorkspace(ownerId: string, workspace: LegacyWorkspa
     for (const thread of workspace.threads) {
       const timestamp = thread.updatedAt || now();
       db.execute("INSERT OR IGNORE INTO workspace_threads (id, owner_id, chat_slug, title, project_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", [thread.id, ownerId, chatSlugFor(thread.id), thread.title, thread.projectId || null, timestamp, timestamp]);
-      for (const message of thread.messages) db.execute("INSERT OR IGNORE INTO workspace_messages (id, thread_id, owner_id, role, content, created_at) VALUES (?, ?, ?, ?, ?, ?)", [message.id, thread.id, ownerId, message.role, message.content, message.createdAt || timestamp]);
+      thread.messages.forEach((message, index) => db.execute("INSERT OR IGNORE INTO workspace_messages (id, thread_id, owner_id, role, content, created_at, sequence) VALUES (?, ?, ?, ?, ?, ?, ?)", [message.id, thread.id, ownerId, message.role, message.content, message.createdAt || timestamp, index + 1]));
     }
     db.execute("INSERT INTO workspace_imports (owner_id, imported_at) VALUES (?, ?)", [ownerId, now()]);
     return { imported: true };

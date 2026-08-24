@@ -420,12 +420,13 @@ describe("persistent workspace client", () => {
   });
 
   it("renders complete persisted history again after a fresh workspace mount", async () => {
-    const durable: WorkspaceSnapshot = { projects: [{ id: "project", name: "Persisted project", description: "", tone: "#fff" }], threads: [{ id: "thread", title: "Persisted history", projectId: "project", updatedAt: "2026-08-18T00:00:00.000Z", messages: [{ id: "one", role: "user", content: "First saved message", createdAt: "2026-08-18T00:00:00.000Z" }, { id: "two", role: "assistant", content: "Second saved message", createdAt: "2026-08-18T00:00:01.000Z" }] }] };
+    const durable: WorkspaceSnapshot = { projects: [{ id: "project", name: "Persisted project", description: "", tone: "#fff" }], threads: [{ id: "thread", title: "Persisted history", projectId: "project", updatedAt: "2026-08-18T00:00:00.000Z", messages: [{ id: "two", role: "assistant", content: "Second saved message", createdAt: "2026-08-18T00:00:01.000Z" }, { id: "one", role: "user", content: "First saved message", createdAt: "2026-08-18T00:00:00.000Z" }] }] };
     const first = await mountWorkspace((path) => path === "workspace.load" ? durable : durable);
     await waitForText(first, "Second saved message");
     const second = await mountWorkspace((path) => path === "workspace.load" ? durable : durable);
     await waitForText(second, "First saved message");
     expect(second.textContent).toContain("Second saved message");
+    expect(Array.from(second.querySelectorAll(".message-content")).map((node) => node.textContent?.trim())).toEqual(["First saved message", "Second saved message"]);
   });
 
   it("decodes token-by-token SSE frames and preserves the terminal completion event", async () => {

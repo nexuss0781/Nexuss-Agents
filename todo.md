@@ -443,3 +443,11 @@ The focused validation command was `pnpm check && pnpm exec vitest run client/sr
 - [x] Simplified the composer hierarchy with centered model-before-Complex controls, low-emphasis readiness status, rounded send control, and preserved attachment/project behavior.
 - [x] TypeScript, 27 focused frontend/Playground tests, production build, and diff hygiene pass. Encrypted Paradox integration tests remain unavailable locally without deployment credentials.
 - [ ] Live authenticated Render visual verification remains required after deployment.
+
+## Chat UI Redesign v2 Upgrade
+
+The second redesign pass now addresses both the visual and functional issues described in the attached brief. Persisted messages receive a per-thread sequence assigned by the database, existing records are backfilled safely, and the server and client render history in stable chronological order even when timestamps collide. This removes the same-minute ordering flicker instead of merely formatting timestamps differently.
+
+The workspace visual layer now uses a three-level monochrome surface system, clearer typography, open assistant responses, lighter user bubbles, a pulsing live indicator, hover-revealed copy actions, responsive spacing, and a more focused floating composer. The header now presents a readable title, model, relative time, share, rename, delete, and settings controls without raw identifiers. The sidebar hides implementation hashes, groups conversations by recency, and gives placeholder titles a readable `New chat` treatment. The empty state now offers useful starting suggestions, while the composer uses a small toolbar status and centered low-emphasis selectors.
+
+TypeScript, 27 focused frontend/Playground tests, production build, and diff hygiene pass. Full encrypted Paradox integration tests remain unavailable locally without deployment credentials. Live authenticated Render visual and same-minute multi-send verification remain required after deployment.
