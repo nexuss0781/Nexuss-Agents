@@ -238,6 +238,23 @@ describe("persistent workspace client", () => {
     expect(host.querySelector(".project-menu")?.parentElement?.classList.contains("composer-project-anchor")).toBe(true);
   });
 
+  it("shows Complex as the active execution style and keeps General and Instant upcoming", async () => {
+    const host = await mountWorkspace((path) => {
+      if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-alpha"], apiKeyConfigured: true };
+      return { projects: [], threads: [] };
+    });
+
+    await waitForText(host, "model-alpha");
+    const executionPicker = host.querySelector<HTMLButtonElement>('button[aria-label="Choose execution style"]');
+    expect(executionPicker?.textContent).toContain("Complex");
+    await act(async () => { executionPicker?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    expect(host.querySelector(".execution-menu")?.textContent).toContain("Complex");
+    expect(host.querySelector(".execution-menu")?.textContent).toContain("General");
+    expect(host.querySelector(".execution-menu")?.textContent).toContain("Instant");
+    expect(host.querySelector<HTMLButtonElement>('.execution-option.upcoming:nth-of-type(2)')?.disabled).toBe(true);
+    expect(host.querySelector<HTMLButtonElement>('.execution-option.upcoming:nth-of-type(3)')?.disabled).toBe(true);
+  });
+
   it("creates a project-linked thread from the first message and starts the selected model stream", async () => {
     const inputs = vi.fn();
     const project: WorkspaceSnapshot["projects"][number] = { id: "pntp", name: "PNTP", description: "", tone: "#f4f4f0" };

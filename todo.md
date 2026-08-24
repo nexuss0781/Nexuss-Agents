@@ -319,3 +319,10 @@ The server now has a first-class Mission Intake Engine before principal orchestr
 The intake role is registered in the unified agent contract with intake-only authority, implemented requirement-extraction/source-traceability/risk-classification skills, and an implemented mission-intake harness. Authenticated APIs now support intake preview, stored-intake retrieval, and mission creation from an approved intake brief. The principal orchestrator receives the normalized intake metadata when planning. Model-backed normalization uses the encrypted server-side provider with deterministic fallback when unavailable or malformed; blocking ambiguity and unsafe requests cannot create a mission.
 
 Validation evidence for this slice: TypeScript check passed and 15 focused intake, contract, capability, orchestrator, and runner tests passed. Full Paradox-backed persistence validation still requires the deployment credentials.
+
+## Frontend Phase 1 — Execution Selector
+
+- [x] Added one compact execution selector to the existing composer with Complex active and General/Instant visible as disabled upcoming options.
+- [x] Preserved the existing conversation, model, project, settings, streaming, and queue behavior; no internal runtime terms are exposed.
+- [x] Added matching dark-workspace styles and a Home regression test for the selector states.
+- [x] TypeScript and 16 focused frontend tests pass. Local visual navigation reached the protected login boundary; an authenticated workspace screenshot remains a live-session verification item.

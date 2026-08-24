@@ -41,6 +41,7 @@ type Thread = { id: string; chatSlug?: string; title: string; projectId?: string
 type Workspace = { projects: Project[]; threads: Thread[] };
 type StreamingTurn = { threadId: string; prompt: string; content: string; startedAt: string };
 type QueuedPrompt = { id: string; content: string; mode: "next" | "later" };
+type ExecutionMode = "complex" | "general" | "instant";
 
 const seed: Workspace = {
   projects: [],
@@ -233,6 +234,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [executionMenuOpen, setExecutionMenuOpen] = useState(false);
+  const [executionMode] = useState<ExecutionMode>("complex");
   const [activeModel, setActiveModel] = useState<string | null>(null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
@@ -564,6 +567,15 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         <div className="composer-wrap"><div className="composer" onClick={() => composerRef.current?.focus()}>
           <div className="composer-top">
             <button className="composer-plus" onClick={(event) => { event.stopPropagation(); toast("Attachments are coming soon"); }} aria-label="Add context"><Plus size={16} /></button>
+            <div className="composer-menu-anchor composer-execution-anchor">
+              <button className="composer-picker execution-picker" onClick={(event) => { event.stopPropagation(); setModelMenuOpen(false); setProjectMenuOpen(false); setExecutionMenuOpen(!executionMenuOpen); }} aria-label="Choose execution style" aria-expanded={executionMenuOpen}><span className="execution-picker-dot" aria-hidden="true" /><span>{executionMode === "complex" ? "Complex" : executionMode}</span><ChevronDown size={13} /></button>
+              {executionMenuOpen && <div className="composer-menu execution-menu" role="menu" aria-label="Execution styles">
+                <button className="execution-option selected" role="menuitem" onClick={(event) => { event.stopPropagation(); setExecutionMenuOpen(false); }}><span><span className="execution-option-dot" aria-hidden="true" />Complex</span><Check size={13} /></button>
+                <button className="execution-option upcoming" role="menuitem" disabled><span><span className="execution-option-dot" aria-hidden="true" />General</span><small>Coming soon</small></button>
+                <button className="execution-option upcoming" role="menuitem" disabled><span><span className="execution-option-dot" aria-hidden="true" />Instant</span><small>Coming soon</small></button>
+              </div>}
+            </div>
+            <span className="composer-top-divider" />
             <div className="composer-menu-anchor composer-model-anchor">
               <button className="composer-picker model-picker" onClick={(event) => { event.stopPropagation(); setProjectMenuOpen(false); setModelMenuOpen(!modelMenuOpen); }} disabled={!selectedModels.length} aria-label="Select model" aria-expanded={modelMenuOpen}><Bot size={14} /><span>{activeModel || "Select model"}</span><ChevronDown size={13} /></button>
               {modelMenuOpen && <div className="composer-menu model-menu" role="menu"><div className="model-menu-header"><span>Saved models</span><b>{selectedModels.length}</b></div>{selectedModels.map((model) => <button key={model} className="model-option" onClick={(event) => { event.stopPropagation(); setActiveModel(model); setModelMenuOpen(false); }}><Bot size={14} /><span className="model-option-name">{model}</span>{activeModel === model && <Check size={13} />}</button>)}</div>}

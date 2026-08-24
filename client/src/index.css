@@ -417,3 +417,16 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 @media (max-width: 800px) { .landing-hero-schematic { top: 19%; right: -18%; width: 78vw; opacity: .48; } .landing-page .landing-hero { background-position: 64% center; } }
 
 .auth-loading { display: grid; min-height: 100svh; place-items: center; background: #080909; color: #f4f1ec; }
+
+/* Execution selector: one calm entry point with future options kept visible but quiet. */
+.execution-picker { min-width: 92px; color: #fffaf5; }
+.execution-picker:hover, .execution-picker[aria-expanded="true"] { border-color: rgba(167,123,93,.7); background: #211c1a; color: #fffaf5; }
+.execution-picker-dot, .execution-option-dot { display: inline-block; width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: #b98d6d; box-shadow: 0 0 0 2px rgba(185,141,109,.12); }
+.execution-menu { right: auto; left: 0; width: 184px; }
+.execution-option { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 35px; padding: 0 10px; border: 0; background: transparent; color: #d5d5d0; font: 10px "IBM Plex Mono", monospace; text-align: left; }
+.execution-option > span { display: inline-flex; align-items: center; gap: 8px; }
+.execution-option:hover:not(:disabled), .execution-option.selected { background: rgba(167,123,93,.13); color: #fffaf5; }
+.execution-option.upcoming { color: #65666a; cursor: not-allowed; }
+.execution-option.upcoming .execution-option-dot { background: #505155; box-shadow: none; }
+.execution-option small { color: #4f5054; font: 8px "IBM Plex Mono", monospace; letter-spacing: .02em; }
+@media (max-width: 500px) { .execution-picker { min-width: 78px; max-width: 86px; }.execution-menu { width: 174px; } }
