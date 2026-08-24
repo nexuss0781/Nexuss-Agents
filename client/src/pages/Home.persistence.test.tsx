@@ -315,45 +315,36 @@ describe("persistent workspace client", () => {
     expect(calls).toHaveBeenCalledWith("workspace.mission.resume");
   });
 
-  it("creates a project-linked thread from the first message and starts the selected model stream", async () => {
+  it("submits the normal Complex composer request to autonomous mission intake and starts it", async () => {
     const inputs = vi.fn();
     const project: WorkspaceSnapshot["projects"][number] = { id: "pntp", name: "PNTP", description: "", tone: "#f4f4f0" };
     const empty: WorkspaceSnapshot = { projects: [project], threads: [] };
-    const stream = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new TextEncoder().encode(`data: {"type":"token","text":"Streamed answer"}\n\n`)); controller.enqueue(new TextEncoder().encode(`data: {"type":"done","content":"Streamed answer"}\n\n`)); controller.close(); } });
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } }));
     const host = await mountWorkspace((path, input) => {
       inputs(path, input);
-      if (path === "workspace.createThread") return { id: "first-thread", chatSlug: "chat-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", title: "New thread", projectId: "pntp", updatedAt: "2026-08-18T00:00:00.000Z", messages: [] };
       if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-live"], availableModels: ["model-live"], apiKeyConfigured: true };
+      if (path === "workspace.mission.createFromIntake") return { intake: { id: "intake-created" }, mission: { mission: { id: "mission-created", status: "created" }, workItems: [], events: [] } };
+      if (path === "workspace.mission.start") return { mission: { id: "mission-created", status: "queued" }, workItems: [], events: [] };
+      if (path === "workspace.mission.list") return [{ id: "mission-created", ownerId: "owner-1", goal: "Build the release workflow", status: "executing", version: 1, createdAt: "2026-08-24T00:00:00.000Z", updatedAt: "2026-08-24T00:00:00.000Z" }];
       return empty;
     });
 
     await waitForText(host, "Start a thread.");
     await waitForText(host, "model-live");
     const composer = host.querySelector<HTMLTextAreaElement>("textarea");
-    expect(composer?.disabled).toBe(false);
-    const picker = Array.from(host.querySelectorAll("button")).find((button) => button.textContent?.includes("Assign project"));
-    await act(async () => { picker?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-    const projectOption = Array.from(host.querySelectorAll(".project-menu button")).find((button) => button.textContent?.includes("PNTP"));
-    await act(async () => { projectOption?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-
     if (!composer) throw new Error("Composer was not rendered");
     await act(async () => {
       const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
-      setValue?.call(composer, "First persisted message");
+      setValue?.call(composer, "Build the release workflow");
       composer.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    const send = host.querySelector<HTMLButtonElement>('button[aria-label="Send message"]');
     await act(async () => {
-      send?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      host.querySelector<HTMLButtonElement>('button[aria-label="Start work"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await new Promise((resolveTick) => setTimeout(resolveTick, 0));
     });
 
-    await act(async () => { await new Promise((resolveTick) => setTimeout(resolveTick, 20)); });
-    expect(inputs).toHaveBeenCalledWith("workspace.createThread", { projectId: "pntp" });
-    expect(fetchMock).toHaveBeenCalledWith("/api/playground/stream", expect.objectContaining({ method: "POST" }));
-    expect(window.location.pathname).toBe("/app/chat/chat-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-    fetchMock.mockRestore();
+    await waitForText(host, "Build the release workflow");
+    expect(inputs).toHaveBeenCalledWith("workspace.mission.createFromIntake", { projectId: null, model: "model-live", sources: [{ kind: "raw_prompt", text: "Build the release workflow" }] });
+    expect(inputs).toHaveBeenCalledWith("workspace.mission.start", { missionId: "mission-created" });
   });
 
   it("requests full message history only for the browser-selected chat slug", async () => {
@@ -365,27 +356,6 @@ describe("persistent workspace client", () => {
     expect(calls).toHaveBeenCalledWith("workspace.navigation", undefined);
     expect(calls).toHaveBeenCalledWith("workspace.chat", { chatSlug: "chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" });
     expect(host.textContent).toContain("chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-  });
-
-  it("renders live streamed content while the model response remains open", async () => {
-    const workspace: WorkspaceSnapshot = { projects: [], threads: [{ id: "long-thread", chatSlug: "chat-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", title: "Long story", updatedAt: "2026-08-18T00:00:00.000Z", messages: [] }] };
-    window.history.replaceState({}, "", "/app/chat/chat-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
-    const stream = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new TextEncoder().encode(`data: {"type":"token","text":"Still streaming"}\n\n`)); } });
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } }));
-    try {
-      const host = await mountWorkspace((path) => path === "workspace.modelSettings" ? { baseUrl: "https://models.example.com/v1", selectedModels: ["model-live"], availableModels: ["model-live"], apiKeyConfigured: true } : workspace);
-      await waitForText(host, "Start a thread.");
-      await waitForText(host, "model-live");
-      const composer = host.querySelector<HTMLTextAreaElement>("textarea");
-      if (!composer) throw new Error("Composer was not rendered");
-      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
-      await act(async () => { setValue?.call(composer, "A long story"); composer.dispatchEvent(new Event("input", { bubbles: true })); host.querySelector<HTMLButtonElement>('button[aria-label="Send message"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-      await waitForText(host, "Still streaming");
-      await waitForSelector(host, 'button[aria-label="Stop response"]');
-      await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Stop response"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-    } finally {
-      fetchMock.mockRestore();
-    }
   });
 
   it("renders complete persisted history again after a fresh workspace mount", async () => {
@@ -423,34 +393,4 @@ describe("persistent workspace client", () => {
     }
   });
 
-  it("switches to Stop during streaming and exposes immediate and after-queue send choices", async () => {
-    window.history.replaceState({}, "", "/app/chat/chat-dddddddddddddddddddddddddddddddd");
-    const workspace: WorkspaceSnapshot = { projects: [], threads: [{ id: "stream-thread", chatSlug: "chat-dddddddddddddddddddddddddddddddd", title: "Streaming thread", updatedAt: "2026-08-18T00:00:00.000Z", messages: [] }] };
-    let requestSignal: AbortSignal | undefined;
-    const stream = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new TextEncoder().encode(`data: {"type":"token","text":"Live"}\n\n`)); } });
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => { requestSignal = init?.signal as AbortSignal | undefined; return new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } }); });
-    try {
-      const host = await mountWorkspace((path) => path === "workspace.modelSettings" ? { baseUrl: "https://models.example.com/v1", selectedModels: ["model-live"], availableModels: ["model-live"], apiKeyConfigured: true } : workspace);
-      await waitForText(host, "Start a thread.");
-      await waitForText(host, "model-live");
-      const composer = host.querySelector<HTMLTextAreaElement>("textarea");
-      if (!composer) throw new Error("Composer was not rendered");
-      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
-      await act(async () => { setValue?.call(composer, "First prompt"); composer.dispatchEvent(new Event("input", { bubbles: true })); });
-      await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Send message"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-      await waitForSelector(host, 'button[aria-label="Stop response"]');
-      await act(async () => { setValue?.call(composer, "Follow-up prompt"); composer.dispatchEvent(new Event("input", { bubbles: true })); });
-      await waitForSelector(host, 'button[aria-label="Add prompt to queue"]');
-      await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Add prompt to queue"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-      await waitForText(host, "Add to queue");
-      await act(async () => { Array.from(host.querySelectorAll<HTMLButtonElement>(".queue-menu button")).find((button) => button.textContent?.includes("Add to queue"))?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-      await waitForSelector(host, 'button[aria-label="1 prompts queued"]');
-      expect(composer.value).toBe("");
-      expect(host.querySelector('button[aria-label="Queue send options"]')).toBeNull();
-      await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Stop response"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-      expect(requestSignal?.aborted).toBe(true);
-    } finally {
-      fetchMock.mockRestore();
-    }
-  });
 });

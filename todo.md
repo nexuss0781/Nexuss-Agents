@@ -349,13 +349,13 @@ Validation evidence for this slice: TypeScript check passed and 15 focused intak
 
 - [x] Added server-backed active-work polling with a calm topbar indicator and a responsive right-side `Your work` drawer for independent work items.
 - [x] Added user-facing progress states, selected-work detail, completed-step counts, update counts, progress visualization, and context-appropriate Pause, Continue, Stop, and Try again controls.
-- [x] Accepted new work while active work is present by sending it through the server-owned intake path instead of exposing client-side queue language; preserved ordinary text streaming and its follow-up queue when no autonomous work is active.
-- [x] Added mounted-client regression coverage for active-work rendering and server-driven pause/resume controls; internal orchestration, skill, harness, lease, and raw runtime terminology remains absent from visible workspace copy.
+- [x] Routed every Complex composer submission, including ordinary text-only prompts, through the server-owned intake and mission-start path; removed the normal Complex follow-up queue so each new request can become independent durable work.
+- [x] Added mounted-client regression coverage for normal Complex submission, active-work rendering, and server-driven pause/resume controls; internal orchestration, skill, harness, lease, and raw runtime terminology remains absent from visible workspace copy.
 - [x] TypeScript validation, 28 focused frontend/server tests, production build, and diff hygiene pass. The build retains existing non-fatal large-chunk warnings.
 - [ ] Live authenticated Render verification remains required for submitting multiple independent work requests, observing refresh-safe progress, and exercising Pause, Continue, Stop, and Try again against configured Paradox persistence.
 
 ## Phase 4 Verification Notes
 
-The local authenticated browser check remains unavailable because the protected workspace redirects to sign-in. The live Render verification must therefore be completed with a signed-in account after deployment; no live result is claimed here.
+The local authenticated browser check remains unavailable because the protected workspace redirects to sign-in. The live Render verification must therefore be completed with a signed-in account after deployment; no live result is claimed here. The old Playground streaming helper remains available for future execution styles, but Complex work now enters the autonomous mission runtime by default.
 
 The focused validation command was `pnpm check && pnpm exec vitest run client/src/pages/Home.persistence.test.tsx client/src/pages/Home.migration.test.ts client/src/pages/Home.profile.test.tsx server/mission/runner.test.ts server/mission/intake.test.ts`. The local integration environment still does not contain the deployment-only `PARADOX_API_KEY` and `PARADOX_PASSPHRASE` values.
