@@ -619,3 +619,9 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 Updated sent user prompts to use intrinsic bubble width, allowing each message to grow horizontally with its content up to a wider readable maximum before wrapping. Short prompts remain compact, longer prompts wrap only when the available width is reached, and the live prompt follows the same behavior.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Remove Visible User Label
+
+Removed the visible “You” role mark and label from persisted and live user messages. User bubbles remain right-aligned with their timestamps, while Nexuss-Agent assistant metadata and copy controls remain unchanged.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
