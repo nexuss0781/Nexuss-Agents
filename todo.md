@@ -535,3 +535,9 @@ Validated with TypeScript, 28 focused chat/Playground tests, production build, a
 Removed the visible Ready/Talking status pill from the composer. The model selector and execution-style dropdown now flow from the left side immediately after the attachment control, while project assignment remains aligned to the right. Existing Send/Stop, attachment, queue, and project behavior remain unchanged.
 
 Validated with TypeScript, 28 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Project-Aware Thread History
+
+Added selectable project cards to the carousel. Selecting a project filters the thread history to only threads assigned to that project, and a clear control restores the full history. Carousel navigation preserves selection by selecting the newly visible project and updating the filter; unselected navigation leaves history unfiltered. New thread actions now pass the selected project into fresh-thread creation, including the selected project in the new thread record.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.

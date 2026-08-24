@@ -491,7 +491,34 @@ describe("persistent workspace client", () => {
     const button = host.querySelector<HTMLButtonElement>(".empty-create-button");
     expect(button).not.toBeNull();
     await act(async () => { button?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
-    expect(inputs).toHaveBeenCalledWith("workspace.createThread", { forceNew: true });
+        expect(inputs).toHaveBeenCalledWith("workspace.createThread", { forceNew: true });
   });
+  it("filters history by the selected project and creates a new thread under it", async () => {
+    const inputs = vi.fn();
+    const projectA = { id: "project-a", name: "Alpha", description: "", tone: "#f4f4f0" };
+    const projectB = { id: "project-b", name: "Beta", description: "", tone: "#f4f4f0" };
+    const initial: WorkspaceSnapshot = { projects: [projectA, projectB], threads: [
+      { id: "thread-a", chatSlug: "chat-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", title: "Alpha history", projectId: "project-a", updatedAt: "2026-08-24T00:00:00.000Z", messages: [] },
+      { id: "thread-b", chatSlug: "chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", title: "Beta history", projectId: "project-b", updatedAt: "2026-08-24T00:00:00.000Z", messages: [] },
+    ] };
+    const created = { id: "thread-new", chatSlug: "chat-cccccccccccccccccccccccccccccccc", title: "Untitled exploration", projectId: "project-a", updatedAt: "2026-08-24T00:00:00.000Z", messages: [] };
+    const host = await mountWorkspace((path, input) => {
+      inputs(path, input);
+      if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-live"], availableModels: ["model-live"], apiKeyConfigured: true };
+      if (path === "workspace.createThread") return created;
+      return initial;
+    });
 
+    await waitForText(host, "Alpha history");
+    await waitForText(host, "Beta history");
+    const projectCard = host.querySelector<HTMLDivElement>(".project-carousel-card");
+    expect(projectCard).not.toBeNull();
+    await act(async () => { projectCard?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+    expect(host.textContent).toContain("Alpha history");
+    expect(host.textContent).not.toContain("Beta history");
+    await act(async () => { host.querySelector<HTMLButtonElement>(".new-thread-button")?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+    expect(inputs).toHaveBeenCalledWith("workspace.createThread", { projectId: "project-a", forceNew: true });
+    await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Clear project filter"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+    expect(host.textContent).toContain("Beta history");
+  });
 });

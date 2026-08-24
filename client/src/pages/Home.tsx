@@ -298,6 +298,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
   const [projectSlide, setProjectSlide] = useState(0);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [projectEditor, setProjectEditor] = useState<{ mode: "create" | "edit"; project?: Project } | null>(null);
   const [threadEditor, setThreadEditor] = useState<string | null>(null);
   const [threadName, setThreadName] = useState("");
@@ -333,7 +334,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const projectKey = workspace.projects.map((project) => project.id).join("|");
   useEffect(() => {
     setProjectSlide((current) => Math.min(current, Math.max(workspace.projects.length - 1, 0)));
-  }, [projectKey, workspace.projects.length]);
+    if (selectedProjectId && !workspace.projects.some((project) => project.id === selectedProjectId)) setSelectedProjectId(null);
+  }, [projectKey, workspace.projects.length, selectedProjectId]);
   const migration = trpc.workspace.migrate.useMutation({
     onSuccess: () => {
       localStorage.removeItem("nexuss-agent-workspace-v2");
@@ -468,20 +470,31 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const responsePending = createThreadMutation.isPending;
   const groupedThreads = useMemo(() => {
     const groups = new Map<string, Thread[]>();
-    for (const thread of workspace.threads.filter((item) => displayThreadTitle(item).toLowerCase().includes(query.toLowerCase()))) {
+    for (const thread of workspace.threads.filter((item) => (!selectedProjectId || item.projectId === selectedProjectId) && displayThreadTitle(item).toLowerCase().includes(query.toLowerCase()))) {
       const group = threadRecencyGroup(thread.updatedAt);
       groups.set(group, [...(groups.get(group) || []), thread]);
     }
     return ["Today", "Yesterday", "Previous 7 days", "Earlier"].flatMap((group) => groups.has(group) ? [{ label: group, threads: groups.get(group)! }] : []);
-  }, [workspace.threads, query]);
+  }, [workspace.threads, query, selectedProjectId]);
   const profileInitials = profileName.slice(0, 2).toUpperCase();
   const composerStartsMission = executionMode === "complex" && (attachments.length > 0 || isAutonomousWorkRequest(draft));
   const profileAvatar = profileAvatarUrl?.startsWith("https://") && !avatarFailed ? profileAvatarUrl : undefined;
 
   function createThread() {
     if (!workspaceReady || createThreadMutation.isPending) return;
-    createThreadMutation.mutate(pendingProjectId ? { projectId: pendingProjectId, forceNew: true } : { forceNew: true });
+    const projectId = selectedProjectId || pendingProjectId;
+    createThreadMutation.mutate(projectId ? { projectId, forceNew: true } : { forceNew: true });
     setMobileNav(false);
+  }
+
+  function moveProjectSlide(direction: -1 | 1) {
+    const next = Math.max(0, Math.min(projectSlide + direction, workspace.projects.length - 1));
+    setProjectSlide(next);
+    setSelectedProjectId((current) => current ? workspace.projects[next]?.id || null : null);
+  }
+
+  function toggleProjectSelection(projectId: string) {
+    setSelectedProjectId((current) => current === projectId ? null : projectId);
   }
 
   function openThread(thread: Thread) {
@@ -791,7 +804,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         <div className="sidebar-section thread-section">
           <div className="search-field"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter threads" /></div>
           <div className="thread-list">
-            {groupedThreads.map((group) => <div className="thread-group" key={group.label}><div className="thread-group-label">{group.label}</div>{group.threads.map((thread) => (
+            {groupedThreads.length === 0 ? <div className="thread-list-empty">{selectedProjectId ? "No threads in this project" : "No threads yet"}</div> : groupedThreads.map((group) => <div className="thread-group" key={group.label}><div className="thread-group-label">{group.label}</div>{group.threads.map((thread) => (
               <div key={thread.id} className={`thread-item ${thread.id === activeThread?.id ? "active" : ""}`} onClick={() => openThread(thread)}>
                 <div className="thread-item-main"><span className="thread-dot" /> <span className="thread-title">{displayThreadTitle(thread)}</span></div>
                 <div className="thread-item-sub"><span>{formatRelativeDate(thread.updatedAt)}</span><button className="item-more" onClick={(event) => { event.stopPropagation(); setThreadEditor(thread.id); setThreadName(thread.title); }} aria-label="Thread actions"><MoreHorizontal size={15} /></button></div>
@@ -801,8 +814,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         </div>
         <div className="sidebar-section project-section">
           <div className="project-list">
-            <div className="project-carousel-header"><div className="sidebar-list-label">Projects</div>{workspace.projects.length > 1 && <div className="project-carousel-controls"><button className="project-carousel-button" onClick={() => setProjectSlide((current) => Math.max(current - 1, 0))} disabled={projectSlide === 0} aria-label="Previous project"><ChevronLeft size={14} /></button><span aria-live="polite">{projectSlide + 1}/{workspace.projects.length}</span><button className="project-carousel-button" onClick={() => setProjectSlide((current) => Math.min(current + 1, workspace.projects.length - 1))} disabled={projectSlide >= workspace.projects.length - 1} aria-label="Next project"><ChevronRight size={14} /></button></div>}</div>
-            {navigationQuery.isLoading ? <div className="project-list-skeleton" aria-label="Loading saved projects"><i /><i /><i /></div> : workspace.projects.length > 0 ? (() => { const project = workspace.projects[projectSlide]; return <div className="project-row project-carousel-card" key={project.id}><Folder size={15} /><div className="project-row-copy"><span>{project.name}</span><small>{project.description}</small></div><button className="item-more" onClick={() => setProjectEditor({ mode: "edit", project })} aria-label={`Edit ${project.name}`}><MoreHorizontal size={15} /></button></div>; })() : <div className="project-empty">No projects yet</div>}
+            <div className="project-carousel-header"><div className="sidebar-list-label">Projects {selectedProjectId && <button className="project-filter-clear" onClick={() => setSelectedProjectId(null)} aria-label="Clear project filter">Clear</button>}</div>{workspace.projects.length > 1 && <div className="project-carousel-controls"><button className="project-carousel-button" onClick={() => moveProjectSlide(-1)} disabled={projectSlide === 0} aria-label="Previous project"><ChevronLeft size={14} /></button><span aria-live="polite">{projectSlide + 1}/{workspace.projects.length}</span><button className="project-carousel-button" onClick={() => moveProjectSlide(1)} disabled={projectSlide >= workspace.projects.length - 1} aria-label="Next project"><ChevronRight size={14} /></button></div>}</div>
+            {navigationQuery.isLoading ? <div className="project-list-skeleton" aria-label="Loading saved projects"><i /><i /><i /></div> : workspace.projects.length > 0 ? (() => { const project = workspace.projects[projectSlide]; const isSelected = selectedProjectId === project.id; return <div className={`project-row project-carousel-card ${isSelected ? "selected" : ""}`} key={project.id} onClick={() => toggleProjectSelection(project.id)} role="button" tabIndex={0} aria-pressed={isSelected} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleProjectSelection(project.id); } }}><Folder size={15} /><div className="project-row-copy"><span>{project.name}</span><small>{isSelected ? "Filtering threads" : project.description}</small></div><button className="item-more" onClick={(event) => { event.stopPropagation(); setProjectEditor({ mode: "edit", project }); }} aria-label={`Edit ${project.name}`}><MoreHorizontal size={15} /></button></div>; })() : <div className="project-empty">No projects yet</div>}
             <button className="add-project" onClick={() => setProjectEditor({ mode: "create" })} disabled={!workspaceReady}><FolderPlus size={15} /> Add project</button>
           </div>
         </div>
