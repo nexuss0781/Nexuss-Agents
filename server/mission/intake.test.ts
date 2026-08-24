@@ -37,10 +37,17 @@ describe("Mission Intake Engine", () => {
     expect(store.createMissionIntake).toHaveBeenCalledWith("owner-1", expect.objectContaining({ sources: expect.arrayContaining([expect.objectContaining({ name: "recovery-plan.md", contentHash: expect.any(String) })]) }));
   });
 
-  it("marks a materially vague prompt as needing clarification", async () => {
+  it("keeps a materially vague prompt in clarification", async () => {
     const result = await runMissionIntake("owner-1", { sources: [{ kind: "raw_prompt", text: "Fix it" }] });
     expect(result.decision).toBe("needs_clarification");
     expect(result.issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: "MATERIAL_AMBIGUITY", severity: "blocking" })]));
+  });
+
+  it("accepts a concise actionable prompt without inventing a clarification block", async () => {
+    const result = await runMissionIntake("owner-1", { sources: [{ kind: "raw_prompt", text: "Build app" }] });
+    expect(result.decision).toBe("ready_for_planning");
+    expect(result.issues).not.toEqual(expect.arrayContaining([expect.objectContaining({ code: "MATERIAL_AMBIGUITY", severity: "blocking" })]));
+    expect(result.brief.objective).toBe("Build app");
   });
 
   it("resolves uploaded attachment references into traceable intake sources", async () => {

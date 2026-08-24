@@ -144,10 +144,20 @@ function inferRisk(text: string): MissionBrief["riskLevel"] {
   return "low";
 }
 
+function isMateriallyVagueObjective(objective: string) {
+  const normalized = objective.toLowerCase().replace(/[^a-z0-9\s']/g, " ").replace(/\s+/g, " ").trim();
+  if (!normalized) return true;
+  if (normalized.length < 4) return true;
+  if (/^(?:fix|do|handle|change|update|build|create|make|help|work)\s+(?:it|this|that|something|anything)$/i.test(normalized)) return true;
+  if (/^(?:fix|do|handle|change|update|build|create|make|help|work)\s*$/i.test(normalized)) return true;
+  if (/^(?:it|this|that|something|anything|whatever|asap)$/i.test(normalized)) return true;
+  return false;
+}
+
 function detectIssues(sources: MissionIntakeSource[], objective: string, constraints: string[]): IntakeIssue[] {
   const issues: IntakeIssue[] = [];
   const allText = sources.map((source) => source.text).join("\n");
-  if (objective.length < 12) issues.push({ code: "MATERIAL_AMBIGUITY", summary: "The desired outcome is too brief to plan reliably.", sourceIds: sources.map((source) => source.id), severity: "blocking" });
+  if (isMateriallyVagueObjective(objective)) issues.push({ code: "MATERIAL_AMBIGUITY", summary: "The desired outcome is too vague to plan reliably.", sourceIds: sources.map((source) => source.id), severity: "blocking" });
   if (/\b(?:ignore|override|disable)\b.*\b(?:security|policy|approval|permission)\b/i.test(allText)) issues.push({ code: "UNSAFE_REQUEST", summary: "The source contains an instruction that appears to bypass a safety or authority boundary.", sourceIds: sources.map((source) => source.id), severity: "blocking" });
   if (constraints.some((constraint) => /do not/i.test(constraint)) && /\bmust\b/i.test(allText) && /\b(?:do not|must not)\b/i.test(allText)) issues.push({ code: "CONTRADICTION", summary: "The submission contains potentially conflicting requirements that need principal review.", sourceIds: sources.map((source) => source.id), severity: "warning" });
   if (/\b(?:production|deploy|publish|delete|payment)\b/i.test(allText) && !/\b(?:permission|approval|authorize|authorized)\b/i.test(allText)) issues.push({ code: "MISSING_PERMISSION", summary: "The request may require an explicit permission boundary before a high-impact action.", sourceIds: sources.map((source) => source.id), severity: "warning" });

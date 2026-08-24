@@ -583,7 +583,10 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       setAttachments([]);
       toast.success("Work received. The agent has started.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "This work could not be started.");
+      const detail = error instanceof Error ? error.message : "";
+      if (detail.includes("needs_clarification")) toast.error("I need a little more detail before I can start this work.");
+      else if (detail.includes("blocked")) toast.error("I cannot start this work safely yet. Please revise the request.");
+      else toast.error(detail || "This work could not be started.");
     }
   }
 

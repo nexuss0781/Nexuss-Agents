@@ -359,3 +359,11 @@ Validation evidence for this slice: TypeScript check passed and 15 focused intak
 The local authenticated browser check remains unavailable because the protected workspace redirects to sign-in. The live Render verification must therefore be completed with a signed-in account after deployment; no live result is claimed here. The old Playground streaming helper remains available for future execution styles, but Complex work now enters the autonomous mission runtime by default.
 
 The focused validation command was `pnpm check && pnpm exec vitest run client/src/pages/Home.persistence.test.tsx client/src/pages/Home.migration.test.ts client/src/pages/Home.profile.test.tsx server/mission/runner.test.ts server/mission/intake.test.ts`. The local integration environment still does not contain the deployment-only `PARADOX_API_KEY` and `PARADOX_PASSPHRASE` values.
+
+## Mission Intake Clarification False-Positive Fix
+
+- [x] Reproduced the raw `needs_clarification` failure caused by a brittle objective character-count threshold in deterministic intake classification.
+- [x] Replaced the threshold with a semantic vague-request check: concise actionable prompts such as `Build app` proceed, while materially vague requests such as `Fix it` remain in clarification.
+- [x] Replaced the raw internal decision error in the workspace with a calm request for more detail, while retaining a separate safe-blocked message for unsafe or disallowed work.
+- [x] Added intake regression coverage for both actionable concise prompts and genuinely vague prompts; TypeScript and 27 focused frontend/server tests pass.
+- [ ] Live authenticated Render verification remains required after deployment.
