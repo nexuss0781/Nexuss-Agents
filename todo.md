@@ -493,3 +493,9 @@ Validated with TypeScript, 27 focused chat/Playground tests, production build, a
 Replaced the stacked project list with a one-project-at-a-time carousel, including accessible previous and next chevron controls and a restrained horizontal transition. Added a smooth cool-grey sidebar gradient, applied the project surface color to the New thread control, and preserved the independently scrollable thread region.
 
 Validated with TypeScript, 27 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Enlarged Thread Card and Send Control Correction
+
+Expanded the thread area into a larger styled cool-grey workspace card while retaining its independent scrolling. The active thread now has a clearer, more spacious selected state. The composer’s lower row now owns the Send/Stop position directly, pinning the control inside the lower-right corner of the composer rather than relying on drifting flex content.
+
+Validated with TypeScript, 27 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.

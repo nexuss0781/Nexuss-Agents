@@ -730,3 +730,16 @@ body { color: var(--paper); }
 .project-empty { padding: 9px 8px; color: #8b989d; font-size: 10px; }
 @keyframes project-card-in { from { opacity: .35; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
 @media (prefers-reduced-motion: reduce) { .project-carousel-card { animation: none; } }
+
+/* Thread workspace card: larger, calmer, and visually distinct from the sidebar background. */
+.thread-section { min-height: 250px; padding: 10px; border: 1px solid rgba(203,214,219,.14); border-radius: 10px; background: rgba(32,39,43,.72); }
+.thread-section .search-field { margin: 0 0 12px; background: rgba(9,14,16,.3); }
+.thread-section .thread-list { padding-right: 4px; }
+.thread-item { min-height: 52px; padding: 11px 10px; border-radius: 7px; }
+.thread-item.active { min-height: 62px; border-left-color: #d0d9dc; background: #30383d; box-shadow: inset 0 0 0 1px rgba(221,231,234,.06); }
+.thread-item.active:hover { background: #374146; }
+
+/* The composer owns the button position: the control stays inside its lower-right corner. */
+.composer { overflow: hidden; }
+.composer-bottom { position: relative; display: block; height: 44px; min-height: 44px; padding: 0; }
+.composer-send-cluster { position: absolute; right: 13px; bottom: 4px; z-index: 2; display: flex; align-items: center; justify-content: flex-end; height: 36px; min-height: 36px; margin: 0; }
