@@ -511,3 +511,9 @@ Validated with TypeScript, 27 focused chat/Playground tests, production build, a
 Moved the three suggestions and New thread action into one consecutive bottom row in the empty-state card, with a responsive two-column fallback on narrow screens. Added an explicit force-new thread path so the visible New thread actions no longer reuse an existing blank thread and reliably route to the newly created chat.
 
 Validated with TypeScript, 28 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Final Enlarged Thread Card
+
+Expanded the central Start a thread card to a larger, rounded workspace surface with a polished neutral cool-grey gradient, subtle depth, and improved contrast. The existing four-action bottom row and all thread/composer interactions remain unchanged.
+
+Validated with TypeScript, 28 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.

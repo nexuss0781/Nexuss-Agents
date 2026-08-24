@@ -760,3 +760,24 @@ body { color: var(--paper); }
 @media (max-width: 800px) {
   .empty-thread .empty-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Final empty-thread card treatment: larger surface, calm cool-grey depth, unchanged actions. */
+.empty-thread {
+  width: min(1000px, 100%);
+  min-height: 360px;
+  height: min(45vh, 380px);
+  padding: 48px 44px 34px;
+  border: 1px solid rgba(203,214,219,.18);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #20282d 0%, #1b2327 54%, #151c20 100%);
+  box-shadow: 0 20px 60px rgba(0,0,0,.18), inset 0 1px 0 rgba(229,237,239,.035);
+}
+.empty-thread::after { border-color: rgba(203,214,219,.035); background: repeating-linear-gradient(135deg, transparent 0 32px, rgba(203,214,219,.012) 33px 34px); }
+.empty-thread h2 { color: #edf2f3; }
+.empty-thread p { color: #a9b5b9; }
+.empty-thread .empty-actions { padding-top: 26px; }
+.empty-thread .empty-suggestions button, .empty-thread .empty-create-button { border-color: rgba(203,214,219,.22); background: rgba(214,225,229,.07); color: #c9d3d6; }
+.empty-thread .empty-suggestions button:hover, .empty-thread .empty-create-button:hover { border-color: rgba(221,231,234,.42); background: rgba(214,225,229,.14); color: #f0f4f5; }
+@media (max-width: 800px) {
+  .empty-thread { min-height: 350px; height: auto; padding: 34px 24px 26px; }
+}
