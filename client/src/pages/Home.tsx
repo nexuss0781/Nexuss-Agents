@@ -387,7 +387,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       else conversationEndRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeThread?.id, activeThread?.messages.length, liveStreaming?.content]);
+  }, [activeThread?.id, activeThread?.messages.length, streamingTurn?.threadId, streamingTurn?.content]);
   const livePromptVisible = Boolean(liveStreaming && !activeThread?.messages.some((message) => message.role === "user" && message.content === liveStreaming.prompt && message.createdAt >= liveStreaming.startedAt));
   const liveAssistantVisible = Boolean(liveStreaming && !activeThread?.messages.some((message) => message.role === "assistant" && message.content === liveStreaming.content && message.content.length > 0 && message.createdAt >= liveStreaming.startedAt));
   const responsePending = createThreadMutation.isPending;
