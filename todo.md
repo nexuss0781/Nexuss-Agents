@@ -607,3 +607,9 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 Darkened the left Projects card to match the welcome card’s near-black textured treatment, using subtle grid and diagonal stripe layers, quiet borders, restrained shadows, and dark project rows. Existing project carousel, selection, filtering, and Add project behavior remain unchanged.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Manus-Style Expanding Composer
+
+Changed the composer from a rigid textarea presentation to a content-driven bubble. The textarea now grows from 80px up to 220px as the prompt wraps or becomes multiline, keeps its own tiny scrollbar only beyond the cap, and leaves the bottom controls in a stable dedicated row.
+
+Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.

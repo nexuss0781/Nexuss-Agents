@@ -1022,3 +1022,23 @@ body { color: var(--paper); }
 .project-section .project-row.project-carousel-card:hover { border-color: rgba(221,231,234,.28); background: rgba(214,225,229,.07); }
 .project-section .project-row.project-carousel-card.selected { border-color: rgba(235,242,244,.3); background: rgba(214,225,229,.12); box-shadow: inset 0 0 0 1px rgba(235,242,244,.035); }
 .project-section .add-project { border-color: rgba(203,214,219,.14); background: rgba(13,16,18,.28); }
+
+/* Manus-style composer bubble: content grows, controls stay stable below it. */
+.composer {
+  overflow: visible;
+}
+.composer textarea {
+  height: 80px;
+  min-height: 80px;
+  max-height: 220px;
+  overflow-y: auto;
+  resize: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(203,214,219,.28) transparent;
+  transition: height .12s ease-out;
+}
+.composer textarea::-webkit-scrollbar { width: 4px; height: 4px; }
+.composer textarea::-webkit-scrollbar-track { background: transparent; }
+.composer textarea::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(203,214,219,.24); }
+.composer textarea::-webkit-scrollbar-thumb:hover { background: rgba(221,231,234,.44); }
+.composer-bottom { min-height: 52px; align-items: center; }

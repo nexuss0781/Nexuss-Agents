@@ -317,6 +317,14 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const [migrationSettled, setMigrationSettled] = useState(false);
   const [composerReservedSpace, setComposerReservedSpace] = useState(174);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const textarea = composerRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    const nextHeight = Math.min(Math.max(textarea.scrollHeight, 80), 220);
+    textarea.style.height = `${nextHeight}px`;
+  }, [draft]);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const attachmentRequestsRef = useRef<Map<string, XMLHttpRequest>>(new Map());
   const streamAbortRef = useRef<AbortController | null>(null);
