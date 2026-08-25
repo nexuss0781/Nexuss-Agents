@@ -5,6 +5,8 @@ export type GithubRepository = { id: number; name: string; fullName: string; des
 export type GithubTreeEntry = { path: string; type: "blob" | "tree"; sha: string; size: number | null };
 export type GithubTree = { owner: string; repo: string; ref: string; sha: string | null; truncated: boolean; tree: GithubTreeEntry[] };
 export type GithubFile = { owner: string; repo: string; ref: string; path: string; name: string; sha: string | null; size: number; content: string; htmlUrl: string | null };
+export type GithubSearchResult = { path: string; name: string; sha: string; htmlUrl: string | null; score: number | null };
+export type GithubSearchResponse = { owner: string; repo: string; query: string; totalCount: number; incompleteResults: boolean; results: GithubSearchResult[] };
 
 export class GithubOAuthError extends Error {
   readonly code: "NOT_CONFIGURED" | "NOT_CONNECTED" | "OAUTH_FAILED" | "GITHUB_API_FAILED";
@@ -67,6 +69,15 @@ export async function githubConnectionStatus(ownerId: string): Promise<{ configu
 export async function listGithubRepositories(ownerId: string): Promise<{ connected: true; login: string; repositories: GithubRepository[] }> {
   const result = await centralGithubRequest<{ login: string; repositories: GithubRepository[] }>(ownerId, "/v1/github/repositories");
   return { connected: true, login: result.login, repositories: Array.isArray(result.repositories) ? result.repositories.slice(0, 100) : [] };
+}
+
+export async function searchGithubCode(ownerId: string, fullName: string, query: string): Promise<GithubSearchResponse> {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName)) throw new GithubOAuthError("Choose a valid GitHub repository.");
+  if (!query.trim() || query.length > 200) throw new GithubOAuthError("Enter a shorter code search.");
+  const [owner, repo] = fullName.split("/");
+  const params = new URLSearchParams({ owner, repo, q: query.trim().slice(0, 200) });
+  const result = await centralGithubRequest<GithubSearchResponse>(ownerId, `/v1/github/search?${params.toString()}`);
+  return { ...result, results: Array.isArray(result.results) ? result.results.slice(0, 50) : [] };
 }
 
 export async function getGithubTree(ownerId: string, fullName: string, ref?: string): Promise<GithubTree> {

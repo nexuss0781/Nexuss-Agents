@@ -1604,3 +1604,36 @@ body { color: var(--paper); }
 .nexuss-git-preview-header strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
 .nexuss-git-preview-header span { flex: 0 0 auto; color: #68736f; }
 .nexuss-git-preview-content pre { margin: 0; padding: 12px 10px 16px; overflow-x: auto; color: #cbd4cd; font: 10px/1.6 "IBM Plex Mono", monospace; white-space: pre; }
+
+.nexuss-git-tabs { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.nexuss-git-search-workspace { display: flex; min-height: 0; flex-direction: column; gap: 9px; }
+.nexuss-git-code-search-form { display: flex; align-items: center; gap: 8px; padding: 9px 10px; color: #78837e; border: 1px solid rgba(202,164,134,.28); border-radius: 9px; background: rgba(202,164,134,.06); }
+.nexuss-git-code-search-form input { min-width: 0; flex: 1; color: #e0e5df; outline: 0; border: 0; background: transparent; font-size: 11px; }
+.nexuss-git-code-search-form input::placeholder { color: #78837e; }
+.nexuss-git-code-search-form button { display: grid; width: 25px; height: 25px; place-items: center; color: #171819; border: 0; border-radius: 7px; background: #caa486; cursor: pointer; }
+.nexuss-git-code-search-form button:disabled { cursor: default; opacity: .38; }
+.nexuss-git-search-placeholder { display: flex; min-height: 220px; align-items: center; justify-content: center; gap: 8px; padding: 20px; color: #7f8b85; text-align: center; font-size: 10px; }
+.nexuss-git-search-results { display: flex; min-height: 0; flex-direction: column; gap: 6px; }
+.nexuss-git-search-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 2px; color: #89938f; font: 9px "IBM Plex Mono", monospace; }
+.nexuss-git-search-summary strong { color: #d9b497; font-weight: 400; }
+.nexuss-git-search-summary small { color: #caa486; }
+.nexuss-git-search-result { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 10px; color: #b8c0ba; border: 1px solid rgba(255,255,255,.08); border-radius: 9px; background: rgba(255,255,255,.03); cursor: pointer; text-align: left; }
+.nexuss-git-search-result:hover { color: #f0f2ee; border-color: rgba(202,164,134,.34); background: rgba(202,164,134,.08); }
+.nexuss-git-search-result > svg:first-child { flex: 0 0 auto; color: #caa486; }
+.nexuss-git-search-result > span { min-width: 0; flex: 1; }
+.nexuss-git-search-result strong, .nexuss-git-search-result small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nexuss-git-search-result strong { color: #dfe5df; font-size: 11px; font-weight: 550; }
+.nexuss-git-search-result small { margin-top: 3px; color: #77827d; font: 9px "IBM Plex Mono", monospace; }
+.nexuss-git-search-result > svg:last-child { flex: 0 0 auto; color: #6f7a75; }
+.nexuss-git-preview-header button { display: flex; align-items: center; gap: 4px; margin-left: auto; padding: 4px 6px; color: #caa486; border: 1px solid rgba(202,164,134,.24); border-radius: 5px; background: rgba(202,164,134,.07); cursor: pointer; font: 9px "IBM Plex Mono", monospace; }
+.nexuss-git-preview-header button:hover { background: rgba(202,164,134,.15); }
+.nexuss-git-analysis { padding: 10px; border-bottom: 1px solid rgba(255,255,255,.08); background: rgba(202,164,134,.045); }
+.nexuss-git-analysis-heading { display: flex; align-items: center; gap: 6px; color: #caa486; font: 10px "IBM Plex Mono", monospace; }
+.nexuss-git-analysis-heading strong { color: #e3e8e3; font-weight: 500; }
+.nexuss-git-analysis-heading span { margin-left: auto; color: #82908a; }
+.nexuss-git-analysis-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin-top: 9px; }
+.nexuss-git-analysis-grid .nexuss-git-stat { padding: 8px; border-color: rgba(255,255,255,.07); }
+.nexuss-git-analysis-grid .nexuss-git-stat strong { margin: 4px 0 2px; font-size: 13px; }
+.nexuss-git-analysis-grid .nexuss-git-stat small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nexuss-git-analysis-note { margin: 9px 0 0; color: #7d8983; font-size: 9px; line-height: 1.45; }
+@media (max-width: 420px) { .nexuss-git-tabs button { font-size: 8px; } .nexuss-git-analysis-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
