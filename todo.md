@@ -680,3 +680,8 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 - [x] Persist only a safe authenticated-user marker in localStorage; keep the session token in the HTTP-only server cookie.
 - [x] Clear local continuity metadata and the server session on logout.
 - [x] Validate TypeScript, focused auth/workspace regressions, production build, and whitespace.
+
+## Profile and GitHub Authorization Separation
+
+- [x] Keep the visible Nexuss-Agent profile sourced from the existing primary Nexuss Auth account.
+- [x] Keep GitHub authorization as a separate persisted repository-access connection.
