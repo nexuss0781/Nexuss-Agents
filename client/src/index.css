@@ -1410,3 +1410,40 @@ body { color: var(--paper); }
   .right-window-store-mark { width: 52px; height: 52px; border-radius: 14px; }
   .right-window-store-mark img { width: 40px; height: 40px; }
 }
+
+/* Reference composition: brand lockup in the drawer header, controls stacked vertically. */
+.right-window-header { min-height: 76px; padding: 0 16px 0 20px; }
+.right-window-header-title { min-width: 0; flex: 1 1 auto; }
+.right-window-header-title > .right-window-store-brand { min-height: 64px; margin: 0; padding: 8px 0; border: 0; background: transparent; }
+.right-window-header-title > .right-window-store-brand .right-window-store-mark { width: 50px; height: 50px; border-radius: 14px; }
+.right-window-header-title > .right-window-store-brand .right-window-store-mark img { width: 39px; height: 39px; }
+.right-window-header-title > .right-window-store-brand .right-window-store-copy strong { font-size: clamp(25px, 3vw, 34px); }
+.right-window-header-title > .right-window-store-brand .right-window-store-copy small { margin-top: 5px; }
+.right-window-header-actions { flex-direction: column; gap: 0; padding: 2px; border-radius: 7px; }
+.right-window-header-actions .icon-button { width: 30px; height: 30px; }
+.right-window-header-actions .icon-button + .icon-button { border-top-color: rgba(220,226,228,.1); border-left-color: transparent; }
+.right-window-launcher { padding-top: 22px; }
+@media (max-width: 800px) {
+  .right-window-header { min-height: 72px; padding-left: 14px; }
+  .right-window-header-title > .right-window-store-brand { min-height: 60px; }
+  .right-window-header-title > .right-window-store-brand .right-window-store-mark { width: 46px; height: 46px; }
+  .right-window-header-title > .right-window-store-brand .right-window-store-mark img { width: 36px; height: 36px; }
+  .right-window-header-title > .right-window-store-brand .right-window-store-copy strong { font-size: 27px; }
+}
+
+/* Final reference alignment: compact brand card with a horizontal control row. */
+.right-window-header { min-height: 74px; height: 74px; padding: 0 14px 0 20px; }
+.right-window-header-title > .right-window-store-brand { height: 62px; min-height: 62px; padding: 5px 0; }
+.right-window-header-title > .right-window-store-brand .right-window-store-mark { width: 50px; height: 50px; }
+.right-window-header-title > .right-window-store-brand .right-window-store-copy strong { font-size: 30px; }
+.right-window-header-title > .right-window-store-brand .right-window-store-copy small { margin-top: 3px; }
+.right-window-header-actions { flex-direction: row; gap: 3px; padding: 3px; }
+.right-window-header-actions .icon-button { width: 30px; height: 30px; }
+.right-window-header-actions .icon-button + .icon-button { border-top-color: transparent; border-left-color: rgba(220,226,228,.1); }
+@media (max-width: 800px) {
+  .right-window-header { min-height: 70px; height: 70px; padding-left: 14px; }
+  .right-window-header-title > .right-window-store-brand { height: 58px; min-height: 58px; }
+  .right-window-header-title > .right-window-store-brand .right-window-store-mark { width: 46px; height: 46px; }
+  .right-window-header-title > .right-window-store-brand .right-window-store-mark img { width: 36px; height: 36px; }
+  .right-window-header-title > .right-window-store-brand .right-window-store-copy strong { font-size: 27px; }
+}
