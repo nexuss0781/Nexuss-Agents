@@ -26,10 +26,11 @@ import { createMissionFromIntake, getStoredMissionIntake, runMissionIntake } fro
 import { pauseMission, queueMission, recoverMissions, resumeMission, retryMission, stopMission } from "./mission/commands";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
+import { clonePublicGithubProject, markProjectImportFailed, ProjectWorkspaceError } from "./projectWorkspace";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-const projectInput = z.object({ name: z.string().trim().min(1).max(120), description: z.string().trim().max(500), tone: z.string().max(32).default("#f4f4f0") });
+const projectInput = z.object({ name: z.string().trim().min(1).max(120), description: z.string().trim().max(500), tone: z.string().max(32).default("#f4f4f0"), sourceType: z.enum(["none", "upload", "github"]).default("none") });
 const messageInput = z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(100_000) });
 const intakeSourceInput = z.object({ kind: z.enum(["raw_prompt", "plan_text", "specification"]), text: z.string().trim().min(1).max(120_000).optional(), attachmentId: z.string().trim().min(1).max(128).optional(), name: z.string().trim().max(240).optional(), mimeType: z.string().trim().max(120).optional() }).refine((source) => Boolean(source.text || source.attachmentId), { message: "An intake source needs text or an attachment reference." });
 const legacyWorkspaceInput = z.object({
@@ -45,7 +46,7 @@ async function workspaceOwner(ctx: { req: Parameters<typeof getNexussSession>[0]
 
 function workspaceFailure(error: unknown): never {
   if (error instanceof WorkspaceAccessError) throw new TRPCError({ code: "NOT_FOUND", message: error.message });
-  if (error instanceof ModelProviderError) throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
+  if (error instanceof ModelProviderError || error instanceof ProjectWorkspaceError) throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
   throw error;
 }
 
@@ -84,6 +85,12 @@ export const appRouter = router({
     chat: publicProcedure.input(z.object({ chatSlug: z.string().regex(/^chat-[a-z0-9]{32}$/).max(40) })).query(async ({ ctx, input }) => loadWorkspaceChat(await workspaceOwner(ctx), input.chatSlug)),
     load: publicProcedure.input(z.object({ chatSlug: z.string().regex(/^chat-[a-z0-9]{32}$/).max(40) }).optional()).query(async ({ ctx, input }) => loadWorkspace(await workspaceOwner(ctx), input?.chatSlug)),
     createProject: publicProcedure.input(projectInput).mutation(async ({ ctx, input }) => createProject(await workspaceOwner(ctx), input)),
+    cloneGithubProject: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128), url: z.string().trim().min(1).max(500) })).mutation(async ({ ctx, input }) => {
+      try { return await clonePublicGithubProject(await workspaceOwner(ctx), input.projectId, input.url); } catch (error) { return workspaceFailure(error); }
+    }),
+    markProjectImportFailed: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128), error: z.string().trim().max(320).optional() })).mutation(async ({ ctx, input }) => {
+      try { await markProjectImportFailed(await workspaceOwner(ctx), input.projectId, input.error || "Project import failed."); return { projectId: input.projectId, status: "failed" as const }; } catch (error) { return workspaceFailure(error); }
+    }),
     updateProject: publicProcedure.input(z.object({ id: z.string().min(1).max(128), project: projectInput.pick({ name: true, description: true }) })).mutation(async ({ ctx, input }) => {
       try { return await updateProject(await workspaceOwner(ctx), input.id, input.project); } catch (error) { return workspaceFailure(error); }
     }),

@@ -1080,3 +1080,31 @@ body { color: var(--paper); }
 .attachment-action:hover { border-color: rgba(235,242,244,.34); background: rgba(221,231,234,.1); color: #f0f4f5; }
 .attachment-progress { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; border-radius: inherit; background: #c4d1d4; transition: width .16s ease-out; }
 @media (max-width: 500px) { .attachment-tray { padding-right: 10px; padding-left: 10px; }.attachment-chip { max-width: 100%; flex: 1 1 100%; } }
+
+/* Project onboarding card */
+.project-onboarding-card { width: min(540px, calc(100vw - 28px)); gap: 14px; }
+.project-modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.project-modal-heading h3 { margin: 3px 0 0; }
+.project-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border: 1px solid rgba(203,214,219,.13); border-radius: 11px; background: rgba(6,9,10,.34); }
+.project-tabs button { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; border: 0; border-radius: 8px; background: transparent; color: #89969b; font: inherit; font-size: 12px; cursor: pointer; }
+.project-tabs button.active { background: rgba(203,214,219,.13); color: #f0f4f5; box-shadow: inset 0 1px 0 rgba(255,255,255,.06); }
+.project-dropzone { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 142px; padding: 20px; border: 1px dashed rgba(203,214,219,.28); border-radius: 12px; background: rgba(8,11,12,.42); color: #a8b5b9; cursor: pointer; transition: border-color .16s ease-out, background .16s ease-out, color .16s ease-out; }
+.project-dropzone:hover, .project-dropzone.active { border-color: rgba(239,245,246,.68); background: rgba(47,58,63,.32); color: #f0f4f5; }
+.project-dropzone svg { color: #bac7cb; }
+.project-dropzone strong { color: inherit; font-size: 13px; font-weight: 600; }
+.project-dropzone span { color: #7f8d92; font-size: 11px; text-align: center; }
+.project-file-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 11px; border: 1px solid rgba(203,214,219,.12); border-radius: 8px; color: #adb9bd; font-size: 11px; }
+.project-file-summary span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.github-input-label { gap: 7px; }
+.github-input-label > span { color: #aab6ba; font-size: 12px; }
+.github-input-label small { color: #7f8d92; font-size: 11px; }
+.github-input-wrap { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid rgba(203,214,219,.18); border-radius: 8px; background: rgba(8,11,12,.54); }
+.github-input-wrap svg { flex: 0 0 auto; color: #9eabb0; }
+.github-input-wrap input { min-width: 0; border: 0; background: transparent; }
+.project-import-progress { display: grid; gap: 7px; color: #aebbbf; font-size: 11px; }
+.project-import-progress > div { display: flex; justify-content: space-between; gap: 12px; }
+.project-import-progress strong { color: #eef3f4; font-weight: 600; }
+.project-import-progress i { display: block; height: 5px; overflow: hidden; border-radius: 999px; background: rgba(203,214,219,.14); }
+.project-import-progress b { display: block; height: 100%; border-radius: inherit; background: #d8e1e3; transition: width .16s ease-out; }
+.project-import-error { padding: 9px 11px; border: 1px solid rgba(224,135,135,.34); border-radius: 8px; background: rgba(110,37,37,.18); color: #e4a5a5; font-size: 11px; line-height: 1.45; }
+@media (max-width: 560px) { .project-tabs { grid-template-columns: 1fr; } }

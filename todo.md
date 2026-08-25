@@ -631,3 +631,12 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 Added image paste support from the clipboard and made the full composer a drag-and-drop target for files. Image attachments receive an immediate local preview tile, then show real upload progress and processing state. Failed uploads remain visible with their error state and a retry action; in-progress uploads can be cancelled and completed attachments can be removed. Existing file input, project association, attachment persistence, and prompt submission behavior remain intact.
 
 Validated with TypeScript, 29 focused chat/Playground tests, production build, and `git diff --check`. Live authenticated visual verification remains pending deployment.
+
+## Project Codebase Onboarding
+
+- [x] Add owner-scoped project source and import metadata to encrypted Paradox persistence without storing codebase bytes there.
+- [x] Add a server-owned project workspace with hashed owner/project directories, path and symlink checks, bounded file imports, and public HTTPS GitHub validation.
+- [x] Add authenticated multipart codebase upload and shallow public GitHub clone workflows with safe failure states.
+- [x] Add the two-tab New project card with drag-and-drop or multi-file upload, GitHub URL cloning, progress, retryable errors, and project selection.
+- [x] Configure the Render Blueprint and production container to use `/var/lib/nexuss-projects` for a persistent project disk.
+- [x] Validate TypeScript, focused persistence/chat/streaming regression tests, workspace security tests, production build, and whitespace.

@@ -4,7 +4,22 @@ import { join } from "node:path";
 import { connect } from "parad";
 import { GENERAL_AGENT_SYSTEM_PROMPT } from "./mission/generalAgentPrompt";
 
-export type WorkspaceProject = { id: string; name: string; description: string; tone: string };
+export type ProjectSourceType = "none" | "upload" | "github";
+export type ProjectWorkspaceStatus = "empty" | "importing" | "ready" | "failed";
+export type WorkspaceProject = {
+  id: string;
+  name: string;
+  description: string;
+  tone: string;
+  sourceType: ProjectSourceType;
+  sourceUrl?: string;
+  sourceCommit?: string;
+  workspaceStatus: ProjectWorkspaceStatus;
+  workspaceFileCount: number;
+  workspaceBytes: number;
+  workspaceUpdatedAt?: string;
+  workspaceError?: string;
+};
 export type WorkspaceMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
 export type WorkspaceThread = { id: string; chatSlug: string; title: string; projectId?: string; updatedAt: string; messages: WorkspaceMessage[] };
 export type DurableWorkspace = { projects: WorkspaceProject[]; threads: WorkspaceThread[] };
@@ -25,7 +40,7 @@ export class ModelProviderError extends Error {
 }
 
 type Db = Awaited<ReturnType<typeof connect>>;
-type LegacyWorkspace = { projects: WorkspaceProject[]; threads: Array<Omit<WorkspaceThread, "chatSlug"> & { chatSlug?: string }> };
+type LegacyWorkspace = { projects: Array<Pick<WorkspaceProject, "id" | "name" | "description" | "tone"> & Partial<Omit<WorkspaceProject, "id" | "name" | "description" | "tone">>>; threads: Array<Omit<WorkspaceThread, "chatSlug"> & { chatSlug?: string }> };
 let workspaceOperationTail: Promise<void> = Promise.resolve();
 let activeGateway: { url: string; expiresAt: number } | null = null;
 let workspaceDb: Db | undefined;
@@ -136,7 +151,17 @@ async function openFreshWorkspaceDb() {
     pullIntervalMs: syncOptions.pullIntervalMs,
   });
 
-  db.execute("CREATE TABLE IF NOT EXISTS workspace_projects (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, name TEXT NOT NULL, description TEXT NOT NULL, tone TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
+  db.execute("CREATE TABLE IF NOT EXISTS workspace_projects (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, name TEXT NOT NULL, description TEXT NOT NULL, tone TEXT NOT NULL, source_type TEXT NOT NULL DEFAULT 'none', source_url TEXT, source_commit TEXT, workspace_status TEXT NOT NULL DEFAULT 'empty', workspace_file_count INTEGER NOT NULL DEFAULT 0, workspace_bytes INTEGER NOT NULL DEFAULT 0, workspace_updated_at TEXT, workspace_error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
+  for (const statement of [
+    "ALTER TABLE workspace_projects ADD COLUMN source_type TEXT NOT NULL DEFAULT 'none'",
+    "ALTER TABLE workspace_projects ADD COLUMN source_url TEXT",
+    "ALTER TABLE workspace_projects ADD COLUMN source_commit TEXT",
+    "ALTER TABLE workspace_projects ADD COLUMN workspace_status TEXT NOT NULL DEFAULT 'empty'",
+    "ALTER TABLE workspace_projects ADD COLUMN workspace_file_count INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE workspace_projects ADD COLUMN workspace_bytes INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE workspace_projects ADD COLUMN workspace_updated_at TEXT",
+    "ALTER TABLE workspace_projects ADD COLUMN workspace_error TEXT",
+  ]) { try { db.execute(statement); } catch { /* Existing encrypted workspaces already have this project metadata. */ } }
   db.execute("CREATE TABLE IF NOT EXISTS workspace_threads (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, chat_slug TEXT, title TEXT NOT NULL, project_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_messages (id TEXT PRIMARY KEY, thread_id TEXT NOT NULL, owner_id TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL, sequence INTEGER)");
   try { db.execute("ALTER TABLE workspace_messages ADD COLUMN sequence INTEGER"); } catch { /* Existing encrypted workspaces already have the sequence column. */ }
@@ -230,14 +255,27 @@ function assertThreadOwner(db: Db, ownerId: string, threadId: string) {
 }
 
 function readWorkspaceNavigation(db: Db, ownerId: string): WorkspaceNavigation {
-  const projects = rows<{ id: string; name: string; description: string; tone: string }>(db.execute(
-    "SELECT id, name, description, tone FROM workspace_projects WHERE owner_id = ? ORDER BY updated_at DESC", [ownerId],
+  const projects = rows<{ id: string; name: string; description: string; tone: string; source_type: ProjectSourceType; source_url: string | null; source_commit: string | null; workspace_status: ProjectWorkspaceStatus; workspace_file_count: number; workspace_bytes: number; workspace_updated_at: string | null; workspace_error: string | null }>(db.execute(
+    "SELECT id, name, description, tone, source_type, source_url, source_commit, workspace_status, workspace_file_count, workspace_bytes, workspace_updated_at, workspace_error FROM workspace_projects WHERE owner_id = ? ORDER BY updated_at DESC", [ownerId],
   ));
   const threadRows = rows<{ id: string; chat_slug: string | null; title: string; project_id: string | null; updated_at: string }>(db.execute(
     "SELECT id, chat_slug, title, project_id, updated_at FROM workspace_threads WHERE owner_id = ? ORDER BY updated_at DESC", [ownerId],
   ));
   return {
-    projects: projects.map((project) => ({ ...project })),
+    projects: projects.map((project) => ({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      tone: project.tone,
+      sourceType: project.source_type || "none",
+      ...(project.source_url ? { sourceUrl: project.source_url } : {}),
+      ...(project.source_commit ? { sourceCommit: project.source_commit } : {}),
+      workspaceStatus: project.workspace_status || "empty",
+      workspaceFileCount: Number(project.workspace_file_count || 0),
+      workspaceBytes: Number(project.workspace_bytes || 0),
+      ...(project.workspace_updated_at ? { workspaceUpdatedAt: project.workspace_updated_at } : {}),
+      ...(project.workspace_error ? { workspaceError: project.workspace_error } : {}),
+    })),
     threads: threadRows.map((thread) => ({
       id: thread.id,
       chatSlug: thread.chat_slug || chatSlugFor(thread.id),
@@ -441,11 +479,13 @@ export async function discoverModelProviderModels(ownerId: string, requester: ty
   return { models };
 }
 
-export async function createProject(ownerId: string, input: Omit<WorkspaceProject, "id">) {
+export async function createProject(ownerId: string, input: { name: string; description: string; tone: string; sourceType?: ProjectSourceType }) {
   return withWorkspaceDb(true, (db) => {
     const id = randomUUID(); const timestamp = now();
-    db.execute("INSERT INTO workspace_projects (id, owner_id, name, description, tone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", [id, ownerId, input.name, input.description, input.tone, timestamp, timestamp]);
-    return { id, ...input };
+    const sourceType = input.sourceType || "none";
+    const workspaceStatus: ProjectWorkspaceStatus = sourceType === "none" ? "empty" : "importing";
+    db.execute("INSERT INTO workspace_projects (id, owner_id, name, description, tone, source_type, workspace_status, workspace_file_count, workspace_bytes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [id, ownerId, input.name, input.description, input.tone, sourceType, workspaceStatus, 0, 0, timestamp, timestamp]);
+    return { id, name: input.name, description: input.description, tone: input.tone, sourceType, workspaceStatus, workspaceFileCount: 0, workspaceBytes: 0 } satisfies WorkspaceProject;
   });
 }
 
@@ -453,8 +493,22 @@ export async function updateProject(ownerId: string, id: string, input: Pick<Wor
   return withWorkspaceDb(true, (db) => {
     const result = db.execute("UPDATE workspace_projects SET name = ?, description = ?, updated_at = ? WHERE id = ? AND owner_id = ?", [input.name, input.description, now(), id, ownerId]);
     if (!result.changes) throw new WorkspaceAccessError("Project not found");
-    const project = rows<{ id: string; name: string; description: string; tone: string }>(db.execute("SELECT id, name, description, tone FROM workspace_projects WHERE id = ? AND owner_id = ?", [id, ownerId]))[0];
-    return project!;
+    const project = rows<{ id: string; name: string; description: string; tone: string; source_type: ProjectSourceType; source_url: string | null; source_commit: string | null; workspace_status: ProjectWorkspaceStatus; workspace_file_count: number; workspace_bytes: number; workspace_updated_at: string | null; workspace_error: string | null }>(db.execute("SELECT id, name, description, tone, source_type, source_url, source_commit, workspace_status, workspace_file_count, workspace_bytes, workspace_updated_at, workspace_error FROM workspace_projects WHERE id = ? AND owner_id = ?", [id, ownerId]))[0];
+    if (!project) throw new WorkspaceAccessError("Project not found");
+    return {
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      tone: project.tone,
+      sourceType: project.source_type || "none",
+      ...(project.source_url ? { sourceUrl: project.source_url } : {}),
+      ...(project.source_commit ? { sourceCommit: project.source_commit } : {}),
+      workspaceStatus: project.workspace_status || "empty",
+      workspaceFileCount: Number(project.workspace_file_count || 0),
+      workspaceBytes: Number(project.workspace_bytes || 0),
+      ...(project.workspace_updated_at ? { workspaceUpdatedAt: project.workspace_updated_at } : {}),
+      ...(project.workspace_error ? { workspaceError: project.workspace_error } : {}),
+    } satisfies WorkspaceProject;
   });
 }
 
@@ -545,7 +599,7 @@ export async function migrateWorkspace(ownerId: string, workspace: LegacyWorkspa
     if (imported) return { imported: false };
     for (const project of workspace.projects) {
       const timestamp = now();
-      db.execute("INSERT OR IGNORE INTO workspace_projects (id, owner_id, name, description, tone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", [project.id, ownerId, project.name, project.description, project.tone, timestamp, timestamp]);
+      db.execute("INSERT OR IGNORE INTO workspace_projects (id, owner_id, name, description, tone, source_type, workspace_status, workspace_file_count, workspace_bytes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [project.id, ownerId, project.name, project.description, project.tone, project.sourceType || "none", project.workspaceStatus || "empty", project.workspaceFileCount || 0, project.workspaceBytes || 0, timestamp, timestamp]);
     }
     for (const thread of workspace.threads) {
       const timestamp = thread.updatedAt || now();

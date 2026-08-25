@@ -19,6 +19,7 @@ import {
   Copy,
   Folder,
   FolderPlus,
+  Github,
   Menu,
   MoreHorizontal,
   Pencil,
@@ -29,6 +30,7 @@ import {
   Share2,
   Square,
   Trash2,
+  Upload,
   X,
 } from "lucide-react";
 import { LogOut } from "lucide-react";
@@ -38,7 +40,7 @@ import { useLocation } from "wouter";
 
 const AXOLOTL_ICON = "/axolotl-only.png";
 
-type Project = { id: string; name: string; description: string; tone: string };
+type Project = { id: string; name: string; description: string; tone: string; sourceType?: "none" | "upload" | "github"; sourceUrl?: string; workspaceStatus?: "empty" | "importing" | "ready" | "failed"; workspaceFileCount?: number; workspaceBytes?: number; workspaceError?: string };
 type Message = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
 type Thread = { id: string; chatSlug?: string; title: string; projectId?: string; updatedAt: string; messages: Message[] };
 
@@ -301,6 +303,13 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const [projectSlide, setProjectSlide] = useState(0);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [projectEditor, setProjectEditor] = useState<{ mode: "create" | "edit"; project?: Project } | null>(null);
+  const [projectTab, setProjectTab] = useState<"upload" | "github">("upload");
+  const [projectFiles, setProjectFiles] = useState<File[]>([]);
+  const [projectGithubUrl, setProjectGithubUrl] = useState("");
+  const [projectImportProgress, setProjectImportProgress] = useState(0);
+  const [projectImportError, setProjectImportError] = useState("");
+  const [projectDropActive, setProjectDropActive] = useState(false);
+  const [projectImportProjectId, setProjectImportProjectId] = useState<string | null>(null);
   const [threadEditor, setThreadEditor] = useState<string | null>(null);
   const [threadName, setThreadName] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
@@ -328,6 +337,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     textarea.style.height = `${nextHeight}px`;
   }, [draft]);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const projectFileInputRef = useRef<HTMLInputElement>(null);
   const attachmentRequestsRef = useRef<Map<string, XMLHttpRequest>>(new Map());
   const streamAbortRef = useRef<AbortController | null>(null);
   const streamThreadRef = useRef<string | null>(null);
@@ -355,7 +365,9 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     onError: () => { setMigrationSettled(true); toast.error("Your existing browser history could not be imported. It remains stored locally until the next attempt."); },
   });
   const refreshWorkspace = () => { void utils.workspace.navigation.invalidate(); void utils.workspace.chat.invalidate(); };
-  const createProjectMutation = trpc.workspace.createProject.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Project could not be saved") });
+  const createProjectMutation = trpc.workspace.createProject.useMutation();
+  const cloneGithubProjectMutation = trpc.workspace.cloneGithubProject.useMutation();
+  const markProjectImportFailedMutation = trpc.workspace.markProjectImportFailed.useMutation();
   const updateProjectMutation = trpc.workspace.updateProject.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Project could not be updated") });
   const deleteProjectMutation = trpc.workspace.deleteProject.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Project could not be removed") });
   const createThreadMutation = trpc.workspace.createThread.useMutation({ onSuccess: (thread) => { setActiveThreadId(thread.id); setPendingProjectId(null); setLocation(`/app/chat/${thread.chatSlug}`); refreshWorkspace(); }, onError: () => toast.error("Thread could not be created") });
@@ -535,19 +547,91 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     setThreadEditor(null);
   }
 
-  function saveProject(event: React.FormEvent<HTMLFormElement>) {
+  function selectProjectFiles(files: FileList | File[]) {
+    const nextFiles = Array.from(files).filter((file) => file.size > 0).slice(0, 20_000);
+    setProjectFiles((current) => {
+      const seen = new Set(current.map((file) => `${(file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name}:${file.size}:${file.lastModified}`));
+      return [...current, ...nextFiles.filter((file) => !seen.has(`${(file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name}:${file.size}:${file.lastModified}`))].slice(0, 20_000);
+    });
+    setProjectImportError("");
+  }
+
+  function uploadProjectFile(projectId: string, file: File, progress: (value: number) => void) {
+    return new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/workspace/projects/upload");
+      xhr.upload.onprogress = (event) => { if (event.lengthComputable) progress(event.loaded / event.total); };
+      xhr.onerror = () => reject(new Error("Project file upload failed."));
+      xhr.onabort = () => reject(new Error("Project file upload was cancelled."));
+      xhr.onload = () => {
+        let payload: { error?: string } = {};
+        try { payload = JSON.parse(xhr.responseText || "{}"); } catch { /* handled below */ }
+        if (xhr.status >= 200 && xhr.status < 300) { progress(1); resolve(); }
+        else reject(new Error(payload.error || "Project file upload failed."));
+      };
+      const form = new FormData();
+      form.append("projectId", projectId);
+      form.append("relativePath", (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name);
+      form.append("file", file, file.name);
+      xhr.send(form);
+    });
+  }
+
+  async function saveProject(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!workspaceReady) return;
+    if (!workspaceReady || createProjectMutation.isPending || cloneGithubProjectMutation.isPending) return;
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") || "").trim();
     const description = String(form.get("description") || "").trim();
     if (!name) return;
     if (projectEditor?.mode === "edit" && projectEditor.project) {
       updateProjectMutation.mutate({ id: projectEditor.project.id, project: { name, description } });
-    } else {
-      createProjectMutation.mutate({ name, description, tone: "#f4f4f0" });
+      setProjectEditor(null);
+      return;
     }
-    setProjectEditor(null);
+    setProjectImportError("");
+    let activeProjectId = projectImportProjectId;
+    try {
+      const sourceType = projectTab === "github" ? "github" : projectFiles.length > 0 ? "upload" : "none";
+      const project = activeProjectId
+        ? { id: activeProjectId }
+        : await createProjectMutation.mutateAsync({ name, description, tone: "#f4f4f0", sourceType });
+      activeProjectId = project.id;
+      setProjectImportProjectId(project.id);
+      setSelectedProjectId(project.id);
+      if (projectTab === "github") {
+        if (!projectGithubUrl.trim()) throw new Error("Paste a public GitHub repository URL.");
+        await cloneGithubProjectMutation.mutateAsync({ projectId: project.id, url: projectGithubUrl.trim() });
+      } else if (projectFiles.length > 0) {
+        for (let index = 0; index < projectFiles.length; index += 1) {
+          const file = projectFiles[index];
+          if (!file) continue;
+          await uploadProjectFile(project.id, file, (fileProgress) => setProjectImportProgress(Math.round(((index + fileProgress) / projectFiles.length) * 100)));
+        }
+      }
+      setProjectImportProgress(100);
+      refreshWorkspace();
+      setProjectEditor(null);
+      setProjectImportProjectId(null);
+      setProjectFiles([]);
+      setProjectGithubUrl("");
+      setProjectImportProgress(0);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Project could not be imported.";
+      setProjectImportError(message);
+      if (activeProjectId) markProjectImportFailedMutation.mutate({ projectId: activeProjectId, error: message });
+      toast.error(message);
+    }
+  }
+
+  function openNewProject() {
+    setProjectEditor({ mode: "create" });
+    setProjectTab("upload");
+    setProjectFiles([]);
+    setProjectGithubUrl("");
+    setProjectImportError("");
+    setProjectImportProgress(0);
+    setProjectImportProjectId(null);
   }
 
   function deleteProject(id: string) {
@@ -861,8 +945,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         <div className="sidebar-section project-section">
           <div className="project-list">
             <div className="project-carousel-header"><div className="sidebar-list-label">Projects {selectedProjectId && <button className="project-filter-clear" onClick={() => setSelectedProjectId(null)} aria-label="Clear project filter">Clear</button>}</div>{workspace.projects.length > 1 && <div className="project-carousel-controls"><button className="project-carousel-button" onClick={() => moveProjectSlide(-1)} disabled={projectSlide === 0} aria-label="Previous project"><ChevronLeft size={14} /></button><span aria-live="polite">{projectSlide + 1}/{workspace.projects.length}</span><button className="project-carousel-button" onClick={() => moveProjectSlide(1)} disabled={projectSlide >= workspace.projects.length - 1} aria-label="Next project"><ChevronRight size={14} /></button></div>}</div>
-            {navigationQuery.isLoading ? <div className="project-list-skeleton" aria-label="Loading saved projects"><i /><i /><i /></div> : workspace.projects.length > 0 ? (() => { const project = workspace.projects[projectSlide]; const isSelected = selectedProjectId === project.id; return <div className={`project-row project-carousel-card ${isSelected ? "selected" : ""}`} key={project.id} onClick={() => toggleProjectSelection(project.id)} role="button" tabIndex={0} aria-pressed={isSelected} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleProjectSelection(project.id); } }}><Folder size={15} /><div className="project-row-copy"><span>{project.name}</span><small>{isSelected ? "Filtering threads" : project.description}</small></div><button className="item-more" onClick={(event) => { event.stopPropagation(); setProjectEditor({ mode: "edit", project }); }} aria-label={`Edit ${project.name}`}><MoreHorizontal size={15} /></button></div>; })() : <div className="project-empty">No projects yet</div>}
-            <button className="add-project" onClick={() => setProjectEditor({ mode: "create" })} disabled={!workspaceReady}><FolderPlus size={15} /> Add project</button>
+            {navigationQuery.isLoading ? <div className="project-list-skeleton" aria-label="Loading saved projects"><i /><i /><i /></div> : workspace.projects.length > 0 ? (() => { const project = workspace.projects[projectSlide]; const isSelected = selectedProjectId === project.id; return <div className={`project-row project-carousel-card ${isSelected ? "selected" : ""}`} key={project.id} onClick={() => toggleProjectSelection(project.id)} role="button" tabIndex={0} aria-pressed={isSelected} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleProjectSelection(project.id); } }}><Folder size={15} /><div className="project-row-copy"><span>{project.name}</span><small>{isSelected ? "Filtering threads" : project.workspaceStatus === "ready" ? `${project.workspaceFileCount || 0} files ready` : project.workspaceStatus === "importing" ? "Importing codebase" : project.workspaceStatus === "failed" ? "Import failed — open to retry" : project.description}</small></div><button className="item-more" onClick={(event) => { event.stopPropagation(); setProjectEditor({ mode: "edit", project }); }} aria-label={`Edit ${project.name}`}><MoreHorizontal size={15} /></button></div>; })() : <div className="project-empty">No projects yet</div>}
+            <button className="add-project" onClick={openNewProject} disabled={!workspaceReady}><FolderPlus size={15} /> Add project</button>
           </div>
         </div>
         <div className="sidebar-footer"><div className="profile-row"><div className="profile-avatar">{profileAvatar ? <img src={profileAvatar} alt="" referrerPolicy="no-referrer" onError={() => setAvatarFailed(true)} /> : profileInitials}</div><div className="profile-copy"><strong>{profileName}</strong>{profileEmail && <span>{profileEmail}</span>}</div>{onSignOut && <button className="profile-signout" onClick={onSignOut} disabled={signOutPending} aria-label="Sign out"><LogOut size={16} /></button>}</div></div>
@@ -912,7 +996,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       {activeWorkOpen && <div className="active-work-backdrop" onMouseDown={() => setActiveWorkOpen(false)}><aside className="active-work-drawer" role="dialog" aria-modal="true" aria-labelledby="active-work-title" onMouseDown={(event) => event.stopPropagation()}><header className="active-work-header"><div><span className="modal-eyebrow">Work in progress</span><h2 id="active-work-title">Your work</h2></div><button className="icon-button" onClick={() => setActiveWorkOpen(false)} aria-label="Close your work"><X size={17} /></button></header><div className="active-work-body">{recentMissions.length === 0 ? <div className="active-work-empty"><span className="active-work-empty-mark" aria-hidden="true" /><p>No work yet.</p><small>When you give the agent a job, it will appear here.</small></div> : <><div className="mission-list" aria-label="Your work">{recentMissions.map((mission) => { const status = mission.status as MissionStatus; const isSelected = selectedMissionId === mission.id; return <button className={`mission-list-item ${isSelected ? "selected" : ""}`} key={mission.id} onClick={() => { setSelectedMissionId(mission.id); setActiveWorkOpen(true); }}><span className={`mission-list-status ${missionIsActive(status) ? "working" : status}`} aria-hidden="true" /><span className="mission-list-copy"><strong>{mission.goal}</strong><small>{missionStatusLabel(status)}</small></span><span className="mission-list-arrow" aria-hidden="true">›</span></button>; })}</div>{selectedMission && <section className="mission-detail"><div className="mission-detail-heading"><div><span className="modal-eyebrow">Selected work</span><h3>{selectedMission.goal}</h3></div><span className={`mission-status-pill ${missionIsActive(selectedMission.status as MissionStatus) ? "working" : selectedMission.status}`}>{missionStatusLabel(selectedMission.status as MissionStatus)}</span></div>{selectedMissionSnapshot ? <><div className="mission-progress-copy"><span>{selectedCompletedItems} of {selectedWorkItems.length || "—"} steps complete</span><span>{selectedMissionSnapshot.events.length} updates</span></div><div className="mission-progress-track"><span style={{ width: `${selectedWorkItems.length ? Math.round((selectedCompletedItems / selectedWorkItems.length) * 100) : selectedMission.status === "completed" ? 100 : 12}%` }} /></div></> : <div className="mission-detail-loading">Loading the latest result…</div>}<div className="mission-actions">{selectedMission.status === "paused" ? <button className="primary-button" onClick={() => handleMissionAction("resume", selectedMission.id)} aria-label="Continue work">Continue</button> : missionIsActive(selectedMission.status as MissionStatus) && <button className="text-button" onClick={() => handleMissionAction("pause", selectedMission.id)} aria-label="Pause work">Pause</button>}{missionIsActive(selectedMission.status as MissionStatus) && <button className="stop-work-button" onClick={() => handleMissionAction("stop", selectedMission.id)} aria-label="Stop work">Stop</button>}{selectedMission.status === "failed" || selectedMission.status === "stopped" ? <button className="primary-button" onClick={() => handleMissionAction("retry", selectedMission.id)} aria-label="Try work again">Try again</button> : null}</div></section>}</>}</div></aside></div>}
 
       {threadEditor && <div className="modal-backdrop" onMouseDown={() => setThreadEditor(null)}><div className="small-modal" onMouseDown={(event) => event.stopPropagation()}><h3>Rename thread</h3><input autoFocus value={threadName} onChange={(event) => setThreadName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && submitThreadName()} /><div className="modal-actions"><button className="text-button" onClick={() => setThreadEditor(null)}>Cancel</button><button className="primary-button" onClick={submitThreadName}>Save name</button></div></div></div>}
-      {projectEditor && <div className="modal-backdrop" onMouseDown={() => setProjectEditor(null)}><form className="small-modal" onSubmit={saveProject} onMouseDown={(event) => event.stopPropagation()}><h3>{projectEditor.mode === "edit" ? "Edit project" : "New project"}</h3><label>Name<input name="name" defaultValue={projectEditor.project?.name || ""} autoFocus placeholder="e.g. Product systems" /></label><label>Description<input name="description" defaultValue={projectEditor.project?.description || ""} placeholder="What belongs here?" /></label><div className="modal-actions">{projectEditor.mode === "edit" && projectEditor.project && <button type="button" className="delete-project" onClick={() => { deleteProject(projectEditor.project!.id); setProjectEditor(null); }}><Trash2 size={14} /> Delete</button>}<span className="modal-spacer" /><button type="button" className="text-button" onClick={() => setProjectEditor(null)}>Cancel</button><button className="primary-button" type="submit">{projectEditor.mode === "edit" ? "Save changes" : "Create project"}</button></div></form></div>}
+      {projectEditor && <div className="modal-backdrop" onMouseDown={() => setProjectEditor(null)}><form className={projectEditor.mode === "create" ? "small-modal project-onboarding-card" : "small-modal"} onSubmit={saveProject} onMouseDown={(event) => event.stopPropagation()}><div className="project-modal-heading"><div><span className="eyebrow">PROJECT</span><h3>{projectEditor.mode === "edit" ? "Edit project" : "New project"}</h3></div><button type="button" className="icon-button" onClick={() => setProjectEditor(null)} aria-label="Close project dialog"><X size={16} /></button></div>{projectEditor.mode === "edit" ? <><label>Name<input name="name" defaultValue={projectEditor.project?.name || ""} autoFocus placeholder="e.g. Product systems" /></label><label>Description<input name="description" defaultValue={projectEditor.project?.description || ""} placeholder="What belongs here?" /></label></> : <><div className="project-tabs" role="tablist" aria-label="Project source"><button type="button" className={projectTab === "upload" ? "active" : ""} onClick={() => { setProjectTab("upload"); setProjectImportError(""); }} role="tab" aria-selected={projectTab === "upload"}><Upload size={15} /> Upload codebase</button><button type="button" className={projectTab === "github" ? "active" : ""} onClick={() => { setProjectTab("github"); setProjectImportError(""); }} role="tab" aria-selected={projectTab === "github"}><Github size={15} /> Clone from GitHub</button></div><label>Name<input name="name" defaultValue="" autoFocus placeholder="e.g. Product systems" /></label><label>Description<input name="description" defaultValue="" placeholder="Optional" /></label>{projectTab === "upload" ? <><input ref={projectFileInputRef} className="sr-only" type="file" multiple onChange={(event) => { if (event.target.files) selectProjectFiles(event.target.files); event.currentTarget.value = ""; }} /><button type="button" className={projectDropActive ? "project-dropzone active" : "project-dropzone"} onClick={() => projectFileInputRef.current?.click()} onDragEnter={(event) => { event.preventDefault(); setProjectDropActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setProjectDropActive(false)} onDrop={(event) => { event.preventDefault(); setProjectDropActive(false); if (event.dataTransfer.files.length) selectProjectFiles(event.dataTransfer.files); }}><Upload size={22} /><strong>{projectFiles.length ? <>{projectFiles.length} file{projectFiles.length === 1 ? "" : "s"} selected</> : "Drop your codebase files here"}</strong><span>or click to choose multiple files. Any file type is accepted.</span></button>{projectFiles.length > 0 && <div className="project-file-summary"><span>{projectFiles.slice(0, 3).map((file) => file.name).join(", ")}{projectFiles.length > 3 ? <> and {projectFiles.length - 3} more</> : null}</span><button type="button" className="text-button" onClick={() => setProjectFiles([])}>Clear</button></div>}</> : <label className="github-input-label"><span>Public GitHub repository URL</span><div className="github-input-wrap"><Github size={15} /><input value={projectGithubUrl} onChange={(event) => setProjectGithubUrl(event.target.value)} placeholder="https://github.com/owner/repository" /></div><small>Only public HTTPS GitHub repository links are accepted.</small></label>}{projectImportProgress > 0 && projectImportProgress < 100 && <div className="project-import-progress" aria-live="polite"><div><span>Importing codebase</span><strong>{projectImportProgress}%</strong></div><i><b style={{ width: projectImportProgress + "%" }} /></i></div>}{projectImportError && <div className="project-import-error" role="alert">{projectImportError}</div>}</>}<div className="modal-actions">{projectEditor.mode === "edit" && projectEditor.project && <button type="button" className="delete-project" onClick={() => { deleteProject(projectEditor.project!.id); setProjectEditor(null); }}><Trash2 size={14} /> Delete</button>}<span className="modal-spacer" /><button type="button" className="text-button" onClick={() => setProjectEditor(null)}>Cancel</button><button className="primary-button" type="submit" disabled={createProjectMutation.isPending || cloneGithubProjectMutation.isPending || updateProjectMutation.isPending}>{projectEditor.mode === "edit" ? "Save changes" : projectTab === "github" ? "Create and clone" : "Create project"}</button></div></form></div>}
       {settingsOpen && <div className="modal-backdrop settings-backdrop" onMouseDown={() => setSettingsOpen(false)}>
         <section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="workspace-settings-title" onMouseDown={(event) => event.stopPropagation()}>
           <header className="settings-modal-header"><div><span className="modal-eyebrow">Account & models</span><h2 id="workspace-settings-title">Settings</h2></div><button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="Close settings" autoFocus><X size={17} /></button></header>

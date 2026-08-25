@@ -9,7 +9,7 @@ RUN npm install -g corepack@latest \
   && corepack pnpm install --frozen-lockfile \
   && corepack pnpm run build
 
-ENV NODE_ENV=production
+ENV NODE_ENV=production NEXUSS_PROJECTS_ROOT=/var/lib/nexuss-projects
 EXPOSE 3000
 
 CMD ["node", "dist/index.js"]

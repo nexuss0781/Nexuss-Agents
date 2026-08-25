@@ -14,6 +14,7 @@ import { planRepositoryChange } from "../mission/orchestrator";
 import { createRepositoryChangeExecutor } from "../mission/repositoryChangeExecutor";
 import { recoverAllMissions } from "../mission/commands";
 import { registerAttachmentUploadRoute } from "../attachments";
+import { registerProjectWorkspaceUploadRoute } from "../projectWorkspace";
 
 missionRunner.configureOrchestrator(planRepositoryChange);
 missionRunner.configureExecutor(createRepositoryChangeExecutor());
@@ -47,6 +48,7 @@ async function startServer() {
   registerNexussAuthRoutes(app);
   registerPlaygroundStreamRoute(app);
   registerAttachmentUploadRoute(app);
+  registerProjectWorkspaceUploadRoute(app);
   // tRPC API
   app.use(
     "/api/trpc",

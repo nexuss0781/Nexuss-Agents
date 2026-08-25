@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: nexuss-agent
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    disk:
+      name: project-workspaces
+      mountPath: /var/lib/nexuss-projects
+      sizeGB: 10
+    envVars:
+      - key: NEXUSS_PROJECTS_ROOT
+        value: /var/lib/nexuss-projects
