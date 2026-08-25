@@ -1173,3 +1173,11 @@ body { color: var(--paper); }
 .github-repository-list.is-empty, .github-repository-list.is-loading { min-height: 0; max-height: none; padding: 10px; background: rgba(8,11,12,.18); }
 .github-repository-list.is-empty .github-repository-empty, .github-repository-list.is-loading .github-repository-empty { padding: 3px; }
 .github-repository-list.has-repositories { min-height: 250px; max-height: 360px; overflow-y: auto; }
+
+/* Keep the onboarding card inside the viewport; the repository list remains the visual focus. */
+.project-onboarding-card { max-height: min(820px, calc(100vh - 28px)); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(203,214,219,.3) transparent; }
+.project-onboarding-card::-webkit-scrollbar { width: 5px; }
+.project-onboarding-card::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(203,214,219,.3); }
+.project-onboarding-card .modal-actions { position: sticky; bottom: -1px; z-index: 2; margin: 2px -2px -2px; padding-top: 12px; background: linear-gradient(180deg, rgba(22,22,24,0), rgba(22,22,24,.98) 28%); }
+.github-repository-list.has-repositories { min-height: 320px; max-height: min(48vh, 420px); }
+.github-repository-list.is-empty, .github-repository-list.is-loading { min-height: 0; max-height: none; }

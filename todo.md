@@ -711,3 +711,12 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 - [x] Keep loading and empty repository messages compact.
 - [x] Keep populated repository lists bounded and vertically scrollable.
 - [x] Validate TypeScript, focused tests, production build, and whitespace.
+
+## Final Project Card Simplification
+
+- [x] Remove the connected GitHub status row from the project card.
+- [x] Keep the two main source tabs at the top before the project name field.
+- [x] Remove the unnecessary Description field from project creation and editing.
+- [x] Make the whole project card scrollable within the viewport.
+- [x] Give populated repository lists enough bounded space while keeping empty states compact.
+- [x] Validate TypeScript, focused tests, production build, and whitespace.
