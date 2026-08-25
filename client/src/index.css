@@ -1332,3 +1332,9 @@ body { color: var(--paper); }
   .empty-suggestions .suggestion-label { display: none; }
   .empty-suggestions button svg { flex: 0 0 auto; }
 }
+
+/* Do not allow the resizable drawer to consume the conversation workspace. */
+@media (min-width: 801px) {
+  .main-stage { flex: 1 1 auto; min-width: 560px; }
+  .right-window { flex: 0 0 auto; max-width: calc(100vw - 840px); }
+}
