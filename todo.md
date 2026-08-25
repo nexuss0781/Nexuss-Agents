@@ -666,3 +666,8 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 - [x] Use central-auth repository listing and immediate clone-token endpoints for authorized imports.
 - [x] Update Render variables to `NEXUSS_AUTH_URL`, `NEXUSS_AUTH_PROJECT_ID`, and `NEXUSS_AUTH_REDIRECT_URI`.
 - [x] Validate central-auth and relying-application authentication, workspace, TypeScript, build, and whitespace checks.
+
+## Central OAuth Error Recovery
+
+- [x] Confirm the relying app is using central Nexuss Auth rather than local GitHub OAuth.
+- [x] Validate the central-auth callback and grant client after the OAuth start migration fix.
