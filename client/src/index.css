@@ -1447,3 +1447,23 @@ body { color: var(--paper); }
   .right-window-header-title > .right-window-store-brand .right-window-store-mark img { width: 36px; height: 36px; }
   .right-window-header-title > .right-window-store-brand .right-window-store-copy strong { font-size: 27px; }
 }
+
+/* Luxury finish pass: quiet material, precise type, and a restrained Axolotl copper accent. */
+.right-window-header { background: linear-gradient(145deg, rgba(25,30,31,.99), rgba(13,17,18,.99)); box-shadow: inset 0 -1px 0 rgba(255,255,255,.025), 0 12px 32px rgba(0,0,0,.12); }
+.right-window-header::before { position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(135deg, transparent 0 31px, rgba(226,235,237,.017) 32px 33px), linear-gradient(90deg, rgba(202,164,134,.08), transparent 32%); content: ""; }
+.right-window-header-title, .right-window-header-actions { position: relative; z-index: 1; }
+.right-window-header-title > .right-window-store-brand { position: relative; gap: 13px; }
+.right-window-header-title > .right-window-store-brand::after { position: absolute; right: 0; bottom: 5px; left: 63px; height: 1px; background: linear-gradient(90deg, rgba(202,164,134,.36), transparent 78%); content: ""; }
+.right-window-header-title > .right-window-store-brand .right-window-store-mark { border-color: rgba(202,164,134,.58); background: radial-gradient(circle at 35% 25%, rgba(232,202,180,.22), transparent 42%), linear-gradient(145deg, rgba(202,164,134,.23), rgba(202,164,134,.055)); box-shadow: inset 0 1px 0 rgba(255,255,255,.13), inset 0 0 0 4px rgba(0,0,0,.08), 0 12px 24px rgba(0,0,0,.24), 0 0 24px rgba(202,164,134,.06); }
+.right-window-header-title > .right-window-store-brand .right-window-store-copy { gap: 0; }
+.right-window-header-title > .right-window-store-brand .right-window-store-copy span { color: #d2ae92; font-size: 8px; letter-spacing: .33em; }
+.right-window-header-title > .right-window-store-brand .right-window-store-copy strong { background: linear-gradient(100deg, #ffffff 0%, #d9dfde 64%, #aeb9b7 100%); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 1px 18px rgba(255,255,255,.06); }
+.right-window-header-title > .right-window-store-brand .right-window-store-copy small { color: #899494; font-size: 7px; letter-spacing: .2em; }
+.right-window-header-actions { border-color: rgba(220,226,228,.14); background: rgba(5,8,9,.28); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 6px 16px rgba(0,0,0,.18); }
+.right-window-header-actions .icon-button { color: #9ca9aa; }
+.right-window-header-actions .icon-button:hover, .right-window-header-actions .icon-button:focus-visible { border-color: rgba(202,164,134,.56); background: linear-gradient(145deg, rgba(202,164,134,.18), rgba(202,164,134,.06)); color: #f4e5da; box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 0 14px rgba(202,164,134,.08); }
+.right-window-header-actions .icon-button:active { transform: translateY(1px); }
+@media (max-width: 800px) {
+  .right-window-header-title > .right-window-store-brand { gap: 10px; }
+  .right-window-header-title > .right-window-store-brand::after { left: 56px; }
+}
