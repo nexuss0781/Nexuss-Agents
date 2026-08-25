@@ -1578,3 +1578,29 @@ body { color: var(--paper); }
 .nexuss-git-external-link { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; padding-top: 2px; color: #caa486; font: 9px "IBM Plex Mono", monospace; text-decoration: none; }
 .nexuss-git-external-link:hover { color: #e4bea0; }
 @media (max-width: 440px) { .nexuss-git-selected-repository { flex-direction: column; } .nexuss-git-external-link { padding-left: 40px; } }
+
+.nexuss-git-file-workspace { display: flex; min-height: 0; flex-direction: column; gap: 8px; }
+.nexuss-git-file-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 10px; padding: 4px 1px 2px; }
+.nexuss-git-file-toolbar strong { display: block; margin-top: 5px; color: #e9ece8; font-size: 15px; font-weight: 560; }
+.nexuss-git-tree-ref { padding: 5px 7px; color: #caa486; border: 1px solid rgba(202,164,134,.2); border-radius: 6px; background: rgba(202,164,134,.07); font: 9px "IBM Plex Mono", monospace; }
+.nexuss-git-file-search { display: flex; align-items: center; gap: 7px; padding: 8px 9px; color: #78837e; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; background: rgba(255,255,255,.035); }
+.nexuss-git-file-search input { min-width: 0; flex: 1; color: #dfe4df; outline: 0; border: 0; background: transparent; font-size: 11px; }
+.nexuss-git-file-search input::placeholder { color: #68736f; }
+.nexuss-git-tree-list { max-height: 245px; overflow: auto; padding: 4px 0; border: 1px solid rgba(255,255,255,.08); border-radius: 9px; background: rgba(255,255,255,.025); scrollbar-width: thin; scrollbar-color: rgba(202,164,134,.45) transparent; }
+.nexuss-git-tree-row { display: flex; width: 100%; align-items: center; gap: 6px; min-height: 29px; padding-top: 5px; padding-right: 8px; padding-bottom: 5px; color: #aeb8b2; border: 0; background: transparent; cursor: pointer; text-align: left; font-size: 11px; }
+.nexuss-git-tree-row:hover, .nexuss-git-tree-row.is-selected { color: #f0f2ee; background: rgba(202,164,134,.12); }
+.nexuss-git-tree-row svg { flex: 0 0 auto; color: #a68c78; }
+.nexuss-git-tree-row span:not(.nexuss-git-tree-spacer) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nexuss-git-tree-row small { margin-left: auto; color: #68736f; font: 9px "IBM Plex Mono", monospace; }
+.nexuss-git-tree-spacer { display: block; width: 13px; flex: 0 0 auto; }
+.nexuss-git-tree-warning { padding: 7px 9px; color: #caa486; border: 1px solid rgba(202,164,134,.18); border-radius: 7px; background: rgba(202,164,134,.06); font: 9px "IBM Plex Mono", monospace; line-height: 1.4; }
+.nexuss-git-file-status { display: flex; min-height: 96px; align-items: center; justify-content: center; gap: 7px; padding: 14px; color: #89938f; text-align: center; font-size: 10px; }
+.nexuss-git-file-error { flex-wrap: wrap; color: #d29a94; }
+.nexuss-git-file-status button { padding: 0; color: #caa486; border: 0; background: transparent; font-size: 10px; }
+.nexuss-git-preview { min-height: 145px; overflow: hidden; border: 1px solid rgba(255,255,255,.09); border-radius: 9px; background: #0c0e0e; }
+.nexuss-git-preview-placeholder { display: flex; min-height: 145px; align-items: center; justify-content: center; gap: 7px; padding: 18px; color: #75807b; text-align: center; font-size: 10px; }
+.nexuss-git-preview-content { max-height: 290px; overflow: auto; scrollbar-width: thin; scrollbar-color: rgba(202,164,134,.45) transparent; }
+.nexuss-git-preview-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.08); color: #bbc4be; font: 9px "IBM Plex Mono", monospace; }
+.nexuss-git-preview-header strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
+.nexuss-git-preview-header span { flex: 0 0 auto; color: #68736f; }
+.nexuss-git-preview-content pre { margin: 0; padding: 12px 10px 16px; overflow-x: auto; color: #cbd4cd; font: 10px/1.6 "IBM Plex Mono", monospace; white-space: pre; }

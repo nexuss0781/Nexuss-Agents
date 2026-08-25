@@ -2,6 +2,9 @@ import { loadGithubGrant } from "./paradoxWorkspace";
 
 type CentralAuthConfig = { authUrl: string; projectId: string; redirectUri: string };
 export type GithubRepository = { id: number; name: string; fullName: string; description: string | null; private: boolean; htmlUrl: string; defaultBranch: string };
+export type GithubTreeEntry = { path: string; type: "blob" | "tree"; sha: string; size: number | null };
+export type GithubTree = { owner: string; repo: string; ref: string; sha: string | null; truncated: boolean; tree: GithubTreeEntry[] };
+export type GithubFile = { owner: string; repo: string; ref: string; path: string; name: string; sha: string | null; size: number; content: string; htmlUrl: string | null };
 
 export class GithubOAuthError extends Error {
   readonly code: "NOT_CONFIGURED" | "NOT_CONNECTED" | "OAUTH_FAILED" | "GITHUB_API_FAILED";
@@ -64,6 +67,24 @@ export async function githubConnectionStatus(ownerId: string): Promise<{ configu
 export async function listGithubRepositories(ownerId: string): Promise<{ connected: true; login: string; repositories: GithubRepository[] }> {
   const result = await centralGithubRequest<{ login: string; repositories: GithubRepository[] }>(ownerId, "/v1/github/repositories");
   return { connected: true, login: result.login, repositories: Array.isArray(result.repositories) ? result.repositories.slice(0, 100) : [] };
+}
+
+export async function getGithubTree(ownerId: string, fullName: string, ref?: string): Promise<GithubTree> {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName)) throw new GithubOAuthError("Choose a valid GitHub repository.");
+  const [owner, repo] = fullName.split("/");
+  const params = new URLSearchParams({ owner, repo });
+  if (ref?.trim()) params.set("ref", ref.trim().slice(0, 200));
+  const result = await centralGithubRequest<GithubTree>(ownerId, `/v1/github/tree?${params.toString()}`);
+  return { ...result, tree: Array.isArray(result.tree) ? result.tree.slice(0, 5_000) : [] };
+}
+
+export async function getGithubFile(ownerId: string, fullName: string, path: string, ref?: string): Promise<GithubFile> {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName)) throw new GithubOAuthError("Choose a valid GitHub repository.");
+  if (!path.trim() || path.length > 500 || path.startsWith("/") || path.split("/").some((segment) => !segment || segment === "." || segment === "..")) throw new GithubOAuthError("Choose a valid repository file.");
+  const [owner, repo] = fullName.split("/");
+  const params = new URLSearchParams({ owner, repo, path });
+  if (ref?.trim()) params.set("ref", ref.trim().slice(0, 200));
+  return centralGithubRequest<GithubFile>(ownerId, `/v1/github/file?${params.toString()}`);
 }
 
 export async function cloneAuthorizedGithubProject(ownerId: string, projectId: string, fullName: string, clone: (ownerId: string, projectId: string, url: string, token: string) => Promise<unknown>) {
