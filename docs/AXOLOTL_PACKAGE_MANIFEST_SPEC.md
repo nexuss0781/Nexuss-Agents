@@ -715,3 +715,47 @@ A successful result contains a normalized manifest with canonical GitHub reposit
 The validator deliberately does not perform network access, clone repositories, install packages, or grant permissions. Those responsibilities belong to later package-manager components. Source syntax, host allowlisting, publisher declarations, and manifest integrity declarations are validated here; source reachability and publisher ownership must be verified by the later admission and installation layers.
 
 Phase 2 tests are located at `server/packageManager/manifest.test.ts` and cover valid normalization, strict unknown-field rejection, duplicate IDs, source validation, launch constraints, icon constraints, capability relationships, trusted system publishers, API compatibility, and reproducibility warnings.
+
+
+## 23. Phase 3 Secure Downloader and Verifier
+
+The Phase 3 implementation is available at `server/packageManager/downloader.ts` and exposes `downloadAndVerifyPackage(manifestInput, options)`. It is intentionally server-side and dependency-light. It does not execute package code, run package lifecycle scripts, or grant permissions.
+
+The downloader follows this sequence:
+
+1. Validate and normalize the manifest with the Phase 2 validator.
+2. Require a reproducible source tag or full commit unless an explicit development-only moving-ref override is supplied.
+3. Verify a declared source commit when the caller resolves one.
+4. Compute and compare the normalized manifest digest when one is declared.
+5. Download the GitHub archive over HTTPS with redirects disabled.
+6. Enforce response and streaming byte limits.
+7. Inspect archive paths before extraction.
+8. Reject unsafe links and special files.
+9. Extract into a random, private transaction directory with ownership and permission metadata ignored.
+10. Re-scan the extracted tree for path escapes, links, special files, file-count limits, and total-size limits.
+11. Resolve and verify the declared package subdirectory.
+12. Return the verified staging path and SHA-256 archive and manifest digests.
+
+```ts
+const result = await downloadAndVerifyPackage(manifest, {
+  stagingDirectory: "/var/lib/nexuss-packages",
+  maxDownloadBytes: 50 * 1024 * 1024,
+  maxExtractedBytes: 250 * 1024 * 1024,
+  maxFiles: 20_000,
+  timeoutMs: 30_000,
+});
+
+if (!result.ok) {
+  // Persist result.errors in the package admission record.
+  return result;
+}
+
+// Pass result.packageRoot to the later installer; do not execute it here.
+return result;
+```
+
+A failed transaction is removed automatically. A successful transaction remains in its private staging directory for the later installer to atomically promote into the package registry. The helper `removePackageStaging` refuses to remove the staging root itself or any path outside the configured root.
+
+The downloader does not claim that a GitHub tag resolves to a particular commit by itself. The admission layer must resolve the ref through the configured GitHub integration and pass `resolvedSourceCommit` when the manifest declares an integrity source commit. This keeps network resolution and package acquisition separate from deterministic archive and filesystem verification.
+
+The Phase 3 tests are located at `server/packageManager/downloader.test.ts`. They cover successful bounded extraction, reproducible-ref enforcement, source-commit verification, download-size limits, manifest digest mismatch, archive traversal rejection, and failed-transaction cleanup.
