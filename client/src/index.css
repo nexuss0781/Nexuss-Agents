@@ -1483,3 +1483,72 @@ body { color: var(--paper); }
   .search-shortcut-hint { display: none; }
   .search-field input { padding-right: 10px; }
 }
+
+/* Nexuss-Git app surface */
+.nexuss-git-app { min-height: 100%; display: flex; flex-direction: column; gap: 14px; padding: 18px; color: #e8ebe8; background: radial-gradient(circle at 90% 0%, rgba(202,164,134,.09), transparent 36%), #101112; font-family: "Space Grotesk", sans-serif; }
+.nexuss-git-toolbar, .nexuss-git-identity, .nexuss-git-toolbar-actions, .nexuss-git-repository-button, .nexuss-git-connection-status, .nexuss-git-tabs button, .nexuss-git-eyebrow, .nexuss-git-connect-button, .nexuss-git-text-button, .nexuss-git-action-grid button, .nexuss-git-trust-note, .nexuss-git-command-bar, .nexuss-git-footer span { display: flex; align-items: center; }
+.nexuss-git-toolbar { justify-content: space-between; }
+.nexuss-git-identity { min-width: 0; gap: 10px; }
+.nexuss-git-app-mark, .nexuss-git-repo-avatar { display: grid; place-items: center; flex: 0 0 auto; color: #d6b398; border: 1px solid rgba(202,164,134,.35); background: rgba(202,164,134,.12); }
+.nexuss-git-app-mark { width: 34px; height: 34px; border-radius: 11px; }
+.nexuss-git-identity strong, .nexuss-git-identity small, .nexuss-git-repo-copy, .nexuss-git-repo-copy small, .nexuss-git-repo-copy strong { display: block; }
+.nexuss-git-identity strong { font-size: 14px; letter-spacing: -.02em; }
+.nexuss-git-identity small { margin-top: 2px; color: #7e8887; font: 9px "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
+.nexuss-git-toolbar-actions { gap: 6px; }
+.nexuss-git-icon-button { display: grid; width: 29px; height: 29px; place-items: center; color: #8d9693; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; background: rgba(255,255,255,.035); cursor: pointer; }
+.nexuss-git-icon-button:hover { color: #f4f5f2; border-color: rgba(202,164,134,.45); }
+.nexuss-git-repository-picker { position: relative; }
+.nexuss-git-repository-button { width: 100%; gap: 10px; padding: 10px; color: #dfe3e0; text-align: left; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; background: rgba(255,255,255,.045); cursor: pointer; }
+.nexuss-git-repository-button:hover { border-color: rgba(202,164,134,.4); background: rgba(202,164,134,.08); }
+.nexuss-git-repo-avatar { width: 29px; height: 29px; border-radius: 9px; }
+.nexuss-git-repo-copy { min-width: 0; flex: 1; }
+.nexuss-git-repo-copy small { color: #7e8887; font: 9px "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
+.nexuss-git-repo-copy strong { overflow: hidden; margin-top: 2px; color: #eef0ec; font-size: 12px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
+.nexuss-git-chevron-open { transform: rotate(180deg); }
+.nexuss-git-connection-status { gap: 5px; margin-top: 7px; color: #798481; font: 9px "IBM Plex Mono", monospace; }
+.nexuss-git-connection-status span { width: 5px; height: 5px; border-radius: 50%; background: #7b8580; }
+.nexuss-git-repository-menu { position: absolute; z-index: 2; top: calc(100% + 5px); right: 0; left: 0; padding: 5px; border: 1px solid rgba(255,255,255,.12); border-radius: 11px; background: #1b1d1e; box-shadow: 0 16px 38px rgba(0,0,0,.35); }
+.nexuss-git-repository-menu button { display: flex; width: 100%; gap: 8px; padding: 9px; color: #cbd1cd; border: 0; border-radius: 7px; background: transparent; cursor: pointer; text-align: left; font-size: 11px; }
+.nexuss-git-repository-menu button:hover { background: rgba(255,255,255,.07); }
+.nexuss-git-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; padding: 3px; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; background: rgba(255,255,255,.025); }
+.nexuss-git-tabs button { justify-content: center; min-width: 0; gap: 5px; padding: 8px 4px; color: #78827f; border: 0; border-radius: 7px; background: transparent; cursor: pointer; font: 10px "IBM Plex Mono", monospace; }
+.nexuss-git-tabs button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nexuss-git-tabs button:hover, .nexuss-git-tabs button.is-active { color: #f0f2ef; background: rgba(202,164,134,.14); }
+.nexuss-git-tabs button.is-active { box-shadow: inset 0 0 0 1px rgba(202,164,134,.22); }
+.nexuss-git-tabs em { color: #caa486; font-style: normal; }
+.nexuss-git-content { min-height: 360px; flex: 1; }
+.nexuss-git-hero { display: flex; flex-direction: column; gap: 18px; padding: 19px; border: 1px solid rgba(255,255,255,.1); border-radius: 15px; background: linear-gradient(145deg, rgba(202,164,134,.12), rgba(255,255,255,.035) 62%); }
+.nexuss-git-eyebrow { gap: 5px; color: #caa486; font: 9px "IBM Plex Mono", monospace; letter-spacing: .12em; text-transform: uppercase; }
+.nexuss-git-hero h2 { max-width: 300px; margin: 8px 0 7px; color: #f1f3ee; font-size: 23px; font-weight: 560; letter-spacing: -.055em; line-height: 1.02; }
+.nexuss-git-hero p { max-width: 390px; margin: 0; color: #9ba5a1; font-size: 12px; line-height: 1.55; }
+.nexuss-git-connect-button, .nexuss-git-quiet-button { justify-content: center; gap: 7px; width: fit-content; padding: 9px 12px; color: #171819; border: 0; border-radius: 8px; background: #caa486; cursor: pointer; font-size: 11px; font-weight: 650; }
+.nexuss-git-connect-button:hover, .nexuss-git-quiet-button:hover { background: #e0bda0; }
+.nexuss-git-stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.nexuss-git-stat { min-width: 0; padding: 12px; border: 1px solid rgba(255,255,255,.08); border-radius: 11px; background: rgba(255,255,255,.035); }
+.nexuss-git-stat span, .nexuss-git-stat small { display: block; color: #7d8883; font: 9px "IBM Plex Mono", monospace; }
+.nexuss-git-stat strong { display: block; margin: 6px 0 3px; color: #e8ece8; font-size: 16px; font-weight: 580; }
+.nexuss-git-stat-copper strong { color: #d5af92; }
+.nexuss-git-stat-green strong { color: #a7c7ae; }
+.nexuss-git-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin: 22px 0 10px; }
+.nexuss-git-section-heading h3 { margin: 5px 0 0; color: #e9ece8; font-size: 15px; font-weight: 560; }
+.nexuss-git-text-button { gap: 4px; padding: 0; color: #aeb9b4; border: 0; background: transparent; cursor: pointer; font-size: 10px; }
+.nexuss-git-text-button:hover { color: #d6b398; }
+.nexuss-git-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.nexuss-git-action-grid button { align-items: flex-start; flex-direction: column; gap: 6px; padding: 12px; color: #cfd5d1; text-align: left; border: 1px solid rgba(255,255,255,.08); border-radius: 11px; background: rgba(255,255,255,.03); cursor: pointer; }
+.nexuss-git-action-grid button:hover { border-color: rgba(202,164,134,.36); background: rgba(202,164,134,.07); }
+.nexuss-git-action-grid button svg { color: #caa486; }
+.nexuss-git-action-grid button span { font-size: 11px; font-weight: 560; }
+.nexuss-git-action-grid button small { color: #7e8985; font-size: 10px; }
+.nexuss-git-trust-note { gap: 7px; margin-top: 14px; padding: 10px; color: #91a49a; border: 1px solid rgba(127,177,139,.18); border-radius: 9px; background: rgba(104,160,117,.06); font-size: 10px; line-height: 1.45; }
+.nexuss-git-empty { display: grid; min-height: 330px; place-items: center; align-content: center; gap: 8px; padding: 25px; text-align: center; }
+.nexuss-git-empty-icon { display: grid; width: 46px; height: 46px; place-items: center; margin-bottom: 4px; color: #caa486; border: 1px solid rgba(202,164,134,.25); border-radius: 14px; background: rgba(202,164,134,.1); }
+.nexuss-git-empty strong { color: #e9ece8; font-size: 14px; font-weight: 560; }
+.nexuss-git-empty p { max-width: 280px; margin: 0 0 8px; color: #89938f; font-size: 11px; line-height: 1.55; }
+.nexuss-git-command-bar { position: relative; gap: 8px; padding: 9px 10px; color: #82908a; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; background: rgba(255,255,255,.04); }
+.nexuss-git-command-bar input { min-width: 0; flex: 1; color: #dce1dc; outline: 0; border: 0; background: transparent; font-size: 11px; }
+.nexuss-git-command-bar input::placeholder { color: #68736f; }
+.nexuss-git-command-bar button { display: grid; width: 25px; height: 25px; place-items: center; color: #171819; border: 0; border-radius: 7px; background: #caa486; cursor: pointer; }
+.nexuss-git-command-bar small { position: absolute; right: 10px; bottom: -18px; color: #caa486; font: 9px "IBM Plex Mono", monospace; }
+.nexuss-git-footer { display: flex; justify-content: space-between; gap: 8px; color: #68736f; font: 8px "IBM Plex Mono", monospace; }
+.nexuss-git-footer span { gap: 4px; min-width: 0; }
+@media (max-width: 420px) { .nexuss-git-app { padding: 13px; } .nexuss-git-tabs button { font-size: 9px; } .nexuss-git-tabs button svg { display: none; } .nexuss-git-hero h2 { font-size: 20px; } .nexuss-git-footer { flex-direction: column; } }

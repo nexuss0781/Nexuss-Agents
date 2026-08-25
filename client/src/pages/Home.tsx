@@ -42,11 +42,12 @@ import {
   Sparkles,
   ListChecks,
 } from "lucide-react";
-import { getRightWindowExtension, getRightWindowExtensions, subscribeRightWindowExtensions, type RightWindowApi, type RightWindowExtension } from "@/lib/rightWindowExtensions";
+import { getRightWindowExtension, getRightWindowExtensions, registerRightWindowExtension, subscribeRightWindowExtensions, type RightWindowApi, type RightWindowExtension } from "@/lib/rightWindowExtensions";
 import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "../lib/trpc";
 import { useLocation } from "wouter";
+import NexussGitApp from "../components/NexussGitApp";
 
 const AXOLOTL_ICON = "/axolotl-only.png";
 
@@ -353,6 +354,25 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   }
   const navigationQuery = trpc.workspace.navigation.useQuery(undefined, { retry: false, staleTime: 15_000 });
   const [rightWindowExtensions, setRightWindowExtensions] = useState<RightWindowExtension[]>(() => getRightWindowExtensions());
+  useEffect(() => {
+    const extensionId = "nexuss-git";
+    if (getRightWindowExtension(extensionId)) return undefined;
+    try {
+      const unregister = registerRightWindowExtension({
+        id: extensionId,
+        name: "Nexuss-Git",
+        icon: <Github size={20} strokeWidth={1.8} />,
+        description: "A focused GitHub workspace for browsing, reviewing, and shipping repository work.",
+        minWidth: 320,
+        defaultWidth: 440,
+        render: (api) => <NexussGitApp api={api} />,
+      });
+      setRightWindowExtensions(getRightWindowExtensions());
+      return () => { unregister(); };
+    } catch {
+      return undefined;
+    }
+  }, []);
   useEffect(() => { const unsubscribe = subscribeRightWindowExtensions(() => setRightWindowExtensions(getRightWindowExtensions())); return () => { unsubscribe(); }; }, []);
   const activeChatQuery = trpc.workspace.chat.useQuery({ chatSlug: routeChatSlug || "chat-00000000000000000000000000000000" }, { enabled: Boolean(routeChatSlug), retry: false, staleTime: 15_000 });
   const modelSettingsQuery = trpc.workspace.modelSettings.useQuery(undefined, { retry: false, staleTime: 30_000 });
