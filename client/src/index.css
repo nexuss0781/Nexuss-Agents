@@ -1350,3 +1350,11 @@ body { color: var(--paper); }
   .right-window-is-open .composer-wrap { right: 0; }
   .right-window-is-open { --right-window-offset: 0px !important; }
 }
+
+/* Reliable resize rail: keep the hit target inside the panel edge so overflow and stacking cannot hide it. */
+.right-window-resize-handle { left: 0; z-index: 30; width: 16px; justify-content: center; }
+.right-window-resize-handle::before { height: 58px; background: rgba(220,226,228,.32); }
+.right-window-resize-handle svg { opacity: .42; }
+.right-window-resize-handle:hover::before, .right-window-resize-handle:active::before { height: 82px; background: rgba(226,236,238,.82); }
+.right-window-resize-handle:hover svg, .right-window-resize-handle:active svg { opacity: 1; }
+@media (max-width: 800px) { .right-window-resize-handle { display: none; } }
