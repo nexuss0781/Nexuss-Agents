@@ -704,3 +704,10 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 - [x] Make Import repository and Existing repository smaller subordinate tabs.
 - [x] Give the repository list a wider, taller focus area for comfortable browsing.
 - [x] Validate TypeScript, focused tests, production build, and whitespace.
+
+## Compact Empty Repository State
+
+- [x] Remove the large reserved blank area when no repositories are returned.
+- [x] Keep loading and empty repository messages compact.
+- [x] Keep populated repository lists bounded and vertically scrollable.
+- [x] Validate TypeScript, focused tests, production build, and whitespace.

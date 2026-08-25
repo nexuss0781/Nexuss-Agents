@@ -1168,3 +1168,8 @@ body { color: var(--paper); }
 .github-settings-copy strong { color: #e6edef; font-size: 12px; font-weight: 600; }
 .github-settings-copy span { color: #7f8d92; font-size: 10px; line-height: 1.35; }
 @media (max-width: 560px) { .github-settings-card { align-items: stretch; flex-wrap: wrap; } .github-settings-card .secondary-button { width: 100%; } }
+
+/* Empty repository states should not reserve the populated-list height. */
+.github-repository-list.is-empty, .github-repository-list.is-loading { min-height: 0; max-height: none; padding: 10px; background: rgba(8,11,12,.18); }
+.github-repository-list.is-empty .github-repository-empty, .github-repository-list.is-loading .github-repository-empty { padding: 3px; }
+.github-repository-list.has-repositories { min-height: 250px; max-height: 360px; overflow-y: auto; }
