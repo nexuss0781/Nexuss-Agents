@@ -1245,3 +1245,36 @@ body { color: var(--paper); }
 @keyframes right-window-in { from { opacity: .55; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
 @media (max-width: 800px) { .right-window { position: absolute; top: 0; right: 0; bottom: 0; width: min(88vw, 420px) !important; min-width: 0 !important; box-shadow: -28px 0 70px rgba(0,0,0,.4); } .right-window-resize-handle { display: none; } }
 @media (prefers-reduced-motion: reduce) { .right-window { animation: none; } }
+
+/* Responsive composer geometry: reserve the space occupied by the right window. */
+.main-stage { container: workspace / inline-size; }
+@media (min-width: 801px) {
+  .composer-wrap { right: var(--right-window-offset, 0px); transition: right 180ms cubic-bezier(.23,1,.32,1); }
+  .right-window-is-open .composer-wrap { padding-right: 20px; padding-left: 20px; }
+}
+@container workspace (max-width: 760px) {
+  .composer-wrap { padding-right: 12px; padding-left: 12px; }
+  .composer-top { gap: 6px; padding-right: 10px; padding-left: 10px; }
+  .composer-controls-center { min-width: 0; flex: 1 1 auto; gap: 5px; }
+  .composer-controls-center .composer-picker { max-width: clamp(92px, 20cqw, 170px); }
+  .composer-project-anchor { max-width: 35%; }
+  .composer-project-anchor .composer-picker { max-width: 100%; }
+}
+@container workspace (max-width: 560px) {
+  .composer-top { flex-wrap: wrap; height: auto; min-height: 40px; padding-top: 6px; padding-bottom: 6px; }
+  .composer-controls-center { order: 3; flex: 1 0 100%; padding-top: 6px; border-top: 1px solid rgba(220,226,228,.1); }
+  .composer-controls-center .composer-picker { max-width: 50%; }
+  .composer-project-anchor { max-width: calc(100% - 43px); }
+  .composer-project-anchor .composer-picker { max-width: 100%; }
+}
+@media (max-width: 520px) {
+  .composer-top { flex-wrap: wrap; height: auto; min-height: 40px; padding: 6px 10px; row-gap: 5px; }
+  .composer-controls-center { order: 3; flex: 1 0 100%; min-width: 0; margin: 0; padding-top: 6px; border-top: 1px solid rgba(220,226,228,.1); }
+  .composer-controls-center .composer-picker { max-width: 50%; }
+  .composer-project-anchor { max-width: calc(100% - 43px); }
+  .composer-project-anchor .composer-picker { max-width: 100%; }
+  .composer textarea { min-height: 72px; height: 72px; padding: 14px 13px 7px; font-size: 13px; }
+  .composer-bottom { min-height: 46px; padding-right: 10px; padding-left: 13px; }
+  .send-button { width: 35px; height: 35px; }
+}
+@media (prefers-reduced-motion: reduce) { .composer-wrap { transition: none; } }

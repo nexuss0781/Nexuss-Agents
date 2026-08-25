@@ -1042,7 +1042,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   };
 
   return (
-    <div className={`app-shell ${rightWindowOpen ? "right-window-is-open" : ""}`}>
+    <div className={`app-shell ${rightWindowOpen ? "right-window-is-open" : ""}`} style={{ "--right-window-offset": rightWindowOpen ? `${rightWindowWidth}px` : "0px" } as React.CSSProperties}>
 
       <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
         <div className="brand-row">
