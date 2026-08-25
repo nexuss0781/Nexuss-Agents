@@ -1215,3 +1215,33 @@ body { color: var(--paper); }
 .project-onboarding-card .primary-button { min-height: 42px; padding: 0 18px; border-radius: 9px; box-shadow: 0 8px 18px rgba(0,0,0,.22); }
 .project-onboarding-card .text-button { color: #909da1; }
 @media (max-width: 560px) { .project-onboarding-card { width: calc(100vw - 20px); padding: 19px; border-radius: 16px; } .project-onboarding-card .project-modal-heading h3 { font-size: 20px; } }
+
+/* Right window extension surface */
+.app-shell { position: relative; }
+.main-stage { min-width: 0; }
+.right-window { position: relative; z-index: 8; display: flex; flex-direction: column; min-height: 0; overflow: hidden; border-left: 1px solid rgba(220,226,228,.12); background: linear-gradient(180deg, rgba(24,29,30,.98), rgba(14,17,18,.99)); box-shadow: -22px 0 55px rgba(0,0,0,.16); animation: right-window-in 180ms cubic-bezier(.23,1,.32,1); }
+.right-window-resize-handle { position: absolute; z-index: 2; top: 0; bottom: 0; left: -15px; display: flex; width: 30px; align-items: center; justify-content: center; cursor: col-resize; color: rgba(196,207,211,.38); touch-action: none; }
+.right-window-resize-handle::before { position: absolute; width: 2px; height: 48px; border-radius: 999px; background: rgba(220,226,228,.18); content: ""; transition: height 160ms ease, background 160ms ease; }
+.right-window-resize-handle svg { position: relative; opacity: 0; transition: opacity 160ms ease; }
+.right-window-resize-handle:hover::before, .right-window-resize-handle:active::before { height: 76px; background: rgba(210,222,225,.62); }
+.right-window-resize-handle:hover svg, .right-window-resize-handle:active svg { opacity: 1; }
+.right-window-header { display: flex; min-height: 66px; align-items: center; justify-content: space-between; gap: 14px; padding: 0 20px; border-bottom: 1px solid rgba(220,226,228,.1); }
+.right-window-header > div { display: grid; gap: 5px; min-width: 0; }
+.right-window-header strong { overflow: hidden; color: #edf1f1; font-family: "Space Grotesk", sans-serif; font-size: 16px; font-weight: 520; letter-spacing: -.03em; text-overflow: ellipsis; white-space: nowrap; }
+.right-window-kicker { color: #7c898d; font: 9px "IBM Plex Mono", monospace; letter-spacing: .16em; }
+.right-window-tabs { display: flex; gap: 3px; padding: 10px 14px 0; overflow-x: auto; border-bottom: 1px solid rgba(220,226,228,.08); }
+.right-window-tabs button { padding: 8px 10px 10px; border: 0; border-bottom: 1px solid transparent; background: transparent; color: #778286; font: 10px "IBM Plex Mono", monospace; cursor: pointer; white-space: nowrap; }
+.right-window-tabs button:hover, .right-window-tabs button.active { border-bottom-color: #c8d3d5; color: #eef2f1; }
+.right-window-content { min-height: 0; flex: 1; overflow: auto; padding: 24px 20px; scrollbar-width: thin; scrollbar-color: rgba(190,205,208,.26) transparent; }
+.right-window-welcome { display: grid; gap: 18px; color: #a5afb1; }
+.right-window-icon { display: flex; width: 38px; height: 38px; align-items: center; justify-content: center; border: 1px solid rgba(220,226,228,.14); border-radius: 12px; background: rgba(220,226,228,.06); color: #d8e0e1; }
+.right-window-welcome h3 { margin: 0 0 8px; color: #e9eeee; font-size: 20px; font-weight: 520; letter-spacing: -.04em; }
+.right-window-welcome p { max-width: 290px; margin: 0; color: #8e999c; font-size: 13px; line-height: 1.65; }
+.right-window-hint { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 18px; border-top: 1px solid rgba(220,226,228,.1); color: #687477; font: 9px "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
+.right-window-hint button { border: 0; background: transparent; color: #c7d2d4; font: inherit; cursor: pointer; text-transform: none; }
+.right-window-hint button:hover { color: #fff; }
+.right-window-empty { padding: 30px 4px; color: #7f898c; font: 11px "IBM Plex Mono", monospace; }
+.right-window-trigger.active { border-color: rgba(220,226,228,.32); background: rgba(220,226,228,.1); color: #f0f4f3; }
+@keyframes right-window-in { from { opacity: .55; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+@media (max-width: 800px) { .right-window { position: absolute; top: 0; right: 0; bottom: 0; width: min(88vw, 420px) !important; min-width: 0 !important; box-shadow: -28px 0 70px rgba(0,0,0,.4); } .right-window-resize-handle { display: none; } }
+@media (prefers-reduced-motion: reduce) { .right-window { animation: none; } }
