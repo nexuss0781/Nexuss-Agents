@@ -17,6 +17,7 @@ import {
   renameThread,
   saveModelProviderSettings,
   updateProject,
+  DuplicateProjectNameError,
   ModelProviderError,
   WorkspaceAccessError,
 } from "./paradoxWorkspace";
@@ -46,6 +47,7 @@ async function workspaceOwner(ctx: { req: Parameters<typeof getNexussSession>[0]
 
 function workspaceFailure(error: unknown): never {
   if (error instanceof WorkspaceAccessError) throw new TRPCError({ code: "NOT_FOUND", message: error.message });
+  if (error instanceof DuplicateProjectNameError) throw new TRPCError({ code: "CONFLICT", message: error.message });
   if (error instanceof ModelProviderError || error instanceof ProjectWorkspaceError) throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
   throw error;
 }

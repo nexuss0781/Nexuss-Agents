@@ -18,6 +18,7 @@ import {
   loadModelProviderSettings,
   migrateWorkspace,
   ModelProviderError,
+  DuplicateProjectNameError,
   saveModelProviderSettings,
   workspaceSyncOptions,
 } from "./paradoxWorkspace";
@@ -92,6 +93,21 @@ describe("Paradox workspace persistence", () => {
       localReader.close();
       await deleteProject(owner, project.id);
       manualPush.mockRestore();
+    }
+  }, 90_000);
+
+  it("rejects duplicate project names for one owner but allows the same name for another owner", async () => {
+    const ownerA = `duplicate-owner-a-${randomUUID()}`;
+    const ownerB = `duplicate-owner-b-${randomUUID()}`;
+    const first = await createProject(ownerA, { name: "Website", description: "First", tone: "#f4f4f0" });
+    let second: Awaited<ReturnType<typeof createProject>> | null = null;
+    try {
+      await expect(createProject(ownerA, { name: " website ", description: "Duplicate", tone: "#f4f4f0" })).rejects.toBeInstanceOf(DuplicateProjectNameError);
+      second = await createProject(ownerB, { name: "Website", description: "Other owner", tone: "#f4f4f0" });
+      expect(second.name).toBe("Website");
+    } finally {
+      await deleteProject(ownerA, first.id);
+      if (second) await deleteProject(ownerB, second.id);
     }
   }, 90_000);
 

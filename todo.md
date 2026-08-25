@@ -640,3 +640,10 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 - [x] Add the two-tab New project card with drag-and-drop or multi-file upload, GitHub URL cloning, progress, retryable errors, and project selection.
 - [x] Configure the Render Blueprint and production container to use `/var/lib/nexuss-projects` for a persistent project disk.
 - [x] Validate TypeScript, focused persistence/chat/streaming regression tests, workspace security tests, production build, and whitespace.
+
+## Project Creation Crash Repair
+
+- [x] Prevent undefined project records from crashing the project carousel or creation flow.
+- [x] Reject duplicate project names per owner, case-insensitively, while allowing different owners to use the same name.
+- [x] Return a clean conflict message to the project form instead of an unexpected runtime error.
+- [x] Validate the repair with TypeScript, focused regression tests, production build, and whitespace checks.

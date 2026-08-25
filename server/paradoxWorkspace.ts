@@ -27,6 +27,7 @@ export type WorkspaceNavigation = DurableWorkspace;
 export type ModelProviderSettings = { baseUrl: string; selectedModels: string[]; availableModels: string[]; apiKeyConfigured: boolean };
 
 export class WorkspaceAccessError extends Error {}
+export class DuplicateProjectNameError extends Error {}
 export class ModelProviderError extends Error {
   readonly code: string;
   readonly status?: number;
@@ -481,6 +482,8 @@ export async function discoverModelProviderModels(ownerId: string, requester: ty
 
 export async function createProject(ownerId: string, input: { name: string; description: string; tone: string; sourceType?: ProjectSourceType }) {
   return withWorkspaceDb(true, (db) => {
+    const duplicate = rows<{ id: string }>(db.execute("SELECT id FROM workspace_projects WHERE owner_id = ? AND lower(trim(name)) = lower(trim(?)) LIMIT 1", [ownerId, input.name]))[0];
+    if (duplicate) throw new DuplicateProjectNameError("A project with this name already exists.");
     const id = randomUUID(); const timestamp = now();
     const sourceType = input.sourceType || "none";
     const workspaceStatus: ProjectWorkspaceStatus = sourceType === "none" ? "empty" : "importing";
@@ -491,6 +494,8 @@ export async function createProject(ownerId: string, input: { name: string; desc
 
 export async function updateProject(ownerId: string, id: string, input: Pick<WorkspaceProject, "name" | "description">) {
   return withWorkspaceDb(true, (db) => {
+    const duplicate = rows<{ id: string }>(db.execute("SELECT id FROM workspace_projects WHERE owner_id = ? AND lower(trim(name)) = lower(trim(?)) AND id <> ? LIMIT 1", [ownerId, input.name, id]))[0];
+    if (duplicate) throw new DuplicateProjectNameError("A project with this name already exists.");
     const result = db.execute("UPDATE workspace_projects SET name = ?, description = ?, updated_at = ? WHERE id = ? AND owner_id = ?", [input.name, input.description, now(), id, ownerId]);
     if (!result.changes) throw new WorkspaceAccessError("Project not found");
     const project = rows<{ id: string; name: string; description: string; tone: string; source_type: ProjectSourceType; source_url: string | null; source_commit: string | null; workspace_status: ProjectWorkspaceStatus; workspace_file_count: number; workspace_bytes: number; workspace_updated_at: string | null; workspace_error: string | null }>(db.execute("SELECT id, name, description, tone, source_type, source_url, source_commit, workspace_status, workspace_file_count, workspace_bytes, workspace_updated_at, workspace_error FROM workspace_projects WHERE id = ? AND owner_id = ?", [id, ownerId]))[0];
