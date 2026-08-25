@@ -10,6 +10,7 @@ import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import "katex/dist/katex.min.css";
 import {
   ArrowUp,
+  ArrowUpRight,
   Bot,
   Check,
   ChevronDown,
@@ -42,6 +43,18 @@ const AXOLOTL_ICON = "/axolotl-only.png";
 
 type Project = { id: string; name: string; description: string; tone: string; sourceType?: "none" | "upload" | "github"; sourceUrl?: string; workspaceStatus?: "empty" | "importing" | "ready" | "failed"; workspaceFileCount?: number; workspaceBytes?: number; workspaceError?: string };
 type GithubRepository = { id: number; name: string; fullName: string; description: string | null; private: boolean; htmlUrl: string; defaultBranch: string };
+
+function repositoryNameFromUrl(value: string): string {
+  try {
+    const url = new URL(value.trim());
+    if (url.hostname.toLowerCase() !== "github.com") return "";
+    const segment = url.pathname.split("/").filter(Boolean).pop() || "";
+    return segment.replace(/\.git$/i, "").trim();
+  } catch {
+    return "";
+  }
+}
+
 type Message = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
 type Thread = { id: string; chatSlug?: string; title: string; projectId?: string; updatedAt: string; messages: Message[] };
 
@@ -305,8 +318,11 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [projectEditor, setProjectEditor] = useState<{ mode: "create" | "edit"; project?: Project } | null>(null);
   const [projectTab, setProjectTab] = useState<"upload" | "github">("upload");
+  const [repositoryTab, setRepositoryTab] = useState<"import" | "existing">("import");
   const [projectFiles, setProjectFiles] = useState<File[]>([]);
   const [projectGithubUrl, setProjectGithubUrl] = useState("");
+  const [projectNameDraft, setProjectNameDraft] = useState("");
+  const [suggestedProjectName, setSuggestedProjectName] = useState("");
   const [projectImportProgress, setProjectImportProgress] = useState(0);
   const [projectImportError, setProjectImportError] = useState("");
   const [projectDropActive, setProjectDropActive] = useState(false);
@@ -339,7 +355,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     textarea.style.height = `${nextHeight}px`;
   }, [draft]);
   const githubStatusQuery = trpc.workspace.github.status.useQuery(undefined, { enabled: Boolean(projectEditor?.mode === "create" && projectTab === "github"), retry: false, staleTime: 30_000 });
-  const githubRepositoriesQuery = trpc.workspace.github.repositories.useQuery(undefined, { enabled: Boolean(projectEditor?.mode === "create" && projectTab === "github" && githubStatusQuery.data?.connected), retry: false, staleTime: 30_000 });
+  const githubRepositoriesQuery = trpc.workspace.github.repositories.useQuery(undefined, { enabled: Boolean(projectEditor?.mode === "create" && projectTab === "github" && repositoryTab === "import" && githubStatusQuery.data?.connected), retry: false, staleTime: 30_000 });
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const projectFileInputRef = useRef<HTMLInputElement>(null);
   const attachmentRequestsRef = useRef<Map<string, XMLHttpRequest>>(new Map());
@@ -586,7 +602,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     event.preventDefault();
     if (!workspaceReady || createProjectMutation.isPending || cloneGithubProjectMutation.isPending || authorizedCloneGithubProjectMutation.isPending) return;
     const form = new FormData(event.currentTarget);
-    const name = String(form.get("name") || "").trim();
+    const name = projectEditor?.mode === "create" ? projectNameDraft.trim() : String(form.get("name") || "").trim();
     const description = String(form.get("description") || "").trim();
     if (!name) return;
     if (projectEditor?.mode === "edit" && projectEditor.project) {
@@ -606,9 +622,11 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       setProjectImportProjectId(project.id);
       setSelectedProjectId(project.id);
       if (projectTab === "github") {
-        if (selectedGithubRepository) await authorizedCloneGithubProjectMutation.mutateAsync({ projectId: project.id, fullName: selectedGithubRepository.fullName });
-        else {
-          if (!projectGithubUrl.trim()) throw new Error("Connect GitHub or paste a public repository URL.");
+        if (repositoryTab === "import") {
+          if (!selectedGithubRepository) throw new Error("Connect GitHub and choose a repository.");
+          await authorizedCloneGithubProjectMutation.mutateAsync({ projectId: project.id, fullName: selectedGithubRepository.fullName });
+        } else {
+          if (!projectGithubUrl.trim()) throw new Error("Paste a public repository URL.");
           await cloneGithubProjectMutation.mutateAsync({ projectId: project.id, url: projectGithubUrl.trim() });
         }
       } else if (projectFiles.length > 0) {
@@ -625,6 +643,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       setProjectFiles([]);
       setProjectGithubUrl("");
       setSelectedGithubRepository(null);
+      setProjectNameDraft("");
+      setSuggestedProjectName("");
       setProjectImportProgress(0);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Project could not be imported.";
@@ -636,13 +656,33 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
 
   function openNewProject() {
     setProjectEditor({ mode: "create" });
-    setProjectTab("upload");
-    setProjectFiles([]);
-    setProjectGithubUrl("");
+      setProjectTab("upload");
+      setRepositoryTab("import");
+      setProjectFiles([]);
+      setProjectGithubUrl("");
+      setProjectNameDraft("");
+      setSuggestedProjectName("");
     setSelectedGithubRepository(null);
     setProjectImportError("");
     setProjectImportProgress(0);
     setProjectImportProjectId(null);
+  }
+
+  function updateRepositoryUrl(value: string) {
+    setProjectGithubUrl(value);
+    setSelectedGithubRepository(null);
+    const suggestion = repositoryNameFromUrl(value);
+    if (suggestion && (!projectNameDraft.trim() || projectNameDraft === suggestedProjectName)) {
+      setProjectNameDraft(suggestion);
+    }
+    setSuggestedProjectName(suggestion);
+  }
+
+  function selectAuthorizedRepository(repository: GithubRepository) {
+    setSelectedGithubRepository(repository);
+    setProjectGithubUrl("");
+    setProjectNameDraft(repository.name);
+    setSuggestedProjectName(repository.name);
   }
 
   function deleteProject(id: string) {
@@ -1007,7 +1047,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       {activeWorkOpen && <div className="active-work-backdrop" onMouseDown={() => setActiveWorkOpen(false)}><aside className="active-work-drawer" role="dialog" aria-modal="true" aria-labelledby="active-work-title" onMouseDown={(event) => event.stopPropagation()}><header className="active-work-header"><div><span className="modal-eyebrow">Work in progress</span><h2 id="active-work-title">Your work</h2></div><button className="icon-button" onClick={() => setActiveWorkOpen(false)} aria-label="Close your work"><X size={17} /></button></header><div className="active-work-body">{recentMissions.length === 0 ? <div className="active-work-empty"><span className="active-work-empty-mark" aria-hidden="true" /><p>No work yet.</p><small>When you give the agent a job, it will appear here.</small></div> : <><div className="mission-list" aria-label="Your work">{recentMissions.map((mission) => { const status = mission.status as MissionStatus; const isSelected = selectedMissionId === mission.id; return <button className={`mission-list-item ${isSelected ? "selected" : ""}`} key={mission.id} onClick={() => { setSelectedMissionId(mission.id); setActiveWorkOpen(true); }}><span className={`mission-list-status ${missionIsActive(status) ? "working" : status}`} aria-hidden="true" /><span className="mission-list-copy"><strong>{mission.goal}</strong><small>{missionStatusLabel(status)}</small></span><span className="mission-list-arrow" aria-hidden="true">›</span></button>; })}</div>{selectedMission && <section className="mission-detail"><div className="mission-detail-heading"><div><span className="modal-eyebrow">Selected work</span><h3>{selectedMission.goal}</h3></div><span className={`mission-status-pill ${missionIsActive(selectedMission.status as MissionStatus) ? "working" : selectedMission.status}`}>{missionStatusLabel(selectedMission.status as MissionStatus)}</span></div>{selectedMissionSnapshot ? <><div className="mission-progress-copy"><span>{selectedCompletedItems} of {selectedWorkItems.length || "—"} steps complete</span><span>{selectedMissionSnapshot.events.length} updates</span></div><div className="mission-progress-track"><span style={{ width: `${selectedWorkItems.length ? Math.round((selectedCompletedItems / selectedWorkItems.length) * 100) : selectedMission.status === "completed" ? 100 : 12}%` }} /></div></> : <div className="mission-detail-loading">Loading the latest result…</div>}<div className="mission-actions">{selectedMission.status === "paused" ? <button className="primary-button" onClick={() => handleMissionAction("resume", selectedMission.id)} aria-label="Continue work">Continue</button> : missionIsActive(selectedMission.status as MissionStatus) && <button className="text-button" onClick={() => handleMissionAction("pause", selectedMission.id)} aria-label="Pause work">Pause</button>}{missionIsActive(selectedMission.status as MissionStatus) && <button className="stop-work-button" onClick={() => handleMissionAction("stop", selectedMission.id)} aria-label="Stop work">Stop</button>}{selectedMission.status === "failed" || selectedMission.status === "stopped" ? <button className="primary-button" onClick={() => handleMissionAction("retry", selectedMission.id)} aria-label="Try work again">Try again</button> : null}</div></section>}</>}</div></aside></div>}
 
       {threadEditor && <div className="modal-backdrop" onMouseDown={() => setThreadEditor(null)}><div className="small-modal" onMouseDown={(event) => event.stopPropagation()}><h3>Rename thread</h3><input autoFocus value={threadName} onChange={(event) => setThreadName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && submitThreadName()} /><div className="modal-actions"><button className="text-button" onClick={() => setThreadEditor(null)}>Cancel</button><button className="primary-button" onClick={submitThreadName}>Save name</button></div></div></div>}
-      {projectEditor && <div className="modal-backdrop" onMouseDown={() => setProjectEditor(null)}><form className={projectEditor.mode === "create" ? "small-modal project-onboarding-card" : "small-modal"} onSubmit={saveProject} onMouseDown={(event) => event.stopPropagation()}><div className="project-modal-heading"><div><span className="eyebrow">PROJECT</span><h3>{projectEditor.mode === "edit" ? "Edit project" : "New project"}</h3></div><button type="button" className="icon-button" onClick={() => setProjectEditor(null)} aria-label="Close project dialog"><X size={16} /></button></div>{projectEditor.mode === "edit" ? <><label>Name<input name="name" defaultValue={projectEditor.project?.name || ""} autoFocus placeholder="e.g. Product systems" /></label><label>Description<input name="description" defaultValue={projectEditor.project?.description || ""} placeholder="What belongs here?" /></label></> : <><div className="project-tabs" role="tablist" aria-label="Project source"><button type="button" className={projectTab === "upload" ? "active" : ""} onClick={() => { setProjectTab("upload"); setProjectImportError(""); }} role="tab" aria-selected={projectTab === "upload"}><Upload size={15} /> Upload codebase</button><button type="button" className={projectTab === "github" ? "active" : ""} onClick={() => { setProjectTab("github"); setProjectImportError(""); }} role="tab" aria-selected={projectTab === "github"}><Github size={15} /> Clone from GitHub</button></div><label>Name<input name="name" defaultValue="" autoFocus placeholder="e.g. Product systems" /></label><label>Description<input name="description" defaultValue="" placeholder="Optional" /></label>{projectTab === "upload" ? <><input ref={projectFileInputRef} className="sr-only" type="file" multiple onChange={(event) => { if (event.target.files) selectProjectFiles(event.target.files); event.currentTarget.value = ""; }} /><button type="button" className={projectDropActive ? "project-dropzone active" : "project-dropzone"} onClick={() => projectFileInputRef.current?.click()} onDragEnter={(event) => { event.preventDefault(); setProjectDropActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setProjectDropActive(false)} onDrop={(event) => { event.preventDefault(); setProjectDropActive(false); if (event.dataTransfer.files.length) selectProjectFiles(event.dataTransfer.files); }}><Upload size={22} /><strong>{projectFiles.length ? <>{projectFiles.length} file{projectFiles.length === 1 ? "" : "s"} selected</> : "Drop your codebase files here"}</strong><span>or click to choose multiple files. Any file type is accepted.</span></button>{projectFiles.length > 0 && <div className="project-file-summary"><span>{projectFiles.slice(0, 3).map((file) => file.name).join(", ")}{projectFiles.length > 3 ? <> and {projectFiles.length - 3} more</> : null}</span><button type="button" className="text-button" onClick={() => setProjectFiles([])}>Clear</button></div>}</> : <div className="github-source-panel"><div className="github-connect-row"><div><strong>{githubStatusQuery.data?.connected ? `Connected as ${githubStatusQuery.data.login}` : "Connect your GitHub account"}</strong><small>{githubStatusQuery.data?.configured === false ? "GitHub OAuth is not configured on this server." : "Choose a repository you can access, including private repositories."}</small></div><button type="button" className="secondary-button" onClick={() => window.location.assign("/auth/github/connect")} disabled={githubStatusQuery.isLoading}>{githubStatusQuery.data?.connected ? "Reconnect GitHub" : "Connect GitHub"}</button></div>{githubStatusQuery.data?.connected && <div className="github-repository-list" aria-label="GitHub repositories">{githubRepositoriesQuery.isLoading ? <span className="github-repository-empty">Loading repositories…</span> : githubRepositoriesQuery.data?.repositories?.length ? githubRepositoriesQuery.data.repositories.map((repo) => <button type="button" className={selectedGithubRepository?.fullName === repo.fullName ? "github-repository selected" : "github-repository"} key={repo.id} onClick={() => { setSelectedGithubRepository(repo); setProjectGithubUrl(""); }}><span><strong>{repo.name}</strong><small>{repo.fullName}{repo.private ? " · Private" : " · Public"}</small></span><Check size={14} /></button>) : <span className="github-repository-empty">No repositories were returned.</span>}</div>}<label className="github-input-label"><span>Or paste a public repository link</span><div className="github-input-wrap"><Github size={15} /><input value={projectGithubUrl} onChange={(event) => { setProjectGithubUrl(event.target.value); setSelectedGithubRepository(null); }} placeholder="https://github.com/owner/repository" /></div><small>{selectedGithubRepository ? `Selected ${selectedGithubRepository.fullName}` : "Use this for a public repository without connecting GitHub."}</small></label></div>}{projectImportProgress > 0 && projectImportProgress < 100 && <div className="project-import-progress" aria-live="polite"><div><span>Importing codebase</span><strong>{projectImportProgress}%</strong></div><i><b style={{ width: projectImportProgress + "%" }} /></i></div>}{projectImportError && <div className="project-import-error" role="alert">{projectImportError}</div>}</>}<div className="modal-actions">{projectEditor.mode === "edit" && projectEditor.project && <button type="button" className="delete-project" onClick={() => { deleteProject(projectEditor.project!.id); setProjectEditor(null); }}><Trash2 size={14} /> Delete</button>}<span className="modal-spacer" /><button type="button" className="text-button" onClick={() => setProjectEditor(null)}>Cancel</button><button className="primary-button" type="submit" disabled={createProjectMutation.isPending || cloneGithubProjectMutation.isPending || authorizedCloneGithubProjectMutation.isPending || updateProjectMutation.isPending}>{projectEditor.mode === "edit" ? "Save changes" : projectTab === "github" ? "Create and clone" : "Create project"}</button></div></form></div>}
+      {projectEditor && <div className="modal-backdrop" onMouseDown={() => setProjectEditor(null)}><form className={projectEditor.mode === "create" ? "small-modal project-onboarding-card" : "small-modal"} onSubmit={saveProject} onMouseDown={(event) => event.stopPropagation()}><div className="project-modal-heading"><div><span className="eyebrow">PROJECT</span><h3>{projectEditor.mode === "edit" ? "Edit project" : "New project"}</h3></div><button type="button" className="icon-button" onClick={() => setProjectEditor(null)} aria-label="Close project dialog"><X size={16} /></button></div>{projectEditor.mode === "edit" ? <><label>Name<input name="name" defaultValue={projectEditor.project?.name || ""} autoFocus placeholder="e.g. Product systems" /></label><label>Description<input name="description" defaultValue={projectEditor.project?.description || ""} placeholder="What belongs here?" /></label></> : <><div className="project-tabs" role="tablist" aria-label="Project source"><button type="button" className={projectTab === "upload" ? "active" : ""} onClick={() => { setProjectTab("upload"); setProjectImportError(""); }} role="tab" aria-selected={projectTab === "upload"}><Upload size={15} /> Upload codebase</button><button type="button" className={projectTab === "github" ? "active" : ""} onClick={() => { setProjectTab("github"); setProjectImportError(""); }} role="tab" aria-selected={projectTab === "github"}><Github size={15} /> Clone from GitHub</button></div><label>Name<input name="name" value={projectNameDraft} onChange={(event) => { setProjectNameDraft(event.target.value); setSuggestedProjectName(""); }} autoFocus placeholder="e.g. Product systems" /></label><label>Description<input name="description" defaultValue="" placeholder="Optional" /></label>{projectTab === "upload" ? (<><input ref={projectFileInputRef} className="sr-only" type="file" multiple onChange={(event) => { if (event.target.files) selectProjectFiles(event.target.files); event.currentTarget.value = ""; }} /><button type="button" className={projectDropActive ? "project-dropzone active" : "project-dropzone"} onClick={() => projectFileInputRef.current?.click()} onDragEnter={(event) => { event.preventDefault(); setProjectDropActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setProjectDropActive(false)} onDrop={(event) => { event.preventDefault(); setProjectDropActive(false); if (event.dataTransfer.files.length) selectProjectFiles(event.dataTransfer.files); }}><Upload size={22} /><strong>{projectFiles.length ? <>{projectFiles.length} file{projectFiles.length === 1 ? "" : "s"} selected</> : "Drop your codebase files here"}</strong><span>or click to choose multiple files. Any file type is accepted.</span></button>{projectFiles.length > 0 && <div className="project-file-summary"><span>{projectFiles.slice(0, 3).map((file) => file.name).join(", ")}{projectFiles.length > 3 ? <> and {projectFiles.length - 3} more</> : null}</span><button type="button" className="text-button" onClick={() => setProjectFiles([])}>Clear</button></div>}</>) : (<div className="github-source-panel"><div className="repository-subtabs" role="tablist" aria-label="Repository source"><button type="button" className={repositoryTab === "import" ? "active" : ""} onClick={() => { setRepositoryTab("import"); setProjectImportError(""); }} role="tab" aria-selected={repositoryTab === "import"}><Github size={16} /><span><strong>Import repository</strong><small>Choose from GitHub</small></span></button><button type="button" className={repositoryTab === "existing" ? "active" : ""} onClick={() => { setRepositoryTab("existing"); setProjectImportError(""); setSelectedGithubRepository(null); }} role="tab" aria-selected={repositoryTab === "existing"}><ArrowUpRight size={16} /><span><strong>Existing repository</strong><small>Use a public link</small></span></button></div>{repositoryTab === "import" ? (<div className="repository-import-panel">{!githubStatusQuery.data?.connected ? <div className="repository-connect-empty"><div className="repository-connect-icon"><Github size={38} /></div><strong>Connect a repository</strong><p>Authorize GitHub to fetch the repositories available to you.</p><button type="button" className="secondary-button" onClick={() => window.location.assign("/auth/github/connect")} disabled={githubStatusQuery.isLoading}>{githubStatusQuery.isLoading ? "Checking GitHub…" : "Connect GitHub"}</button></div> : <><div className="github-connect-row"><div><strong>GitHub connected as {githubStatusQuery.data.login}</strong><small>Select a repository below, including private repositories.</small></div><button type="button" className="secondary-button" onClick={() => window.location.assign("/auth/github/connect")} disabled={githubStatusQuery.isLoading}>Reconnect</button></div><div className="github-repository-list" aria-label="GitHub repositories">{githubRepositoriesQuery.isLoading ? <span className="github-repository-empty">Fetching repositories…</span> : githubRepositoriesQuery.data?.repositories?.length ? githubRepositoriesQuery.data.repositories.map((repo) => <button type="button" className={selectedGithubRepository?.fullName === repo.fullName ? "github-repository selected" : "github-repository"} key={repo.id} onClick={() => selectAuthorizedRepository(repo)}><span><strong>{repo.name}</strong><small>{repo.fullName}{repo.private ? " · Private" : " · Public"}</small></span><Check size={14} /></button>) : <span className="github-repository-empty">No repositories were returned.</span>}</div></>}</div>) : (<div className="repository-existing-panel"><label className="github-input-label"><span>Public repository link</span><div className="github-input-wrap"><Github size={15} /><input value={projectGithubUrl} onChange={(event) => updateRepositoryUrl(event.target.value)} placeholder="https://github.com/owner/repository" /></div><small>Paste a public GitHub repository. The project name below fills from the repository name and remains editable.</small></label></div>)}</div>)}{projectImportProgress > 0 && projectImportProgress < 100 && <div className="project-import-progress" aria-live="polite"><div><span>Importing codebase</span><strong>{projectImportProgress}%</strong></div><i><b style={{ width: projectImportProgress + "%" }} /></i></div>}{projectImportError && <div className="project-import-error" role="alert">{projectImportError}</div>}</>}<div className="modal-actions">{projectEditor.mode === "edit" && projectEditor.project && <button type="button" className="delete-project" onClick={() => { deleteProject(projectEditor.project!.id); setProjectEditor(null); }}><Trash2 size={14} /> Delete</button>}<span className="modal-spacer" /><button type="button" className="text-button" onClick={() => setProjectEditor(null)}>Cancel</button><button className="primary-button" type="submit" disabled={createProjectMutation.isPending || cloneGithubProjectMutation.isPending || authorizedCloneGithubProjectMutation.isPending || updateProjectMutation.isPending}>{projectEditor.mode === "edit" ? "Save changes" : projectTab === "github" ? "Create and clone" : "Create project"}</button></div></form></div>}
       {settingsOpen && <div className="modal-backdrop settings-backdrop" onMouseDown={() => setSettingsOpen(false)}>
         <section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="workspace-settings-title" onMouseDown={(event) => event.stopPropagation()}>
           <header className="settings-modal-header"><div><span className="modal-eyebrow">Account & models</span><h2 id="workspace-settings-title">Settings</h2></div><button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="Close settings" autoFocus><X size={17} /></button></header>

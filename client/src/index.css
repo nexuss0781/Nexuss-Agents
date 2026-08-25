@@ -1130,3 +1130,19 @@ body { color: var(--paper); }
 .github-repository.selected svg { color: #eef4f5; opacity: 1; }
 .github-repository-empty { padding: 12px; color: #7f8d92; font-size: 11px; text-align: center; }
 @media (max-width: 560px) { .github-connect-row { align-items: stretch; flex-direction: column; } .github-connect-row .secondary-button { width: 100%; } }
+
+.repository-subtabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 4px; border: 1px solid rgba(203,214,219,.12); border-radius: 11px; background: rgba(8,11,12,.32); }
+.repository-subtabs button { display: flex; align-items: center; gap: 9px; min-height: 54px; padding: 9px 10px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #869398; text-align: left; cursor: pointer; transition: color .16s ease-out, background .16s ease-out, border-color .16s ease-out; }
+.repository-subtabs button:hover, .repository-subtabs button.active { border-color: rgba(203,214,219,.2); background: rgba(203,214,219,.1); color: #f0f4f5; }
+.repository-subtabs button svg { flex: 0 0 auto; color: #b8c5c8; }
+.repository-subtabs button span { display: grid; gap: 3px; min-width: 0; }
+.repository-subtabs button strong { font-size: 11px; font-weight: 650; }
+.repository-subtabs button small { color: #758287; font-size: 9px; line-height: 1.2; }
+.repository-subtabs button.active small { color: #aebabe; }
+.repository-import-panel, .repository-existing-panel { display: grid; gap: 12px; }
+.repository-connect-empty { display: grid; justify-items: center; gap: 8px; padding: 24px 16px; border: 1px dashed rgba(203,214,219,.22); border-radius: 12px; background: radial-gradient(circle at 50% 0%, rgba(203,214,219,.1), transparent 58%), rgba(8,11,12,.34); text-align: center; }
+.repository-connect-icon { display: grid; place-items: center; width: 74px; height: 74px; margin-bottom: 3px; border: 1px solid rgba(203,214,219,.18); border-radius: 20px; background: rgba(203,214,219,.1); color: #e2e9eb; box-shadow: 0 12px 32px rgba(0,0,0,.16); }
+.repository-connect-empty strong { color: #edf3f4; font-size: 14px; font-weight: 650; }
+.repository-connect-empty p { max-width: 270px; margin: 0 0 5px; color: #849196; font-size: 11px; line-height: 1.45; }
+.repository-existing-panel { padding: 13px; border: 1px solid rgba(203,214,219,.12); border-radius: 11px; background: rgba(8,11,12,.27); }
+@media (max-width: 450px) { .repository-subtabs { grid-template-columns: 1fr; } }

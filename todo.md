@@ -685,3 +685,13 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 
 - [x] Keep the visible Nexuss-Agent profile sourced from the existing primary Nexuss Auth account.
 - [x] Keep GitHub authorization as a separate persisted repository-access connection.
+
+## Repository Import Sub-tabs
+
+- [x] Add an Import repository sub-tab with a prominent GitHub connect state when no connection exists.
+- [x] Fetch and display authorized repositories after GitHub connection.
+- [x] Autofill the editable project name from the selected repository name.
+- [x] Add an Existing repository sub-tab for public GitHub URLs.
+- [x] Autofill the editable project name from a public repository URL.
+- [x] Keep public URL cloning and authorized repository cloning on separate, explicit paths.
+- [x] Validate TypeScript, focused workspace tests, production build, and whitespace.
