@@ -1342,11 +1342,11 @@ body { color: var(--paper); }
 /* Balanced split: wide desktop keeps both surfaces side by side; narrow desktop overlays the drawer. */
 @media (min-width: 1200px) {
   .main-stage { min-width: 640px; }
-  .right-window { width: min(420px, calc(100vw - 920px)) !important; min-width: 320px; }
+  .right-window { max-width: calc(100vw - 920px); min-width: 320px; }
 }
 @media (min-width: 801px) and (max-width: 1199px) {
   .main-stage { min-width: 0; }
-  .right-window { position: absolute; top: 0; right: 0; bottom: 0; width: min(420px, 42vw) !important; min-width: 320px; box-shadow: -28px 0 72px rgba(0,0,0,.4); }
+  .right-window { position: absolute; top: 0; right: 0; bottom: 0; max-width: min(420px, 42vw); min-width: 320px; box-shadow: -28px 0 72px rgba(0,0,0,.4); }
   .right-window-is-open .composer-wrap { right: 0; }
   .right-window-is-open { --right-window-offset: 0px !important; }
 }
