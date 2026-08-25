@@ -1467,3 +1467,19 @@ body { color: var(--paper); }
   .right-window-header-title > .right-window-store-brand { gap: 10px; }
   .right-window-header-title > .right-window-store-brand::after { left: 56px; }
 }
+
+/* Quiet keyboard shortcut discoverability. */
+.new-thread-button { min-width: 0; }
+.new-thread-button kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 62px; height: 20px; margin-left: auto; padding: 0 6px; border: 1px solid rgba(220,226,228,.16); border-radius: 4px; background: rgba(255,255,255,.055); color: rgba(220,226,228,.58); font: 9px "IBM Plex Mono", monospace; letter-spacing: -.04em; white-space: nowrap; }
+.search-field { position: relative; }
+.search-field input { min-width: 0; padding-right: 28px; }
+.search-shortcut-hint { position: absolute; top: 50%; right: 9px; display: grid; width: 17px; height: 17px; place-items: center; transform: translateY(-50%); border: 1px solid rgba(220,226,228,.14); border-radius: 4px; background: rgba(255,255,255,.035); color: #818b8d; font: 11px "IBM Plex Mono", monospace; line-height: 1; pointer-events: none; }
+.composer-plus { position: relative; }
+.composer-plus:hover::after, .composer-plus:focus-visible::after { position: absolute; z-index: 40; top: calc(100% + 8px); left: 0; width: max-content; max-width: 170px; padding: 6px 8px; border: 1px solid rgba(220,226,228,.14); border-radius: 5px; background: #191c1d; box-shadow: 0 10px 24px rgba(0,0,0,.3); color: #bac3c3; content: "Upload files · Ctrl/Cmd + U"; font: 9px "IBM Plex Mono", monospace; white-space: nowrap; pointer-events: none; }
+@media (max-width: 620px) {
+  .new-thread-button kbd { display: none; }
+}
+@media (max-width: 420px) {
+  .search-shortcut-hint { display: none; }
+  .search-field input { padding-right: 10px; }
+}

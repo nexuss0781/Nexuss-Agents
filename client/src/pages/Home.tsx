@@ -1096,9 +1096,9 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
           <button className="icon-button mobile-close" onClick={() => setMobileNav(false)} aria-label="Close navigation"><X size={17} /></button>
         </div>
         <div className="mobile-brand-lockup"><div className="mobile-brand-art"><img src={AXOLOTL_ICON} alt="" /></div><div className="mobile-brand-copy"><strong>NEXUSS-AGENT</strong></div></div>
-        <button className="new-thread-button" onClick={createThread} disabled={!workspaceReady || createThreadMutation.isPending}><CirclePlus size={17} /><span>New thread</span></button>
+        <button className="new-thread-button" onClick={createThread} disabled={!workspaceReady || createThreadMutation.isPending}><CirclePlus size={17} /><span>New thread</span><kbd aria-label="Control or Command plus N">⌘/Ctrl + N</kbd></button>
         <div className="sidebar-section thread-section">
-          <div className="search-field"><Search size={14} /><input ref={threadSearchRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter threads" /></div>
+          <div className="search-field"><Search size={14} /><input ref={threadSearchRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter threads" /><kbd className="search-shortcut-hint" aria-label="Press slash to search">/</kbd></div>
           <div className="thread-list">
             {groupedThreads.length === 0 ? <div className="thread-list-empty">{selectedProjectId ? "No threads in this project" : "No threads yet"}</div> : groupedThreads.map((group) => <div className="thread-group" key={group.label}><div className="thread-group-label">{group.label}</div>{group.threads.map((thread) => (
               <div key={thread.id} className={`thread-item ${thread.id === activeThread?.id ? "active" : ""}`} onClick={() => openThread(thread)}>
@@ -1126,7 +1126,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         </section>
         <div ref={composerWrapRef} className="composer-wrap"><div className={`composer ${dragActive ? "drag-active" : ""}`} onClick={() => composerRef.current?.focus()} onPaste={handleComposerPaste} onDragOver={handleComposerDragOver} onDragLeave={handleComposerDragLeave} onDrop={handleComposerDrop}>
           <div className="composer-top">
-            <button className="composer-plus" onClick={(event) => { event.stopPropagation(); attachmentInputRef.current?.click(); }} aria-label="Add attachments" title="Add attachments"><Plus size={16} /></button>
+            <button className="composer-plus" onClick={(event) => { event.stopPropagation(); attachmentInputRef.current?.click(); }} aria-label="Add attachments" title="Add attachments · Ctrl/Cmd + U"><Plus size={16} /></button>
             <input ref={attachmentInputRef} className="attachment-input" type="file" multiple onChange={(event) => chooseAttachments(event.target.files)} aria-label="Choose attachments" />
             <div className="composer-controls-center">
               <div className="composer-menu-anchor composer-model-anchor">
