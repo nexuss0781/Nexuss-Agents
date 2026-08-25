@@ -467,6 +467,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   }, [navigationQuery.isSuccess, navigationQuery.data]);
 
   useEffect(() => {
+    if (!routeChatSlug) { if (activeThreadId) setActiveThreadId(""); return; }
     if (!workspace.threads.length) { setActiveThreadId(""); return; }
     const routedThread = workspace.threads.find((thread) => thread.chatSlug === routeChatSlug);
     if (routeChatSlug && !routedThread && activeThreadId && !workspace.threads.some((thread) => thread.id === activeThreadId)) return;
@@ -512,7 +513,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   useEffect(() => {
     setActiveModel((current) => current && selectedModels.includes(current) ? current : selectedModels[0] || null);
   }, [selectedModels]);
-  const activeThreadSummary = workspace.threads.find((thread) => thread.chatSlug === routeChatSlug) || workspace.threads.find((thread) => thread.id === activeThreadId) || workspace.threads[0];
+  const activeThreadSummary = routeChatSlug ? workspace.threads.find((thread) => thread.chatSlug === routeChatSlug) || workspace.threads.find((thread) => thread.id === activeThreadId) : undefined;
   const activeThread = useMemo(() => {
     if (!activeThreadSummary) return undefined;
     const source = activeChatQuery.data?.messages || activeThreadSummary.messages;
@@ -576,10 +577,12 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const profileAvatar = profileAvatarUrl?.startsWith("https://") && !avatarFailed ? profileAvatarUrl : undefined;
 
   function createThread() {
-    if (!workspaceReady || createThreadMutation.isPending) return;
-    const projectId = selectedProjectId || pendingProjectId;
-    createThreadMutation.mutate(projectId ? { projectId, forceNew: true } : { forceNew: true });
+    if (!workspaceReady) return;
+    setActiveThreadId("");
+    setDraft("");
+    setAttachments([]);
     setMobileNav(false);
+    setLocation("/app");
   }
 
   function moveProjectSlide(direction: -1 | 1) {
