@@ -1304,3 +1304,31 @@ body { color: var(--paper); }
 .right-window-app-label { display: block; width: 100%; min-width: 0; padding: 0 2px; overflow: hidden; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .right-window-app-label[title] { cursor: help; }
 @media (min-width: 801px) { .right-window-app-icon { width: clamp(50px, 6vw, 58px); height: clamp(50px, 6vw, 58px); } }
+
+/* Final launcher polish: quiet luxury surface with a hard, design-safe minimum. */
+.right-window { container: right-window / inline-size; min-width: 320px; border-left-color: rgba(220,226,228,.14); background: linear-gradient(180deg, rgba(20,25,26,.99), rgba(11,14,15,.99)); box-shadow: -26px 0 70px rgba(0,0,0,.2); }
+.right-window-header { min-height: 58px; padding: 0 16px 0 20px; }
+.right-window-header-title > div { gap: 4px; }
+.right-window-kicker { font-size: 8px; letter-spacing: .18em; }
+.right-window-header strong { font-size: 14px; }
+.right-window-launcher { padding: 18px 16px 26px; }
+.right-window-app-grid { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 20px 8px; }
+.right-window-app-icon { width: 52px; height: 52px; border-radius: 15px; }
+.right-window-app-label { font-size: 9px; line-height: 1.2; }
+.right-window-empty { min-height: 1px; padding: 0; }
+.right-window-resize-handle { left: -14px; width: 28px; }
+@container right-window (max-width: 390px) {
+  .right-window-app-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 19px 5px; }
+  .right-window-app-label { display: none; }
+  .right-window-app-icon { width: 48px; height: 48px; border-radius: 14px; }
+}
+@container right-window (max-width: 340px) {
+  .right-window-launcher { padding-right: 10px; padding-left: 10px; }
+  .right-window-app-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container workspace (max-width: 560px) {
+  .empty-suggestions { gap: 7px; }
+  .empty-suggestions button { width: 36px; height: 36px; justify-content: center; padding: 0; border-radius: 50%; }
+  .empty-suggestions .suggestion-label { display: none; }
+  .empty-suggestions button svg { flex: 0 0 auto; }
+}

@@ -59,7 +59,7 @@ The user can always resize the panel by dragging the narrow rail on its left edg
 
 Extensions should render a self-contained tool surface and keep destructive actions explicit. They should use the existing workspace tokens and avoid taking over the full viewport. The host provides the header, close control, active extension title, app-icon launcher, back navigation, and resizing rail; the extension owns its internal content. Selecting an app icon opens that extension in the same right window.
 
-The current built-in `workspace-welcome` extension is a safe placeholder that confirms the surface is available and demonstrates programmatic expansion. In the launcher it appears as an app icon with the short name `Workspace`. Future tools can replace or sit beside it without changing the main conversation layout.
+The launcher is intentionally a clean host surface until the first real tools are registered. Future tools appear as app icons without changing the main conversation layout.
 
 ## Example: open from a host control
 
