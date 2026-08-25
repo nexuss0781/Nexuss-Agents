@@ -799,3 +799,34 @@ A sandbox operation emits `started` and then `completed`, `failed`, `cancelled`,
 This layer is an application-level isolation boundary for the host API. It must not be described as a kernel or container security boundary. If future packages need to execute arbitrary untrusted server code, that execution must be moved to a separately isolated worker or container runtime with an independent filesystem, network policy, identity, and operating-system limits. The Phase 4 broker intentionally does not provide arbitrary code execution.
 
 The Phase 4 tests are located at `server/packageManager/sandbox.test.ts`. They cover fail-closed grants, scoped reads and writes, path traversal rejection, package/workspace separation, permission denial audit events, timeout cancellation, resource-limit validation, and rejection of non-external packages.
+
+
+## 25. Phase 5 App Lifecycle Manager
+
+The Phase 5 implementation is available at `server/packageManager/lifecycle.ts` through `AppLifecycleManager`. It owns the installed-app registry, lifecycle transitions, package promotion, retained application data, and lifecycle audit events.
+
+The manager persists a versioned registry under the configured lifecycle root. Registry writes use a temporary file with restrictive permissions followed by an atomic rename. Mutating operations are serialized per manager instance so concurrent install, update, enable, disable, and uninstall requests cannot interleave their filesystem and registry changes.
+
+Supported operations are:
+
+- `install(verifiedPackage)`: accepts only the verified result from the Phase 3 downloader, promotes the package from its private staging transaction into the app store, creates a private data root, and records the package digests and source identity.
+- `uninstall(appId, { removeData })`: removes the installed package while retaining data by default. Data is removed only when `removeData: true` is explicit. The app remains represented as `uninstalled` so its history and data policy are recoverable.
+- `setEnabled(appId, false)`: disables launcher visibility and execution without deleting the package or data.
+- `setEnabled(appId, true)`: restores an installed app without reinstalling it.
+- `update(verifiedPackage)`: requires a strictly newer semantic version, marks the app as updating, moves the previous package to a private backup path, promotes the new package, persists the new record, and removes the backup only after the registry write succeeds.
+
+If an update fails, the new package is removed, the previous package is restored, the previous lifecycle state is restored, and a failed update audit event is retained. Failed installs and uninstalls are also recorded with stable failure details. A disabled app remains disabled after a successful update.
+
+The lifecycle manager does not download packages, execute package code, grant permissions, or render launcher UI. It consumes a verified package result and provides durable state for the later Store registry and launcher integration components.
+
+The lifecycle registry uses these primary states:
+
+| State | Meaning |
+| --- | --- |
+| `installed` | Package is installed and eligible for launch. |
+| `disabled` | Package and data remain installed but launch is blocked. |
+| `updating` | A replacement package is being promoted. |
+| `uninstalled` | Package is removed while the lifecycle record remains. |
+| `failed` | Reserved for unrecoverable package lifecycle failures. |
+
+Phase 5 tests are located at `server/packageManager/lifecycle.test.ts` and cover atomic installation, duplicate protection, enable/disable preservation, retained and explicit data removal, reinstall behavior, newer-version updates, disabled-state preservation, and non-newer update rejection.
