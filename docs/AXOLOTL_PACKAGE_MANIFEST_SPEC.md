@@ -759,3 +759,43 @@ A failed transaction is removed automatically. A successful transaction remains 
 The downloader does not claim that a GitHub tag resolves to a particular commit by itself. The admission layer must resolve the ref through the configured GitHub integration and pass `resolvedSourceCommit` when the manifest declares an integrity source commit. This keeps network resolution and package acquisition separate from deterministic archive and filesystem verification.
 
 The Phase 3 tests are located at `server/packageManager/downloader.test.ts`. They cover successful bounded extraction, reproducible-ref enforcement, source-commit verification, download-size limits, manifest digest mismatch, archive traversal rejection, and failed-transaction cleanup.
+
+
+## 24. Phase 4 External-App Execution Sandbox
+
+The Phase 4 implementation is available at `server/packageManager/sandbox.ts`. External apps do not receive direct access to Node.js, the host filesystem, arbitrary environment variables, arbitrary child processes, or GitHub credentials. They receive a capability-scoped broker created with `createExternalAppSandbox()`.
+
+Host grants are **fail-closed**. If `grantedPermissions` or `grantedCapabilities` is omitted, the sandbox grants nothing, even when the manifest declares permissions or capabilities. The package manager must calculate the user- and policy-approved grant explicitly and pass only the approved subset. Any requested grant not declared by the manifest is discarded.
+
+```ts
+const sandbox = createExternalAppSandbox({
+  manifest: normalizedManifest,
+  packageRoot: verifiedPackageRoot,
+  workspaceRoot: projectWorkspaceRoot,
+  grantedPermissions: ["repository.read"],
+  grantedCapabilities: ["repository.workspace", "extension.storage", "activity.report"],
+  limits: {
+    maxOperationMs: 10_000,
+    maxFileBytes: 5 * 1024 * 1024,
+    maxDirectoryEntries: 2_000,
+  },
+  audit: (event) => auditStore.append(event),
+});
+```
+
+The broker exposes only scoped operations:
+
+- `readPackageFile` and `listPackageDirectory` are confined to the verified package root and require `extension.storage`.
+- `readWorkspaceFile` and `listWorkspaceDirectory` are confined to the configured project workspace and require `repository.read` plus `repository.workspace`.
+- `writeWorkspaceFile` requires `repository.write`, `repository.read`, and `repository.workspace`.
+- `getProjectContext` requires `project.context.read` and an explicitly supplied host context provider.
+- `reportActivity` requires `activity.report` and limits event detail size.
+- `runTask` provides cancellation, a maximum operation duration, and lifecycle audit events. It is not an arbitrary shell or code execution API.
+
+Every filesystem path is relative, normalized, resolved under its permitted root, and checked through realpath resolution to prevent traversal and symlink escapes. Regular-file size, directory-entry count, and operation duration are bounded. Non-regular files are rejected.
+
+A sandbox operation emits `started` and then `completed`, `failed`, `cancelled`, or `denied`. Permission and capability denials are recorded before the error is raised. The broker never silently broadens a grant, and the host can revoke access by cancelling the parent signal or disposing the sandbox owner.
+
+This layer is an application-level isolation boundary for the host API. It must not be described as a kernel or container security boundary. If future packages need to execute arbitrary untrusted server code, that execution must be moved to a separately isolated worker or container runtime with an independent filesystem, network policy, identity, and operating-system limits. The Phase 4 broker intentionally does not provide arbitrary code execution.
+
+The Phase 4 tests are located at `server/packageManager/sandbox.test.ts`. They cover fail-closed grants, scoped reads and writes, path traversal rejection, package/workspace separation, permission denial audit events, timeout cancellation, resource-limit validation, and rejection of non-external packages.
