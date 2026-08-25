@@ -12,7 +12,7 @@ The API lives in `client/src/lib/rightWindowExtensions.ts`.
 | `RightWindowApi` | Controls the window from an extension or its UI. |
 | `RightWindowState` | Describes the current open state, width, minimum width, and active extension. |
 
-An extension must provide a unique `id`, a user-facing `label`, and a `render(api)` function. It may provide `description`, `defaultWidth`, and `minWidth`.
+An extension must provide a unique `id`, an `icon`, a concise `name`, and a `render(api)` function. It may provide `description`, `defaultWidth`, and `minWidth`. The `name` is the launcher’s short app name; the launcher keeps it on one line and truncates it with an ellipsis when the responsive grid cell is narrow.
 
 ## Registering an extension
 
@@ -21,7 +21,8 @@ import { registerRightWindowExtension } from "@/lib/rightWindowExtensions";
 
 const unregister = registerRightWindowExtension({
   id: "terminal",
-  label: "Terminal",
+  name: "Terminal",
+  icon: <TerminalIcon size={20} />,
   description: "Run commands beside the active conversation.",
   defaultWidth: 520,
   minWidth: 360,
@@ -56,9 +57,9 @@ The user can always resize the panel by dragging the narrow rail on its left edg
 
 ## Design and behavior rules
 
-Extensions should render a self-contained tool surface and keep destructive actions explicit. They should use the existing workspace tokens and avoid taking over the full viewport. The host provides the header, close control, active extension title, extension tabs, and resizing rail; the extension owns its internal content.
+Extensions should render a self-contained tool surface and keep destructive actions explicit. They should use the existing workspace tokens and avoid taking over the full viewport. The host provides the header, close control, active extension title, app-icon launcher, back navigation, and resizing rail; the extension owns its internal content. Selecting an app icon opens that extension in the same right window.
 
-The current built-in `workspace-welcome` extension is a safe placeholder that confirms the surface is available and demonstrates programmatic expansion. Future tools can replace or sit beside it without changing the main conversation layout.
+The current built-in `workspace-welcome` extension is a safe placeholder that confirms the surface is available and demonstrates programmatic expansion. In the launcher it appears as an app icon with the short name `Workspace`. Future tools can replace or sit beside it without changing the main conversation layout.
 
 ## Example: open from a host control
 

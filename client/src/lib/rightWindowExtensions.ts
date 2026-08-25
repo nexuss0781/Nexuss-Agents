@@ -18,7 +18,8 @@ export type RightWindowApi = {
 
 export type RightWindowExtension = {
   id: string;
-  label: string;
+  name: string;
+  icon: ReactNode;
   description?: string;
   minWidth?: number;
   defaultWidth?: number;

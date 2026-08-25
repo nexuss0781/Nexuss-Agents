@@ -1278,3 +1278,29 @@ body { color: var(--paper); }
   .send-button { width: 35px; height: 35px; }
 }
 @media (prefers-reduced-motion: reduce) { .composer-wrap { transition: none; } }
+
+/* Android-style extension app drawer */
+.right-window-header-title { display: flex !important; align-items: center; gap: 9px; }
+.right-window-back { display: grid; width: 28px; height: 28px; place-items: center; padding: 0; border: 1px solid rgba(220,226,228,.12); border-radius: 8px; background: rgba(220,226,228,.05); color: #aab6b9; }
+.right-window-back:hover { border-color: rgba(220,226,228,.3); background: rgba(220,226,228,.1); color: #f0f4f3; }
+.right-window-launcher { min-height: 0; flex: 1; overflow: auto; padding: 22px 20px 28px; scrollbar-width: thin; scrollbar-color: rgba(190,205,208,.26) transparent; }
+.right-window-launcher-copy { display: grid; gap: 7px; margin-bottom: 21px; }
+.right-window-launcher-copy > span { color: #7c898d; font: 9px "IBM Plex Mono", monospace; letter-spacing: .16em; }
+.right-window-launcher-copy p { margin: 0; color: #8e999c; font-size: 12px; line-height: 1.55; }
+.right-window-app-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px 10px; }
+.right-window-app { display: grid; min-width: 0; justify-items: center; gap: 9px; padding: 0; border: 0; background: transparent; color: #a9b4b7; }
+.right-window-app-icon { display: grid; width: 58px; height: 58px; place-items: center; border: 1px solid rgba(220,226,228,.15); border-radius: 17px; background: linear-gradient(145deg, rgba(226,235,237,.12), rgba(226,235,237,.04)); color: #dbe5e6; box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 9px 20px rgba(0,0,0,.16); transition: transform 160ms cubic-bezier(.23,1,.32,1), border-color 160ms ease, background 160ms ease, box-shadow 160ms ease; }
+.right-window-app:hover .right-window-app-icon, .right-window-app:focus-visible .right-window-app-icon { border-color: rgba(221,231,234,.48); background: linear-gradient(145deg, rgba(226,235,237,.2), rgba(226,235,237,.07)); box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 12px 24px rgba(0,0,0,.25); transform: translateY(-2px); }
+.right-window-app:active .right-window-app-icon { transform: scale(.96); }
+.right-window-app-label { max-width: 100%; overflow: hidden; color: #aeb9bb; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.right-window-app:hover .right-window-app-label, .right-window-app:focus-visible .right-window-app-label { color: #f0f4f3; }
+@media (max-width: 800px) { .right-window-app-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px 8px; } .right-window-app-icon { width: 56px; height: 56px; } }
+@media (max-width: 420px) { .right-window-app-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .right-window-app-icon { transition: none; } }
+
+/* Launcher labels are fixed to the app cell, so long names never push neighboring icons. */
+.right-window-app { width: 100%; }
+.right-window-app-icon { width: clamp(48px, 14vw, 58px); height: clamp(48px, 14vw, 58px); }
+.right-window-app-label { display: block; width: 100%; min-width: 0; padding: 0 2px; overflow: hidden; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.right-window-app-label[title] { cursor: help; }
+@media (min-width: 801px) { .right-window-app-icon { width: clamp(50px, 6vw, 58px); height: clamp(50px, 6vw, 58px); } }
