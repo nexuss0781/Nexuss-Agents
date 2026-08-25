@@ -17,6 +17,7 @@ export type GithubWorkflowJob = { id: number; name: string; status: string; conc
 export type GithubWorkflowRunsResponse = { owner: string; repo: string; runs: GithubWorkflowRun[] };
 export type GithubWorkflowJobsResponse = { owner: string; repo: string; runId: number; jobs: GithubWorkflowJob[] };
 export type GithubWorkflowLogsResponse = { owner: string; repo: string; jobId: number; logs: string; truncated: boolean };
+export type GithubAnalyticsResponse = { owner: string; repo: string; repository: { stars: number; forks: number; openIssues: number; language: string | null; pushedAt: string | null }; commits: Array<{ sha: string | null; message: string; author: string; avatarUrl: string | null; date: string | null }>; pulls: Array<{ number: number; state: string; merged: boolean; draft: boolean }>; contributors: Array<{ login: string; contributions: number; avatarUrl: string | null }>; workflow: { total: number; successful: number; completed: number; successRate: number | null } };
 
 export class GithubOAuthError extends Error {
   readonly code: "NOT_CONFIGURED" | "NOT_CONNECTED" | "OAUTH_FAILED" | "GITHUB_API_FAILED";
@@ -82,6 +83,11 @@ export async function githubConnectionStatus(ownerId: string): Promise<{ configu
 export async function listGithubRepositories(ownerId: string): Promise<{ connected: true; login: string; repositories: GithubRepository[] }> {
   const result = await centralGithubRequest<{ login: string; repositories: GithubRepository[] }>(ownerId, "/v1/github/repositories");
   return { connected: true, login: result.login, repositories: Array.isArray(result.repositories) ? result.repositories.slice(0, 100) : [] };
+}
+
+export async function getGithubAnalytics(ownerId: string, fullName: string): Promise<GithubAnalyticsResponse> {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName)) throw new GithubOAuthError("Choose a valid GitHub repository.");
+  const [owner, repo] = fullName.split("/"); return centralGithubRequest<GithubAnalyticsResponse>(ownerId, `/v1/github/analytics?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`);
 }
 
 export async function listGithubWorkflowRuns(ownerId: string, fullName: string): Promise<GithubWorkflowRunsResponse> {

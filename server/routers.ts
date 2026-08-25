@@ -28,7 +28,7 @@ import { pauseMission, queueMission, recoverMissions, resumeMission, retryMissio
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { clonePublicGithubProject, markProjectImportFailed, ProjectWorkspaceError } from "./projectWorkspace";
-import { cloneAuthorizedGithubProject, getGithubFile, getGithubPullFiles, getGithubTree, getGithubWorkflowLogs, githubConnectionStatus as githubStatus, GithubOAuthError, listGithubPulls, listGithubRepositories, listGithubWorkflowJobs, listGithubWorkflowRuns, postGithubPullComment, searchGithubCode } from "./githubAuth";
+import { cloneAuthorizedGithubProject, getGithubFile, getGithubPullFiles, getGithubTree, getGithubWorkflowLogs, getGithubAnalytics, githubConnectionStatus as githubStatus, GithubOAuthError, listGithubPulls, listGithubRepositories, listGithubWorkflowJobs, listGithubWorkflowRuns, postGithubPullComment, searchGithubCode } from "./githubAuth";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -93,6 +93,7 @@ export const appRouter = router({
       pulls: publicProcedure.input(z.object({ fullName: z.string().trim().min(3).max(240), state: z.enum(["open", "closed"]).default("open") })).query(async ({ ctx, input }) => { try { return await listGithubPulls(await workspaceOwner(ctx), input.fullName, input.state); } catch (error) { return workspaceFailure(error); } }),
       pullFiles: publicProcedure.input(z.object({ fullName: z.string().trim().min(3).max(240), number: z.number().int().min(1).max(1_000_000) })).query(async ({ ctx, input }) => { try { return await getGithubPullFiles(await workspaceOwner(ctx), input.fullName, input.number); } catch (error) { return workspaceFailure(error); } }),
       comment: publicProcedure.input(z.object({ fullName: z.string().trim().min(3).max(240), number: z.number().int().min(1).max(1_000_000), body: z.string().trim().min(1).max(10_000), confirmed: z.literal(true) })).mutation(async ({ ctx, input }) => { try { return await postGithubPullComment(await workspaceOwner(ctx), input.fullName, input.number, input.body); } catch (error) { return workspaceFailure(error); } }),
+      analytics: publicProcedure.input(z.object({ fullName: z.string().trim().min(3).max(240) })).query(async ({ ctx, input }) => { try { return await getGithubAnalytics(await workspaceOwner(ctx), input.fullName); } catch (error) { return workspaceFailure(error); } }),
       workflowRuns: publicProcedure.input(z.object({ fullName: z.string().trim().min(3).max(240) })).query(async ({ ctx, input }) => { try { return await listGithubWorkflowRuns(await workspaceOwner(ctx), input.fullName); } catch (error) { return workspaceFailure(error); } }),
       workflowJobs: publicProcedure.input(z.object({ fullName: z.string().trim().min(3).max(240), runId: z.number().int().min(1) })).query(async ({ ctx, input }) => { try { return await listGithubWorkflowJobs(await workspaceOwner(ctx), input.fullName, input.runId); } catch (error) { return workspaceFailure(error); } }),
       workflowLogs: publicProcedure.input(z.object({ fullName: z.string().trim().min(3).max(240), jobId: z.number().int().min(1) })).query(async ({ ctx, input }) => { try { return await getGithubWorkflowLogs(await workspaceOwner(ctx), input.fullName, input.jobId); } catch (error) { return workspaceFailure(error); } }),
