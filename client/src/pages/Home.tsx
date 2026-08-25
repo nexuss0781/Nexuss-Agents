@@ -35,6 +35,8 @@ import {
   X,
   PanelRight,
   GripVertical,
+  Maximize2,
+  Minimize2,
   Hammer,
   Lightbulb,
   Sparkles,
@@ -304,6 +306,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const RIGHT_WINDOW_MIN_WORKSPACE_WIDTH = 640;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [rightWindowOpen, setRightWindowOpen] = useState(false);
+  const [rightWindowExpanded, setRightWindowExpanded] = useState(false);
   const [rightWindowWidth, setRightWindowWidth] = useState(380);
   const [rightWindowMinWidth, setRightWindowMinWidth] = useState(RIGHT_WINDOW_MIN_WIDTH);
   const [activeExtensionId, setActiveExtensionId] = useState<string | null>(null);
@@ -314,16 +317,18 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       const extension = getRightWindowExtension(extensionId) || getRightWindowExtensions()[0];
       if (!extension) return;
       setActiveExtensionId(extension.id);
+      setRightWindowExpanded(false);
       setRightWindowMinWidth(Math.max(RIGHT_WINDOW_MIN_WIDTH, extension.minWidth || 0));
       setRightWindowWidth((current) => Math.max(current, RIGHT_WINDOW_MIN_WIDTH, extension.minWidth || 0, extension.defaultWidth || 0));
       setRightWindowOpen(true);
     },
-    close: () => setRightWindowOpen(false),
+    close: () => { setRightWindowOpen(false); setRightWindowExpanded(false); },
     toggle: (extensionId) => {
       if (rightWindowOpen) setRightWindowOpen(false);
       else if (extensionId) rightWindowApi.open(extensionId);
       else {
         setActiveExtensionId(null);
+        setRightWindowExpanded(false);
         setRightWindowMinWidth(RIGHT_WINDOW_MIN_WIDTH);
         setRightWindowWidth((current) => Math.max(current, RIGHT_WINDOW_MIN_WIDTH));
         setRightWindowOpen(true);
@@ -1055,7 +1060,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   }, [rightWindowMinWidth]);
 
   return (
-    <div className={`app-shell ${rightWindowOpen ? "right-window-is-open" : ""}`} style={{ "--right-window-offset": rightWindowOpen ? `${renderedRightWindowWidth}px` : "0px" } as React.CSSProperties}>
+    <div className={`app-shell ${rightWindowOpen ? "right-window-is-open" : ""} ${rightWindowExpanded ? "right-window-expanded" : ""}`} style={{ "--right-window-offset": rightWindowOpen && !rightWindowExpanded ? `${renderedRightWindowWidth}px` : "0px" } as React.CSSProperties}>
 
       <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
         <div className="brand-row">
@@ -1127,7 +1132,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         </div></div><div className="mobile-bottom-bar"><button onClick={() => setMobileNav(true)}><Menu size={16} /><span>Threads</span></button><button onClick={() => { composerRef.current?.focus(); setProjectMenuOpen(true); }} disabled={!workspaceReady || workspace.projects.length === 0}><Folder size={16} /><span>{activeProject?.name || workspace.projects.find((project) => project.id === pendingProjectId)?.name || "Project"}</span></button><button onClick={() => composerRef.current?.focus()} disabled={!workspaceReady}><ArrowUp size={16} /><span>Write</span></button></div>
       </main>
 
-      {rightWindowOpen && <aside className="right-window" style={{ width: `${renderedRightWindowWidth}px`, minWidth: `${Math.min(rightWindowMinWidth, rightWindowMaxWidth)}px` }} aria-label="Right window"><div className="right-window-resize-handle" role="separator" aria-label="Resize right window" aria-orientation="vertical" onPointerDown={beginRightWindowResize} onPointerUp={endRightWindowResize} onPointerCancel={endRightWindowResize}><GripVertical size={14} /></div><div className="right-window-header"><div className="right-window-header-title">{activeRightWindowExtension && <button className="right-window-back" onClick={() => setActiveExtensionId(null)} aria-label="Back to extensions"><ChevronLeft size={15} /></button>}<div><span className="right-window-kicker">{activeRightWindowExtension ? "EXTENSION" : "APP DRAWER"}</span>{activeRightWindowExtension && <strong>{activeRightWindowExtension.name}</strong>}</div></div><button className="icon-button" onClick={() => rightWindowApi.close()} aria-label="Close right window"><X size={15} /></button></div>{activeRightWindowExtension ? <div className="right-window-content">{activeRightWindowExtension.render(rightWindowApi)}</div> : <div className="right-window-launcher"><div className="right-window-app-grid" role="list">{rightWindowExtensions.map((extension) => <button key={extension.id} className="right-window-app" onClick={() => rightWindowApi.open(extension.id)} role="listitem" title={extension.name} aria-label={`Open ${extension.name}`}><span className="right-window-app-icon">{extension.icon}</span><span className="right-window-app-label">{extension.name}</span></button>)}</div>{rightWindowExtensions.length === 0 && <div className="right-window-empty" aria-hidden="true" /> }</div>}</aside>}
+      {rightWindowOpen && <aside className={`right-window ${rightWindowExpanded ? "is-expanded" : ""}`} style={{ width: rightWindowExpanded ? undefined : `${renderedRightWindowWidth}px`, minWidth: rightWindowExpanded ? undefined : `${Math.min(rightWindowMinWidth, rightWindowMaxWidth)}px` }} aria-label="Right window"><div className="right-window-resize-handle" role="separator" aria-label="Resize right window" aria-orientation="vertical" onPointerDown={beginRightWindowResize} onPointerUp={endRightWindowResize} onPointerCancel={endRightWindowResize}><GripVertical size={14} /></div><div className="right-window-header"><div className="right-window-header-title">{activeRightWindowExtension && <button className="right-window-back" onClick={() => setActiveExtensionId(null)} aria-label="Back to extensions"><ChevronLeft size={15} /></button>}<div><span className="right-window-kicker">{activeRightWindowExtension ? "EXTENSION" : "APP DRAWER"}</span>{activeRightWindowExtension && <strong>{activeRightWindowExtension.name}</strong>}</div></div><div className="right-window-header-actions"><button className="icon-button" onClick={() => setRightWindowExpanded((expanded) => !expanded)} aria-label={rightWindowExpanded ? "Restore right window" : "Expand right window"} title={rightWindowExpanded ? "Restore right window" : "Expand right window"}>{rightWindowExpanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</button><button className="icon-button" onClick={() => rightWindowApi.close()} aria-label="Close right window"><X size={15} /></button></div></div>{activeRightWindowExtension ? <div className="right-window-content">{activeRightWindowExtension.render(rightWindowApi)}</div> : <div className="right-window-launcher"><div className="right-window-app-grid" role="list">{rightWindowExtensions.map((extension) => <button key={extension.id} className="right-window-app" onClick={() => rightWindowApi.open(extension.id)} role="listitem" title={extension.name} aria-label={`Open ${extension.name}`}><span className="right-window-app-icon">{extension.icon}</span><span className="right-window-app-label">{extension.name}</span></button>)}</div>{rightWindowExtensions.length === 0 && <div className="right-window-empty" aria-hidden="true" /> }</div>}</aside>}
 
       {settingsOpen && <div className="active-work-backdrop" onMouseDown={() => setActiveWorkOpen(false)}><aside className="active-work-drawer" role="dialog" aria-modal="true" aria-labelledby="active-work-title" onMouseDown={(event) => event.stopPropagation()}><header className="active-work-header"><div><span className="modal-eyebrow">Work in progress</span><h2 id="active-work-title">Your work</h2></div><button className="icon-button" onClick={() => setActiveWorkOpen(false)} aria-label="Close your work"><X size={17} /></button></header><div className="active-work-body">{recentMissions.length === 0 ? <div className="active-work-empty"><span className="active-work-empty-mark" aria-hidden="true" /><p>No work yet.</p><small>When you give the agent a job, it will appear here.</small></div> : <><div className="mission-list" aria-label="Your work">{recentMissions.map((mission) => { const status = mission.status as MissionStatus; const isSelected = selectedMissionId === mission.id; return <button className={`mission-list-item ${isSelected ? "selected" : ""}`} key={mission.id} onClick={() => { setSelectedMissionId(mission.id); setActiveWorkOpen(true); }}><span className={`mission-list-status ${missionIsActive(status) ? "working" : status}`} aria-hidden="true" /><span className="mission-list-copy"><strong>{mission.goal}</strong><small>{missionStatusLabel(status)}</small></span><span className="mission-list-arrow" aria-hidden="true">›</span></button>; })}</div>{selectedMission && <section className="mission-detail"><div className="mission-detail-heading"><div><span className="modal-eyebrow">Selected work</span><h3>{selectedMission.goal}</h3></div><span className={`mission-status-pill ${missionIsActive(selectedMission.status as MissionStatus) ? "working" : selectedMission.status}`}>{missionStatusLabel(selectedMission.status as MissionStatus)}</span></div>{selectedMissionSnapshot ? <><div className="mission-progress-copy"><span>{selectedCompletedItems} of {selectedWorkItems.length || "—"} steps complete</span><span>{selectedMissionSnapshot.events.length} updates</span></div><div className="mission-progress-track"><span style={{ width: `${selectedWorkItems.length ? Math.round((selectedCompletedItems / selectedWorkItems.length) * 100) : selectedMission.status === "completed" ? 100 : 12}%` }} /></div></> : <div className="mission-detail-loading">Loading the latest result…</div>}<div className="mission-actions">{selectedMission.status === "paused" ? <button className="primary-button" onClick={() => handleMissionAction("resume", selectedMission.id)} aria-label="Continue work">Continue</button> : missionIsActive(selectedMission.status as MissionStatus) && <button className="text-button" onClick={() => handleMissionAction("pause", selectedMission.id)} aria-label="Pause work">Pause</button>}{missionIsActive(selectedMission.status as MissionStatus) && <button className="stop-work-button" onClick={() => handleMissionAction("stop", selectedMission.id)} aria-label="Stop work">Stop</button>}{selectedMission.status === "failed" || selectedMission.status === "stopped" ? <button className="primary-button" onClick={() => handleMissionAction("retry", selectedMission.id)} aria-label="Try work again">Try again</button> : null}</div></section>}</>}</div></aside></div>}
 
