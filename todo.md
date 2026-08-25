@@ -671,3 +671,12 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 
 - [x] Confirm the relying app is using central Nexuss Auth rather than local GitHub OAuth.
 - [x] Validate the central-auth callback and grant client after the OAuth start migration fix.
+
+## Authentication-Aware Routing
+
+- [x] Validate the server session on every public and protected route.
+- [x] Redirect authenticated users from `/`, `/login`, or unknown routes to `/app`.
+- [x] Redirect unauthenticated users from `/app` or unknown routes to `/`.
+- [x] Persist only a safe authenticated-user marker in localStorage; keep the session token in the HTTP-only server cookie.
+- [x] Clear local continuity metadata and the server session on logout.
+- [x] Validate TypeScript, focused auth/workspace regressions, production build, and whitespace.
