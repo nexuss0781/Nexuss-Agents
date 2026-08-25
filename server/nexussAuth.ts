@@ -1,6 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { parse as parseCookie } from "cookie";
 import { SignJWT, jwtVerify } from "jose";
+import { buildCentralGithubAuthorizationUrl } from "./githubAuth";
+import { saveGithubGrant } from "./paradoxWorkspace";
 
 export const SESSION_COOKIE = "nexuss_agent_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
@@ -106,7 +108,7 @@ async function exchangeHandoff(handoffToken: string) {
     body: JSON.stringify({ projectId, handoffToken }),
   });
 
-  const body = await response.json().catch(() => ({})) as { error?: string; user?: NexussAuthUser };
+  const body = await response.json().catch(() => ({})) as { error?: string; user?: NexussAuthUser; githubGrantToken?: string };
   if (!response.ok) {
     const code: AuthFailureCode = body.error === "handoff_required" || body.error === "invalid_handoff" || body.error === "user_not_found"
       ? body.error
@@ -114,7 +116,7 @@ async function exchangeHandoff(handoffToken: string) {
     throw new NexussAuthFailure(code, response.status);
   }
   if (!body.user?.id) throw new NexussAuthFailure("handoff_failed", response.status);
-  return body.user;
+  return { user: body.user, githubGrantToken: body.githubGrantToken };
 }
 
 export function registerNexussAuthRoutes(app: Express) {
@@ -126,7 +128,9 @@ export function registerNexussAuthRoutes(app: Express) {
     }
 
     try {
-      const user = await exchangeHandoff(handoffToken);
+      const handoff = await exchangeHandoff(handoffToken);
+      const user = handoff.user;
+      if (handoff.githubGrantToken) await saveGithubGrant(user.id, handoff.githubGrantToken, user.name || undefined);
       const session = await createSession(user);
       res.cookie(SESSION_COOKIE, session, cookieOptions());
       res.redirect("/app");
@@ -137,6 +141,15 @@ export function registerNexussAuthRoutes(app: Express) {
       const query = new URLSearchParams({ error: failure.code });
       if (missing) query.set("missing", missing);
       res.redirect(`/login?${query.toString()}`);
+    }
+  });
+
+  app.get("/auth/github/connect", (_req, res) => {
+    try {
+      res.redirect(buildCentralGithubAuthorizationUrl());
+    } catch (error) {
+      console.error(`[Nexuss Auth] GitHub authorization is not configured${error instanceof Error ? `: ${error.message}` : ""}`);
+      res.redirect("/app?github_error=not_configured");
     }
   });
 

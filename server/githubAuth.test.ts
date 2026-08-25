@@ -2,23 +2,20 @@ import { describe, expect, it } from "vitest";
 import { githubOAuthConfig, githubRequiredScope } from "./githubAuth";
 
 describe("GitHub OAuth configuration", () => {
-  it("recognizes the Render GitHub variables without exposing their values", () => {
-    expect(githubOAuthConfig({ GITHUB_CLIENT_ID: "client-id", GITHUB_SECRET: "client-secret", APP_ORIGIN: "https://nexuss-agent.onrender.com" })).toEqual({
+  it("recognizes the central Nexuss Auth variables without requiring GitHub secrets in the app", () => {
+    expect(githubOAuthConfig({ NEXUSS_AUTH_URL: "https://nexuss-auth.vercel.app", NEXUSS_AUTH_PROJECT_ID: "nexuss-agents", NEXUSS_AUTH_REDIRECT_URI: "https://nexuss-agent.onrender.com/auth/callback" })).toEqual({
       configured: true,
-      redirectUri: "https://nexuss-agent.onrender.com/auth/github/callback",
+      redirectUri: "https://nexuss-agent.onrender.com/auth/callback",
     });
   });
 
-  it("allows an explicit HTTPS callback override", () => {
-    expect(githubOAuthConfig({ GITHUB_CLIENT_ID: "client-id", GITHUB_SECRET: "client-secret", GITHUB_OAUTH_REDIRECT_URI: "https://example.com/auth/github/callback" })).toEqual({
-      configured: true,
-      redirectUri: "https://example.com/auth/github/callback",
-    });
+  it("rejects non-HTTPS central auth configuration", () => {
+    expect(githubOAuthConfig({ NEXUSS_AUTH_URL: "http://auth.example.com", NEXUSS_AUTH_PROJECT_ID: "nexuss-agents", NEXUSS_AUTH_REDIRECT_URI: "https://example.com/auth/callback" }).configured).toBe(false);
   });
 
-  it("does not report OAuth as configured when a credential is missing", () => {
-    expect(githubOAuthConfig({ GITHUB_CLIENT_ID: "client-id" }).configured).toBe(false);
-    expect(githubOAuthConfig({ GITHUB_SECRET: "client-secret" }).configured).toBe(false);
+  it("does not report central auth as configured when a public setting is missing", () => {
+    expect(githubOAuthConfig({ NEXUSS_AUTH_PROJECT_ID: "nexuss-agents", NEXUSS_AUTH_REDIRECT_URI: "https://example.com/auth/callback" }).configured).toBe(false);
+    expect(githubOAuthConfig({ NEXUSS_AUTH_URL: "https://nexuss-auth.vercel.app", NEXUSS_AUTH_REDIRECT_URI: "https://example.com/auth/callback" }).configured).toBe(false);
   });
 
   it("uses the repository scope required by the OAuth app flow", () => {

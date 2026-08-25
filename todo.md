@@ -657,3 +657,12 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 - [x] Add repository selection and authorized cloning to the New project GitHub tab while retaining public-link import.
 - [x] Configure the production callback as `https://nexuss-agent.onrender.com/auth/github/callback`.
 - [x] Validate OAuth configuration, workspace security, TypeScript, focused regressions, production build, and whitespace.
+
+## Central Nexuss Auth GitHub Authorization
+
+- [x] Remove Nexuss-Agent-owned GitHub OAuth route and provider-secret dependency.
+- [x] Start GitHub repository authorization through the central Nexuss Auth handoff flow.
+- [x] Persist only the opaque central grant in encrypted Paradox workspace metadata.
+- [x] Use central-auth repository listing and immediate clone-token endpoints for authorized imports.
+- [x] Update Render variables to `NEXUSS_AUTH_URL`, `NEXUSS_AUTH_PROJECT_ID`, and `NEXUSS_AUTH_REDIRECT_URI`.
+- [x] Validate central-auth and relying-application authentication, workspace, TypeScript, build, and whitespace checks.

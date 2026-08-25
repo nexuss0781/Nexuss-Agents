@@ -10,5 +10,9 @@ services:
     envVars:
       - key: NEXUSS_PROJECTS_ROOT
         value: /var/lib/nexuss-projects
-      - key: GITHUB_OAUTH_REDIRECT_URI
-        value: https://nexuss-agent.onrender.com/auth/github/callback
+      - key: NEXUSS_AUTH_URL
+        value: https://nexuss-auth.vercel.app
+      - key: NEXUSS_AUTH_PROJECT_ID
+        value: nexuss-agent-v2
+      - key: NEXUSS_AUTH_REDIRECT_URI
+        value: https://nexuss-agent.onrender.com/auth/callback
