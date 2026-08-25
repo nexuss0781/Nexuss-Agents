@@ -37,6 +37,7 @@ import {
   GripVertical,
   Hammer,
   Lightbulb,
+  Sparkles,
   ListChecks,
 } from "lucide-react";
 import { getRightWindowExtension, getRightWindowExtensions, subscribeRightWindowExtensions, type RightWindowApi, type RightWindowExtension } from "@/lib/rightWindowExtensions";
@@ -1102,9 +1103,9 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
               </div>
               <span className="composer-top-divider" />
               <div className="composer-menu-anchor composer-execution-anchor">
-                <button className="composer-picker execution-picker" onClick={(event) => { event.stopPropagation(); setModelMenuOpen(false); setProjectMenuOpen(false); setExecutionMenuOpen(!executionMenuOpen); }} aria-label="Choose execution style" aria-expanded={executionMenuOpen}><span className="execution-picker-dot" aria-hidden="true" /><span>{executionMode === "complex" ? "Complex" : executionMode}</span><ChevronDown size={13} /></button>
+                <button className="composer-picker execution-picker" onClick={(event) => { event.stopPropagation(); setModelMenuOpen(false); setProjectMenuOpen(false); setExecutionMenuOpen(!executionMenuOpen); }} aria-label="Choose execution style" aria-expanded={executionMenuOpen}><Sparkles className="execution-picker-icon" size={14} aria-hidden="true" /><span>{executionMode === "complex" ? "Complex" : executionMode}</span><ChevronDown size={13} /></button>
                 {executionMenuOpen && <div className="composer-menu execution-menu" role="menu" aria-label="Execution styles">
-                  <button className="execution-option selected" role="menuitem" onClick={(event) => { event.stopPropagation(); setExecutionMenuOpen(false); }}><span><span className="execution-option-dot" aria-hidden="true" />Complex</span><Check size={13} /></button>
+                  <button className="execution-option selected" role="menuitem" onClick={(event) => { event.stopPropagation(); setExecutionMenuOpen(false); }}><span><Sparkles className="execution-option-icon" size={14} aria-hidden="true" />Complex</span><Check size={13} /></button>
                   <button className="execution-option upcoming" role="menuitem" disabled><span><span className="execution-option-dot" aria-hidden="true" />General</span><small>Coming soon</small></button>
                   <button className="execution-option upcoming" role="menuitem" disabled><span><span className="execution-option-dot" aria-hidden="true" />Instant</span><small>Coming soon</small></button>
                 </div>}
