@@ -1358,3 +1358,9 @@ body { color: var(--paper); }
 .right-window-resize-handle:hover::before, .right-window-resize-handle:active::before { height: 82px; background: rgba(226,236,238,.82); }
 .right-window-resize-handle:hover svg, .right-window-resize-handle:active svg { opacity: 1; }
 @media (max-width: 800px) { .right-window-resize-handle { display: none; } }
+
+/* Keep the composer anchored while the right-window divider moves. */
+@media (min-width: 801px) {
+  .right-window-is-open .composer-wrap { justify-content: flex-start; transition: none; }
+  .right-window-is-open .composer-wrap > .composer { flex: 0 1 860px; width: min(860px, 100%); }
+}
