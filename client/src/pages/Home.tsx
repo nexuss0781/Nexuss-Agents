@@ -417,12 +417,14 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const stopNoticeRef = useRef(false);
   const migrationStarted = useRef(false);
   const conversationRef = useRef<HTMLElement>(null);
+  const threadSearchRef = useRef<HTMLInputElement>(null);
   const composerWrapRef = useRef<HTMLDivElement>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const livePromptRef = useRef<HTMLElement>(null);
   const latestUserMessageRef = useRef<HTMLElement>(null);
   const focusNewPromptThreadRef = useRef<string | null>(null);
   const workspace = navigationQuery.data || seed;
+  const workspaceReady = navigationQuery.isSuccess && migrationSettled;
   const projectKey = workspace.projects.map((project) => project.id).join("|");
   useEffect(() => {
     setProjectSlide((current) => Math.min(current, Math.max(workspace.projects.length - 1, 0)));
@@ -481,8 +483,31 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setSettingsOpen(false); };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [settingsOpen]);
-
+    }, [settingsOpen]);
+  useEffect(() => {
+    const handleWorkspaceShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isEditable = Boolean(target?.closest("input, textarea, select, [contenteditable='true']"));
+      const commandKey = event.ctrlKey || event.metaKey;
+      if (commandKey && event.key.toLowerCase() === "n" && !isEditable) {
+        event.preventDefault();
+        createThread();
+        return;
+      }
+      if (commandKey && event.key.toLowerCase() === "u" && !isEditable) {
+        event.preventDefault();
+        attachmentInputRef.current?.click();
+        return;
+      }
+      if (event.key === "/" && !isEditable && !event.altKey && !event.ctrlKey && !event.metaKey) {
+        event.preventDefault();
+        threadSearchRef.current?.focus();
+        threadSearchRef.current?.select();
+      }
+    };
+    window.addEventListener("keydown", handleWorkspaceShortcut);
+    return () => window.removeEventListener("keydown", handleWorkspaceShortcut);
+  }, [workspaceReady, createThreadMutation.isPending]);
   useEffect(() => {
     const savedProvider = modelSettingsQuery.data;
     if (!modelSettingsQuery.isSuccess || !savedProvider) return;
@@ -524,7 +549,6 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     return { ...activeThreadSummary, messages };
   }, [activeThreadSummary, activeChatQuery.data?.messages]);
   const latestUserMessageId = activeThread?.messages.filter((message) => message.role === "user").at(-1)?.id;
-  const workspaceReady = navigationQuery.isSuccess && migrationSettled;
   const activeProject = workspace.projects.find((project) => project.id === activeThread?.projectId);
   const missionListQuery = trpc.workspace.mission.list.useQuery(undefined, { enabled: workspaceReady, retry: false, staleTime: 1_000, refetchInterval: workspaceReady ? 2_500 : false, refetchIntervalInBackground: true });
   const missionRecords = Array.isArray(missionListQuery.data) ? missionListQuery.data : [];
@@ -1074,7 +1098,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         <div className="mobile-brand-lockup"><div className="mobile-brand-art"><img src={AXOLOTL_ICON} alt="" /></div><div className="mobile-brand-copy"><strong>NEXUSS-AGENT</strong></div></div>
         <button className="new-thread-button" onClick={createThread} disabled={!workspaceReady || createThreadMutation.isPending}><CirclePlus size={17} /><span>New thread</span></button>
         <div className="sidebar-section thread-section">
-          <div className="search-field"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter threads" /></div>
+          <div className="search-field"><Search size={14} /><input ref={threadSearchRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter threads" /></div>
           <div className="thread-list">
             {groupedThreads.length === 0 ? <div className="thread-list-empty">{selectedProjectId ? "No threads in this project" : "No threads yet"}</div> : groupedThreads.map((group) => <div className="thread-group" key={group.label}><div className="thread-group-label">{group.label}</div>{group.threads.map((thread) => (
               <div key={thread.id} className={`thread-item ${thread.id === activeThread?.id ? "active" : ""}`} onClick={() => openThread(thread)}>
