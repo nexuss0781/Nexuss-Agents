@@ -12,6 +12,11 @@ export type GithubPullFile = { filename: string; status: string; additions: numb
 export type GithubPullsResponse = { owner: string; repo: string; state: "open" | "closed"; pulls: GithubPull[] };
 export type GithubPullFilesResponse = { owner: string; repo: string; number: number; files: GithubPullFile[] };
 export type GithubCommentResponse = { owner: string; repo: string; number: number; id: number | null; htmlUrl: string | null; body: string; createdAt: string | null };
+export type GithubWorkflowRun = { id: number; name: string; title: string; status: string; conclusion: string | null; event: string; htmlUrl: string | null; createdAt: string | null; updatedAt: string | null; startedAt: string | null; branch: string | null; sha: string | null; runNumber: number | null; workflowId: number | null };
+export type GithubWorkflowJob = { id: number; name: string; status: string; conclusion: string | null; startedAt: string | null; completedAt: string | null; htmlUrl: string | null; steps: Array<{ name: string; status: string; conclusion: string | null; number: number | null }> };
+export type GithubWorkflowRunsResponse = { owner: string; repo: string; runs: GithubWorkflowRun[] };
+export type GithubWorkflowJobsResponse = { owner: string; repo: string; runId: number; jobs: GithubWorkflowJob[] };
+export type GithubWorkflowLogsResponse = { owner: string; repo: string; jobId: number; logs: string; truncated: boolean };
 
 export class GithubOAuthError extends Error {
   readonly code: "NOT_CONFIGURED" | "NOT_CONNECTED" | "OAUTH_FAILED" | "GITHUB_API_FAILED";
@@ -77,6 +82,21 @@ export async function githubConnectionStatus(ownerId: string): Promise<{ configu
 export async function listGithubRepositories(ownerId: string): Promise<{ connected: true; login: string; repositories: GithubRepository[] }> {
   const result = await centralGithubRequest<{ login: string; repositories: GithubRepository[] }>(ownerId, "/v1/github/repositories");
   return { connected: true, login: result.login, repositories: Array.isArray(result.repositories) ? result.repositories.slice(0, 100) : [] };
+}
+
+export async function listGithubWorkflowRuns(ownerId: string, fullName: string): Promise<GithubWorkflowRunsResponse> {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName)) throw new GithubOAuthError("Choose a valid GitHub repository.");
+  const [owner, repo] = fullName.split("/"); const result = await centralGithubRequest<GithubWorkflowRunsResponse>(ownerId, `/v1/github/runs?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`); return { ...result, runs: Array.isArray(result.runs) ? result.runs.slice(0, 30) : [] };
+}
+
+export async function listGithubWorkflowJobs(ownerId: string, fullName: string, runId: number): Promise<GithubWorkflowJobsResponse> {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName) || !Number.isInteger(runId) || runId < 1) throw new GithubOAuthError("Choose a valid workflow run.");
+  const [owner, repo] = fullName.split("/"); const result = await centralGithubRequest<GithubWorkflowJobsResponse>(ownerId, `/v1/github/jobs?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}&run_id=${runId}`); return { ...result, jobs: Array.isArray(result.jobs) ? result.jobs.slice(0, 100) : [] };
+}
+
+export async function getGithubWorkflowLogs(ownerId: string, fullName: string, jobId: number): Promise<GithubWorkflowLogsResponse> {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName) || !Number.isInteger(jobId) || jobId < 1) throw new GithubOAuthError("Choose a valid workflow job.");
+  const [owner, repo] = fullName.split("/"); return centralGithubRequest<GithubWorkflowLogsResponse>(ownerId, `/v1/github/job-logs?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}&job_id=${jobId}`);
 }
 
 export async function listGithubPulls(ownerId: string, fullName: string, state: "open" | "closed" = "open"): Promise<GithubPullsResponse> {

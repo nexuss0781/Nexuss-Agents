@@ -1637,3 +1637,32 @@ body { color: var(--paper); }
 .nexuss-git-analysis-grid .nexuss-git-stat small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nexuss-git-analysis-note { margin: 9px 0 0; color: #7d8983; font-size: 9px; line-height: 1.45; }
 @media (max-width: 420px) { .nexuss-git-tabs button { font-size: 8px; } .nexuss-git-analysis-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.nexuss-git-ci-workspace, .nexuss-git-run-detail { display: flex; min-height: 0; flex-direction: column; gap: 9px; }
+.nexuss-git-run-list, .nexuss-git-job-list { display: flex; min-height: 0; flex-direction: column; gap: 6px; }
+.nexuss-git-run-row { display: flex; min-width: 0; align-items: center; gap: 8px; padding: 10px; color: #b8c0ba; border: 1px solid rgba(255,255,255,.08); border-radius: 9px; background: rgba(255,255,255,.03); cursor: pointer; text-align: left; }
+.nexuss-git-run-row:hover, .nexuss-git-job-card.is-selected { color: #f0f2ee; border-color: rgba(202,164,134,.34); background: rgba(202,164,134,.08); }
+.nexuss-git-run-row > span:not(.nexuss-git-run-dot) { min-width: 0; flex: 1; }
+.nexuss-git-run-row strong, .nexuss-git-run-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nexuss-git-run-row strong { color: #e0e6e0; font-size: 11px; font-weight: 550; }
+.nexuss-git-run-row small { margin-top: 3px; color: #78847e; font: 9px "IBM Plex Mono", monospace; }
+.nexuss-git-run-state { padding: 3px 5px; border-radius: 5px; font: 9px "IBM Plex Mono", monospace; }
+.nexuss-git-run-state.is-success, .nexuss-git-run-dot.is-success, .nexuss-git-step-dot.is-success { color: #8ec0a1; background-color: #8ec0a1; }
+.nexuss-git-run-state.is-failure, .nexuss-git-run-dot.is-failure, .nexuss-git-step-dot.is-failure { color: #d8988e; background-color: #d8988e; }
+.nexuss-git-run-state.is-cancelled, .nexuss-git-run-dot.is-cancelled, .nexuss-git-step-dot.is-cancelled { color: #a3aba7; background-color: #a3aba7; }
+.nexuss-git-run-state.is-in_progress, .nexuss-git-run-state.is-queued, .nexuss-git-run-dot.is-in_progress, .nexuss-git-run-dot.is-queued, .nexuss-git-step-dot.is-in_progress, .nexuss-git-step-dot.is-queued { color: #caa486; background-color: #caa486; }
+.nexuss-git-run-dot { display: block; width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; box-shadow: 0 0 0 3px currentColor; opacity: .28; }
+.nexuss-git-pull-heading h3 { max-width: 100%; }
+.nexuss-git-job-card { overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-radius: 9px; background: rgba(255,255,255,.025); }
+.nexuss-git-job-heading { display: flex; width: 100%; align-items: center; gap: 8px; padding: 10px; color: #c4ccc6; border: 0; background: transparent; cursor: pointer; text-align: left; }
+.nexuss-git-job-heading strong { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 550; }
+.nexuss-git-job-heading em { color: #84908a; font: 9px "IBM Plex Mono", monospace; font-style: normal; }
+.nexuss-git-step-list { display: flex; flex-direction: column; gap: 5px; padding: 0 10px 10px 25px; }
+.nexuss-git-step-list > span { display: flex; align-items: center; gap: 7px; min-width: 0; color: #929d96; font-size: 9px; }
+.nexuss-git-step-list > span > em { margin-left: auto; color: #68736f; font: 8px "IBM Plex Mono", monospace; font-style: normal; }
+.nexuss-git-step-dot { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; opacity: .8; }
+.nexuss-git-log-status { display: flex; align-items: center; gap: 7px; padding: 10px 12px; color: #8c9891; font-size: 10px; }
+.nexuss-git-log-box { margin: 0 10px 10px; overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-radius: 7px; background: #0a0c0c; }
+.nexuss-git-log-box > div { display: flex; justify-content: space-between; padding: 7px 9px; color: #aeb8b1; border-bottom: 1px solid rgba(255,255,255,.08); font: 9px "IBM Plex Mono", monospace; }
+.nexuss-git-log-box > div small { color: #caa486; }
+.nexuss-git-log-box pre { max-height: 240px; overflow: auto; margin: 0; padding: 10px; color: #aeb9b0; font: 9px/1.55 "IBM Plex Mono", monospace; white-space: pre-wrap; scrollbar-width: thin; scrollbar-color: rgba(202,164,134,.45) transparent; }
