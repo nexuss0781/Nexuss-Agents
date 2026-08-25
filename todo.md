@@ -695,3 +695,12 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 - [x] Autofill the editable project name from a public repository URL.
 - [x] Keep public URL cloning and authorized repository cloning on separate, explicit paths.
 - [x] Validate TypeScript, focused workspace tests, production build, and whitespace.
+
+## GitHub Settings and Repository Focus
+
+- [x] Move GitHub Connect and Reconnect controls into Settings.
+- [x] Remove connection controls from the New project repository card.
+- [x] Keep the main Upload codebase and Clone from GitHub tabs visually larger than their sub-tabs.
+- [x] Make Import repository and Existing repository smaller subordinate tabs.
+- [x] Give the repository list a wider, taller focus area for comfortable browsing.
+- [x] Validate TypeScript, focused tests, production build, and whitespace.

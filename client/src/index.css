@@ -1146,3 +1146,25 @@ body { color: var(--paper); }
 .repository-connect-empty p { max-width: 270px; margin: 0 0 5px; color: #849196; font-size: 11px; line-height: 1.45; }
 .repository-existing-panel { padding: 13px; border: 1px solid rgba(203,214,219,.12); border-radius: 11px; background: rgba(8,11,12,.27); }
 @media (max-width: 450px) { .repository-subtabs { grid-template-columns: 1fr; } }
+
+/* Repository onboarding hierarchy: the source tabs lead, repository subtabs support them, and the list gets the visual focus. */
+.project-onboarding-card { width: min(760px, calc(100vw - 28px)); }
+.project-tabs { min-height: 62px; gap: 7px; padding: 5px; }
+.project-tabs button { min-height: 50px; font-size: 12px; }
+.repository-subtabs { max-width: 470px; margin: 2px auto 4px; gap: 4px; padding: 3px; border-radius: 9px; background: rgba(8,11,12,.2); }
+.repository-subtabs button { min-height: 42px; gap: 7px; padding: 7px 9px; border-radius: 7px; }
+.repository-subtabs button strong { font-size: 10px; }
+.repository-subtabs button small { font-size: 8px; }
+.repository-import-panel { gap: 14px; }
+.github-repository-list { min-height: 250px; max-height: 360px; gap: 6px; padding: 7px; border-radius: 12px; background: rgba(8,11,12,.24); }
+.github-repository { min-height: 48px; padding: 11px 12px; border-radius: 8px; }
+.github-repository strong { font-size: 12px; }
+.github-repository small { font-size: 10px; }
+.repository-connect-empty { min-height: 250px; align-content: center; }
+.github-connected-mark { flex: 0 0 auto; padding: 4px 8px; border: 1px solid rgba(154,203,169,.24); border-radius: 999px; color: #a8d7b4; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+.github-settings-card { display: flex; align-items: center; gap: 11px; padding: 12px; border: 1px solid rgba(203,214,219,.13); border-radius: 10px; background: rgba(8,11,12,.28); }
+.github-settings-mark { display: grid; flex: 0 0 auto; place-items: center; width: 34px; height: 34px; border: 1px solid rgba(203,214,219,.16); border-radius: 9px; background: rgba(203,214,219,.08); color: #d7e0e2; }
+.github-settings-copy { display: grid; flex: 1; min-width: 0; gap: 3px; }
+.github-settings-copy strong { color: #e6edef; font-size: 12px; font-weight: 600; }
+.github-settings-copy span { color: #7f8d92; font-size: 10px; line-height: 1.35; }
+@media (max-width: 560px) { .github-settings-card { align-items: stretch; flex-wrap: wrap; } .github-settings-card .secondary-button { width: 100%; } }
