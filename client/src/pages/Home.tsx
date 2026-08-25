@@ -48,6 +48,7 @@ import { toast } from "sonner";
 import { trpc } from "../lib/trpc";
 import { useLocation } from "wouter";
 import NexussGitApp from "../components/NexussGitApp";
+import { NEXUSS_GIT_RELEASE } from "@/lib/nexussGitRelease";
 
 const AXOLOTL_ICON = "/axolotl-only.png";
 
@@ -355,16 +356,16 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const navigationQuery = trpc.workspace.navigation.useQuery(undefined, { retry: false, staleTime: 15_000 });
   const [rightWindowExtensions, setRightWindowExtensions] = useState<RightWindowExtension[]>(() => getRightWindowExtensions());
   useEffect(() => {
-    const extensionId = "nexuss-git";
+    const extensionId = NEXUSS_GIT_RELEASE.id;
     if (getRightWindowExtension(extensionId)) return undefined;
     try {
       const unregister = registerRightWindowExtension({
         id: extensionId,
-        name: "Nexuss-Git",
+        name: NEXUSS_GIT_RELEASE.name,
         icon: <Github size={20} strokeWidth={1.8} />,
-        description: "A focused GitHub workspace for browsing, reviewing, and shipping repository work.",
-        minWidth: 320,
-        defaultWidth: 440,
+        description: `A focused GitHub workspace for browsing, reviewing, and shipping repository work. v${NEXUSS_GIT_RELEASE.version}`,
+        minWidth: NEXUSS_GIT_RELEASE.minWidth,
+        defaultWidth: NEXUSS_GIT_RELEASE.defaultWidth,
         render: (api) => <NexussGitApp api={api} />,
       });
       setRightWindowExtensions(getRightWindowExtensions());
