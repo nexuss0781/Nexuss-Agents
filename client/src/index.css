@@ -1181,3 +1181,37 @@ body { color: var(--paper); }
 .project-onboarding-card .modal-actions { position: sticky; bottom: -1px; z-index: 2; margin: 2px -2px -2px; padding-top: 12px; background: linear-gradient(180deg, rgba(22,22,24,0), rgba(22,22,24,.98) 28%); }
 .github-repository-list.has-repositories { min-height: 320px; max-height: min(48vh, 420px); }
 .github-repository-list.is-empty, .github-repository-list.is-loading { min-height: 0; max-height: none; }
+
+/* Premium onboarding surface: quiet contrast, layered depth, and clear interaction hierarchy. */
+.project-onboarding-card { width: min(780px, calc(100vw - 32px)); gap: 18px; padding: 26px; border: 1px solid rgba(218,228,231,.18); border-radius: 20px; background: linear-gradient(145deg, rgba(31,34,36,.98), rgba(21,23,25,.99)); box-shadow: 0 32px 90px rgba(0,0,0,.52), 0 1px 0 rgba(255,255,255,.06) inset; }
+.project-onboarding-card .project-modal-heading { align-items: center; padding-bottom: 1px; }
+.project-onboarding-card .project-modal-heading .eyebrow { color: #aebdc1; letter-spacing: .18em; }
+.project-onboarding-card .project-modal-heading h3 { color: #f3f7f7; font-size: 22px; font-weight: 560; letter-spacing: -.025em; }
+.project-onboarding-card > label { gap: 8px; }
+.project-onboarding-card > label:not(.github-input-label) { color: #8d9a9e; font-size: 9px; font-weight: 650; letter-spacing: .14em; text-transform: uppercase; }
+.project-onboarding-card > label > input { min-height: 48px; padding: 0 14px; border: 1px solid rgba(216,226,229,.15); border-radius: 10px; background: rgba(9,11,12,.48); color: #f1f5f5; font-family: inherit; font-size: 14px; letter-spacing: -.01em; box-shadow: 0 1px 0 rgba(255,255,255,.03) inset; transition: border-color .18s ease, box-shadow .18s ease, background .18s ease; }
+.project-onboarding-card > label > input::placeholder { color: #6e7a7e; }
+.project-onboarding-card > label > input:focus { border-color: rgba(208,224,227,.52); background: rgba(9,11,12,.7); box-shadow: 0 0 0 3px rgba(186,211,215,.08); outline: none; }
+.project-tabs { min-height: 58px; border: 1px solid rgba(216,226,229,.14); border-radius: 13px; background: rgba(8,10,11,.42); box-shadow: 0 1px 0 rgba(255,255,255,.035) inset; }
+.project-tabs button { min-height: 48px; border-radius: 9px; color: #849196; font-size: 12px; font-weight: 550; transition: color .18s ease, background .18s ease, box-shadow .18s ease; }
+.project-tabs button:hover { color: #dce6e8; background: rgba(216,226,229,.06); }
+.project-tabs button.active { color: #f3f7f7; background: linear-gradient(180deg, rgba(217,226,228,.16), rgba(217,226,228,.09)); box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 5px 18px rgba(0,0,0,.16); }
+.github-source-panel { gap: 16px; padding-top: 2px; }
+.repository-subtabs { max-width: 420px; border-color: rgba(216,226,229,.1); background: rgba(8,10,11,.22); }
+.repository-subtabs button { color: #78868a; }
+.repository-subtabs button.active { border-color: rgba(216,226,229,.2); background: rgba(216,226,229,.11); color: #eaf1f2; box-shadow: 0 1px 0 rgba(255,255,255,.05) inset; }
+.repository-connect-empty { min-height: 210px; border-color: rgba(216,226,229,.16); border-radius: 15px; background: radial-gradient(circle at 50% 0%, rgba(197,219,222,.12), transparent 62%), rgba(8,10,11,.28); }
+.repository-connect-icon { width: 68px; height: 68px; border-radius: 18px; background: rgba(211,225,227,.09); box-shadow: 0 14px 35px rgba(0,0,0,.22), 0 1px 0 rgba(255,255,255,.06) inset; }
+.repository-existing-panel { padding: 18px; border-color: rgba(216,226,229,.13); border-radius: 14px; background: rgba(8,10,11,.25); }
+.github-input-label { gap: 9px; color: #a9b6b9; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+.github-input-wrap { min-height: 48px; border-color: rgba(216,226,229,.16); border-radius: 10px; background: rgba(8,10,11,.48); }
+.github-input-wrap:focus-within { border-color: rgba(208,224,227,.48); box-shadow: 0 0 0 3px rgba(186,211,215,.08); }
+.github-input-wrap input { font-family: inherit; font-size: 13px; letter-spacing: -.01em; }
+.github-repository-list.has-repositories { min-height: 300px; max-height: min(52vh, 440px); padding: 8px; border-color: rgba(216,226,229,.15); border-radius: 14px; background: rgba(8,10,11,.3); box-shadow: 0 1px 0 rgba(255,255,255,.03) inset; }
+.github-repository { min-height: 54px; border-color: transparent; border-radius: 9px; }
+.github-repository:hover { background: rgba(216,226,229,.08); }
+.github-repository.selected { border-color: rgba(216,226,229,.28); background: linear-gradient(90deg, rgba(216,226,229,.14), rgba(216,226,229,.07)); box-shadow: 0 1px 0 rgba(255,255,255,.04) inset; }
+.project-onboarding-card .modal-actions { margin-top: 4px; padding-top: 16px; border-top: 1px solid rgba(216,226,229,.1); }
+.project-onboarding-card .primary-button { min-height: 42px; padding: 0 18px; border-radius: 9px; box-shadow: 0 8px 18px rgba(0,0,0,.22); }
+.project-onboarding-card .text-button { color: #909da1; }
+@media (max-width: 560px) { .project-onboarding-card { width: calc(100vw - 20px); padding: 19px; border-radius: 16px; } .project-onboarding-card .project-modal-heading h3 { font-size: 20px; } }

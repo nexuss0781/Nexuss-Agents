@@ -720,3 +720,12 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 - [x] Make the whole project card scrollable within the viewport.
 - [x] Give populated repository lists enough bounded space while keeping empty states compact.
 - [x] Validate TypeScript, focused tests, production build, and whitespace.
+
+## Premium Project Onboarding Surface
+
+- [x] Add a layered premium card surface with restrained contrast and depth.
+- [x] Refine main and repository tab states for clearer visual hierarchy.
+- [x] Improve name and URL fields with focus states and polished spacing.
+- [x] Style the repository focus panel and selected repository state.
+- [x] Preserve card scrolling, compact empty states, and existing import behavior.
+- [x] Validate TypeScript, focused tests, production build, and whitespace.
