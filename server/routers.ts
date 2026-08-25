@@ -28,7 +28,7 @@ import { pauseMission, queueMission, recoverMissions, resumeMission, retryMissio
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { clonePublicGithubProject, markProjectImportFailed, ProjectWorkspaceError } from "./projectWorkspace";
-import { cloneAuthorizedGithubProject, getGithubFile, getGithubTree, githubConnectionStatus as githubStatus, GithubOAuthError, listGithubRepositories, searchGithubCode } from "./githubAuth";
+import { cloneAuthorizedGithubProject, getGithubFile, getGithubPullFiles, getGithubTree, githubConnectionStatus as githubStatus, GithubOAuthError, listGithubPulls, listGithubRepositories, postGithubPullComment, searchGithubCode } from "./githubAuth";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -90,6 +90,9 @@ export const appRouter = router({
       repositories: publicProcedure.query(async ({ ctx }) => { try { return await listGithubRepositories(await workspaceOwner(ctx)); } catch (error) { return workspaceFailure(error); } }),
       tree: publicProcedure.input(z.object({ fullName: z.string().trim().min(3).max(240), ref: z.string().trim().max(200).optional() })).query(async ({ ctx, input }) => { try { return await getGithubTree(await workspaceOwner(ctx), input.fullName, input.ref); } catch (error) { return workspaceFailure(error); } }),
       search: publicProcedure.input(z.object({ fullName: z.string().trim().min(3).max(240), query: z.string().trim().min(1).max(200) })).query(async ({ ctx, input }) => { try { return await searchGithubCode(await workspaceOwner(ctx), input.fullName, input.query); } catch (error) { return workspaceFailure(error); } }),
+      pulls: publicProcedure.input(z.object({ fullName: z.string().trim().min(3).max(240), state: z.enum(["open", "closed"]).default("open") })).query(async ({ ctx, input }) => { try { return await listGithubPulls(await workspaceOwner(ctx), input.fullName, input.state); } catch (error) { return workspaceFailure(error); } }),
+      pullFiles: publicProcedure.input(z.object({ fullName: z.string().trim().min(3).max(240), number: z.number().int().min(1).max(1_000_000) })).query(async ({ ctx, input }) => { try { return await getGithubPullFiles(await workspaceOwner(ctx), input.fullName, input.number); } catch (error) { return workspaceFailure(error); } }),
+      comment: publicProcedure.input(z.object({ fullName: z.string().trim().min(3).max(240), number: z.number().int().min(1).max(1_000_000), body: z.string().trim().min(1).max(10_000), confirmed: z.literal(true) })).mutation(async ({ ctx, input }) => { try { return await postGithubPullComment(await workspaceOwner(ctx), input.fullName, input.number, input.body); } catch (error) { return workspaceFailure(error); } }),
       file: publicProcedure.input(z.object({ fullName: z.string().trim().min(3).max(240), path: z.string().trim().min(1).max(500), ref: z.string().trim().max(200).optional() })).query(async ({ ctx, input }) => { try { return await getGithubFile(await workspaceOwner(ctx), input.fullName, input.path, input.ref); } catch (error) { return workspaceFailure(error); } }),
       clone: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128), fullName: z.string().trim().min(3).max(240) })).mutation(async ({ ctx, input }) => {
         try { return await cloneAuthorizedGithubProject(await workspaceOwner(ctx), input.projectId, input.fullName, (ownerId, projectId, url, token) => clonePublicGithubProject(ownerId, projectId, url, token)); } catch (error) { return workspaceFailure(error); }

@@ -7,6 +7,11 @@ export type GithubTree = { owner: string; repo: string; ref: string; sha: string
 export type GithubFile = { owner: string; repo: string; ref: string; path: string; name: string; sha: string | null; size: number; content: string; htmlUrl: string | null };
 export type GithubSearchResult = { path: string; name: string; sha: string; htmlUrl: string | null; score: number | null };
 export type GithubSearchResponse = { owner: string; repo: string; query: string; totalCount: number; incompleteResults: boolean; results: GithubSearchResult[] };
+export type GithubPull = { number: number; title: string; state: "open" | "closed"; draft: boolean; author: string; htmlUrl: string | null; createdAt: string | null; updatedAt: string | null; headRef: string | null; headSha: string | null; baseRef: string | null };
+export type GithubPullFile = { filename: string; status: string; additions: number; deletions: number; changes: number; patch: string | null; sha: string | null; blobUrl: string | null; rawUrl: string | null };
+export type GithubPullsResponse = { owner: string; repo: string; state: "open" | "closed"; pulls: GithubPull[] };
+export type GithubPullFilesResponse = { owner: string; repo: string; number: number; files: GithubPullFile[] };
+export type GithubCommentResponse = { owner: string; repo: string; number: number; id: number | null; htmlUrl: string | null; body: string; createdAt: string | null };
 
 export class GithubOAuthError extends Error {
   readonly code: "NOT_CONFIGURED" | "NOT_CONNECTED" | "OAUTH_FAILED" | "GITHUB_API_FAILED";
@@ -40,14 +45,17 @@ export function buildCentralGithubAuthorizationUrl(environment: NodeJS.ProcessEn
   return url.toString();
 }
 
-async function centralGithubRequest<T>(ownerId: string, path: string, requester: typeof fetch = fetch): Promise<T> {
+async function centralGithubRequest<T>(ownerId: string, path: string, init: RequestInit = {}, requester: typeof fetch = fetch): Promise<T> {
   const settings = centralConfig();
   if (!settings) throw new GithubOAuthError("Connect Nexuss Auth before authorizing GitHub.", "NOT_CONFIGURED");
   const grant = await loadGithubGrant(ownerId);
   if (!grant?.grantToken) throw new GithubOAuthError("Connect GitHub before choosing a repository.", "NOT_CONNECTED");
   const url = new URL(path, settings.authUrl);
   url.searchParams.set("project_id", settings.projectId);
-  const response = await requester(url, { headers: { accept: "application/json", authorization: `Bearer ${grant.grantToken}` } });
+  const headers = new Headers(init.headers);
+  headers.set("accept", "application/json");
+  headers.set("authorization", `Bearer ${grant.grantToken}`);
+  const response = await requester(url, { ...init, headers });
   const body = await response.json().catch(() => ({})) as { error?: string } & T;
   if (!response.ok) {
     if (response.status === 401) throw new GithubOAuthError("Your GitHub authorization expired. Connect GitHub again.", "NOT_CONNECTED");
@@ -69,6 +77,26 @@ export async function githubConnectionStatus(ownerId: string): Promise<{ configu
 export async function listGithubRepositories(ownerId: string): Promise<{ connected: true; login: string; repositories: GithubRepository[] }> {
   const result = await centralGithubRequest<{ login: string; repositories: GithubRepository[] }>(ownerId, "/v1/github/repositories");
   return { connected: true, login: result.login, repositories: Array.isArray(result.repositories) ? result.repositories.slice(0, 100) : [] };
+}
+
+export async function listGithubPulls(ownerId: string, fullName: string, state: "open" | "closed" = "open"): Promise<GithubPullsResponse> {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName)) throw new GithubOAuthError("Choose a valid GitHub repository.");
+  const [owner, repo] = fullName.split("/"); const params = new URLSearchParams({ owner, repo, state });
+  const result = await centralGithubRequest<GithubPullsResponse>(ownerId, `/v1/github/pulls?${params.toString()}`);
+  return { ...result, pulls: Array.isArray(result.pulls) ? result.pulls.slice(0, 50) : [] };
+}
+
+export async function getGithubPullFiles(ownerId: string, fullName: string, number: number): Promise<GithubPullFilesResponse> {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName) || !Number.isInteger(number) || number < 1) throw new GithubOAuthError("Choose a valid pull request.");
+  const [owner, repo] = fullName.split("/"); const params = new URLSearchParams({ owner, repo, number: String(number) });
+  const result = await centralGithubRequest<GithubPullFilesResponse>(ownerId, `/v1/github/pull-files?${params.toString()}`);
+  return { ...result, files: Array.isArray(result.files) ? result.files.slice(0, 100) : [] };
+}
+
+export async function postGithubPullComment(ownerId: string, fullName: string, number: number, body: string): Promise<GithubCommentResponse> {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName) || !Number.isInteger(number) || number < 1 || !body.trim() || body.length > 10_000) throw new GithubOAuthError("Enter a valid review comment.");
+  const [owner, repo] = fullName.split("/"); const params = new URLSearchParams({ owner, repo, number: String(number) });
+  return centralGithubRequest<GithubCommentResponse>(ownerId, `/v1/github/comment?${params.toString()}`, { method: "POST", body: JSON.stringify({ body: body.trim() }), headers: { "content-type": "application/json" } });
 }
 
 export async function searchGithubCode(ownerId: string, fullName: string, query: string): Promise<GithubSearchResponse> {
