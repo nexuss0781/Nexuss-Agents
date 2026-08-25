@@ -647,3 +647,13 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 - [x] Reject duplicate project names per owner, case-insensitively, while allowing different owners to use the same name.
 - [x] Return a clean conflict message to the project form instead of an unexpected runtime error.
 - [x] Validate the repair with TypeScript, focused regression tests, production build, and whitespace checks.
+
+## GitHub OAuth Repository Import
+
+- [x] Add server-side GitHub OAuth authorization using `GITHUB_CLIENT_ID` and `GITHUB_SECRET`.
+- [x] Protect the OAuth flow with state validation, PKCE, secure HTTP-only cookies, and signed-in owner checks.
+- [x] Store GitHub access tokens only in encrypted Paradox persistence and never return them to the browser.
+- [x] Add authorized repository listing for public and private repositories.
+- [x] Add repository selection and authorized cloning to the New project GitHub tab while retaining public-link import.
+- [x] Configure the production callback as `https://nexuss-agent.onrender.com/auth/github/callback`.
+- [x] Validate OAuth configuration, workspace security, TypeScript, focused regressions, production build, and whitespace.

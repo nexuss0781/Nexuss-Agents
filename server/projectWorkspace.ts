@@ -156,9 +156,16 @@ export function parsePublicGithubUrl(value: string) {
   return { normalizedUrl: `https://github.com/${owner}/${repo}.git`, owner, repo };
 }
 
-function runGit(args: string[], cwd: string, timeoutMs: number) {
+function runGit(args: string[], cwd: string, timeoutMs: number, accessToken?: string) {
   return new Promise<{ code: number; output: string }>((resolvePromise, reject) => {
-    const child = spawn("git", args, { cwd, shell: false, stdio: ["ignore", "pipe", "pipe"] });
+    const environment = accessToken ? {
+      ...process.env,
+      GIT_TERMINAL_PROMPT: "0",
+      GIT_CONFIG_COUNT: "1",
+      GIT_CONFIG_KEY_0: "http.https://github.com/.extraheader",
+      GIT_CONFIG_VALUE_0: `Authorization: bearer ${accessToken}`,
+    } : process.env;
+    const child = spawn("git", args, { cwd, shell: false, stdio: ["ignore", "pipe", "pipe"], env: environment });
     let output = "";
     const append = (chunk: Buffer) => { output = `${output}${chunk.toString("utf8")}`.slice(-MAX_GITHUB_CLONE_OUTPUT); };
     child.stdout.on("data", append);
@@ -169,7 +176,7 @@ function runGit(args: string[], cwd: string, timeoutMs: number) {
   });
 }
 
-export async function clonePublicGithubProject(ownerId: string, projectId: string, inputUrl: string): Promise<ProjectImportResult> {
+export async function clonePublicGithubProject(ownerId: string, projectId: string, inputUrl: string, accessToken?: string): Promise<ProjectImportResult> {
   await ensureProjectOwner(ownerId, projectId);
   const github = parsePublicGithubUrl(inputUrl);
   const finalRoot = projectWorkspacePath(ownerId, projectId);
@@ -179,7 +186,7 @@ export async function clonePublicGithubProject(ownerId: string, projectId: strin
   await fs.rm(staging, { recursive: true, force: true });
   await fs.mkdir(staging, { recursive: true, mode: 0o750 });
   try {
-    const result = await runGit(["clone", "--depth=1", "--no-tags", "--single-branch", github.normalizedUrl, staging], parent, MAX_GITHUB_CLONE_SECONDS * 1_000);
+    const result = await runGit(["clone", "--depth=1", "--no-tags", "--single-branch", github.normalizedUrl, staging], parent, MAX_GITHUB_CLONE_SECONDS * 1_000, accessToken);
     if (result.code !== 0) throw new ProjectWorkspaceError("GitHub could not be cloned. Check that the repository is public and the URL is correct.", "CLONE_FAILED");
     const summary = await summarizeWorkspace(staging);
     const commit = await runGit(["rev-parse", "HEAD"], staging, 10_000);

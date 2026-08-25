@@ -15,6 +15,7 @@ import { createRepositoryChangeExecutor } from "../mission/repositoryChangeExecu
 import { recoverAllMissions } from "../mission/commands";
 import { registerAttachmentUploadRoute } from "../attachments";
 import { registerProjectWorkspaceUploadRoute } from "../projectWorkspace";
+import { registerGithubAuthRoutes } from "../githubAuth";
 
 missionRunner.configureOrchestrator(planRepositoryChange);
 missionRunner.configureExecutor(createRepositoryChangeExecutor());
@@ -49,6 +50,7 @@ async function startServer() {
   registerPlaygroundStreamRoute(app);
   registerAttachmentUploadRoute(app);
   registerProjectWorkspaceUploadRoute(app);
+  registerGithubAuthRoutes(app);
   // tRPC API
   app.use(
     "/api/trpc",

@@ -177,6 +177,7 @@ async function openFreshWorkspaceDb() {
   db.execute("CREATE INDEX IF NOT EXISTS workspace_messages_thread_sequence ON workspace_messages(thread_id, sequence ASC)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_imports (owner_id TEXT PRIMARY KEY, imported_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_model_providers (owner_id TEXT PRIMARY KEY, base_url TEXT NOT NULL, api_key TEXT NOT NULL, selected_models_json TEXT NOT NULL, available_models_json TEXT NOT NULL DEFAULT '[]', updated_at TEXT NOT NULL)");
+  db.execute("CREATE TABLE IF NOT EXISTS workspace_github_connections (owner_id TEXT PRIMARY KEY, github_user_id TEXT NOT NULL, github_login TEXT NOT NULL, access_token TEXT NOT NULL, refresh_token TEXT, expires_at TEXT, scopes_json TEXT NOT NULL DEFAULT '[]', updated_at TEXT NOT NULL)");
   try { db.execute("ALTER TABLE workspace_model_providers ADD COLUMN available_models_json TEXT NOT NULL DEFAULT '[]'"); } catch { /* Existing encrypted workspaces already have the catalog column. */ }
   db.execute("CREATE TABLE IF NOT EXISTS workspace_mission_intakes (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, project_id TEXT, model TEXT, status TEXT NOT NULL, sources_json TEXT NOT NULL, brief_json TEXT NOT NULL, issues_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_attachments (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, project_id TEXT, name TEXT NOT NULL, mime_type TEXT NOT NULL, size INTEGER NOT NULL, content_hash TEXT NOT NULL, storage_key TEXT NOT NULL, storage_url TEXT NOT NULL, source_kind TEXT NOT NULL, created_at TEXT NOT NULL)");
@@ -196,6 +197,7 @@ async function openFreshWorkspaceDb() {
   db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_intakes_owner_updated ON workspace_mission_intakes(owner_id, updated_at DESC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_attachments_owner_created ON workspace_attachments(owner_id, created_at DESC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_attachments_project_created ON workspace_attachments(project_id, created_at DESC)");
+  db.execute("CREATE INDEX IF NOT EXISTS workspace_github_connections_login ON workspace_github_connections(github_login)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_missions_owner_updated ON workspace_missions(owner_id, updated_at DESC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_work_items_mission_status ON workspace_mission_work_items(mission_id, status, updated_at ASC)");
   db.execute("CREATE INDEX IF NOT EXISTS workspace_mission_checkpoints_mission_version ON workspace_mission_checkpoints(mission_id, version DESC)");

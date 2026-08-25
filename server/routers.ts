@@ -28,6 +28,7 @@ import { pauseMission, queueMission, recoverMissions, resumeMission, retryMissio
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { clonePublicGithubProject, markProjectImportFailed, ProjectWorkspaceError } from "./projectWorkspace";
+import { cloneAuthorizedGithubProject, githubConnectionStatus as githubStatus, GithubOAuthError, listGithubRepositories } from "./githubAuth";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -48,7 +49,7 @@ async function workspaceOwner(ctx: { req: Parameters<typeof getNexussSession>[0]
 function workspaceFailure(error: unknown): never {
   if (error instanceof WorkspaceAccessError) throw new TRPCError({ code: "NOT_FOUND", message: error.message });
   if (error instanceof DuplicateProjectNameError) throw new TRPCError({ code: "CONFLICT", message: error.message });
-  if (error instanceof ModelProviderError || error instanceof ProjectWorkspaceError) throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
+  if (error instanceof GithubOAuthError || error instanceof ModelProviderError || error instanceof ProjectWorkspaceError) throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
   throw error;
 }
 
@@ -84,6 +85,13 @@ export const appRouter = router({
   }),
   workspace: router({
     navigation: publicProcedure.query(async ({ ctx }) => loadWorkspaceNavigation(await workspaceOwner(ctx))),
+    github: router({
+      status: publicProcedure.query(async ({ ctx }) => githubStatus(await workspaceOwner(ctx))),
+      repositories: publicProcedure.query(async ({ ctx }) => { try { return await listGithubRepositories(await workspaceOwner(ctx)); } catch (error) { return workspaceFailure(error); } }),
+      clone: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128), fullName: z.string().trim().min(3).max(240) })).mutation(async ({ ctx, input }) => {
+        try { return await cloneAuthorizedGithubProject(await workspaceOwner(ctx), input.projectId, input.fullName, (ownerId, projectId, url, token) => clonePublicGithubProject(ownerId, projectId, url, token)); } catch (error) { return workspaceFailure(error); }
+      }),
+    }),
     chat: publicProcedure.input(z.object({ chatSlug: z.string().regex(/^chat-[a-z0-9]{32}$/).max(40) })).query(async ({ ctx, input }) => loadWorkspaceChat(await workspaceOwner(ctx), input.chatSlug)),
     load: publicProcedure.input(z.object({ chatSlug: z.string().regex(/^chat-[a-z0-9]{32}$/).max(40) }).optional()).query(async ({ ctx, input }) => loadWorkspace(await workspaceOwner(ctx), input?.chatSlug)),
     createProject: publicProcedure.input(projectInput).mutation(async ({ ctx, input }) => createProject(await workspaceOwner(ctx), input)),
