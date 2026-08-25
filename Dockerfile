@@ -5,7 +5,10 @@ WORKDIR /app
 
 # The full source is copied before installation because the lockfile references local patches.
 COPY . .
-RUN npm install -g corepack@latest \
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends git ca-certificates \
+  && rm -rf /var/lib/apt/lists/* \
+  && npm install -g corepack@latest \
   && corepack pnpm install --frozen-lockfile \
   && corepack pnpm run build
 

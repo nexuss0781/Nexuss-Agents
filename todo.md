@@ -729,3 +729,10 @@ Validated with TypeScript, 29 focused chat/Playground tests, production build, a
 - [x] Style the repository focus panel and selected repository state.
 - [x] Preserve card scrolling, compact empty states, and existing import behavior.
 - [x] Validate TypeScript, focused tests, production build, and whitespace.
+
+## Render Git Clone Runtime Fix
+
+- [x] Install `git` and CA certificates in the production Docker image.
+- [x] Preserve bounded shallow cloning and server-side GitHub authorization.
+- [x] Add an explicit diagnostic when the Git executable is unavailable.
+- [x] Validate TypeScript, GitHub/workspace tests, production build, and whitespace.

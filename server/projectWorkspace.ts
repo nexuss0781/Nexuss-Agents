@@ -165,13 +165,13 @@ function runGit(args: string[], cwd: string, timeoutMs: number, accessToken?: st
       GIT_CONFIG_KEY_0: "http.https://github.com/.extraheader",
       GIT_CONFIG_VALUE_0: `Authorization: bearer ${accessToken}`,
     } : process.env;
-    const child = spawn("git", args, { cwd, shell: false, stdio: ["ignore", "pipe", "pipe"], env: environment });
+    const child = spawn(process.env.NEXUSS_GIT_BINARY || "git", args, { cwd, shell: false, stdio: ["ignore", "pipe", "pipe"], env: environment });
     let output = "";
     const append = (chunk: Buffer) => { output = `${output}${chunk.toString("utf8")}`.slice(-MAX_GITHUB_CLONE_OUTPUT); };
     child.stdout.on("data", append);
     child.stderr.on("data", append);
     const timer = setTimeout(() => { child.kill("SIGKILL"); reject(new ProjectWorkspaceError("GitHub clone timed out.", "CLONE_FAILED")); }, timeoutMs);
-    child.once("error", (error) => { clearTimeout(timer); reject(new ProjectWorkspaceError(`GitHub clone could not start: ${error.message.slice(0, 160)}`, "CLONE_FAILED")); });
+    child.once("error", (error) => { clearTimeout(timer); const errno = error as NodeJS.ErrnoException; const message = errno.code === "ENOENT" ? "Repository import is unavailable because Git is not installed in the server runtime." : `GitHub clone could not start: ${error.message.slice(0, 160)}`; reject(new ProjectWorkspaceError(message, "CLONE_FAILED")); });
     child.once("close", (code) => { clearTimeout(timer); resolvePromise({ code: code ?? 1, output }); });
   });
 }
