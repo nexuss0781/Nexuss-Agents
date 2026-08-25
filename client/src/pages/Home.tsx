@@ -300,7 +300,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const routeChatSlug = /^\/app\/chat\/(chat-[a-z0-9]{32})$/.exec(location)?.[1];
   const workspaceInput = useMemo(() => routeChatSlug ? { chatSlug: routeChatSlug } : undefined, [routeChatSlug]);
   const RIGHT_WINDOW_MIN_WIDTH = 320;
-  const RIGHT_WINDOW_MIN_WORKSPACE_WIDTH = 560;
+  const RIGHT_WINDOW_MIN_WORKSPACE_WIDTH = 640;
+  const RIGHT_WINDOW_PREFERRED_WIDTH = 420;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [rightWindowOpen, setRightWindowOpen] = useState(false);
   const [rightWindowWidth, setRightWindowWidth] = useState(380);
@@ -328,7 +329,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         setRightWindowOpen(true);
       }
     },
-    setWidth: (width) => setRightWindowWidth(Math.max(rightWindowMinWidth, Math.min(Math.max(rightWindowMinWidth, window.innerWidth - 280 - RIGHT_WINDOW_MIN_WORKSPACE_WIDTH), width))),
+    setWidth: (width) => setRightWindowWidth(Math.max(rightWindowMinWidth, Math.min(Math.min(RIGHT_WINDOW_PREFERRED_WIDTH, Math.max(rightWindowMinWidth, window.innerWidth - 280 - RIGHT_WINDOW_MIN_WORKSPACE_WIDTH)), width))),
     setMinWidth: (minWidth) => {
       const maxWindowWidth = Math.max(RIGHT_WINDOW_MIN_WIDTH, window.innerWidth - 280 - RIGHT_WINDOW_MIN_WORKSPACE_WIDTH);
       const nextMin = Math.max(RIGHT_WINDOW_MIN_WIDTH, Math.min(maxWindowWidth, minWidth));
@@ -1028,7 +1029,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const moveRightWindowResize = (event: React.PointerEvent<HTMLDivElement>) => {
     const session = rightWindowResizeRef.current;
     if (!session) return;
-    const maxWidth = Math.max(rightWindowMinWidth, window.innerWidth - 280 - RIGHT_WINDOW_MIN_WORKSPACE_WIDTH);
+    const maxWidth = Math.min(RIGHT_WINDOW_PREFERRED_WIDTH, Math.max(rightWindowMinWidth, window.innerWidth - 280 - RIGHT_WINDOW_MIN_WORKSPACE_WIDTH));
     setRightWindowWidth(Math.max(rightWindowMinWidth, Math.min(maxWidth, session.startWidth + session.startX - event.clientX)));
   };
   const endRightWindowResize = (event: React.PointerEvent<HTMLDivElement>) => {
