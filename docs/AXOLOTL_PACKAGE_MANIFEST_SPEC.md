@@ -830,3 +830,54 @@ The lifecycle registry uses these primary states:
 | `failed` | Reserved for unrecoverable package lifecycle failures. |
 
 Phase 5 tests are located at `server/packageManager/lifecycle.test.ts` and cover atomic installation, duplicate protection, enable/disable preservation, retained and explicit data removal, reinstall behavior, newer-version updates, disabled-state preservation, and non-newer update rejection.
+
+
+## 26. Phase 6 Extension Runtime Loading and Communication Bridge
+
+The Phase 6 bridge is implemented in `shared/extensionRuntimeProtocol.ts` and `client/src/lib/extensionRuntimeBridge.ts`. It provides a small versioned protocol for communicating with an installed extension runtime without giving the extension direct access to host internals.
+
+The host loads an external app with `loadSandboxedExtension()`. The loader creates an iframe with `sandbox="allow-scripts"`, no referrer, and no implicit same-origin, form, popup, or top-navigation privileges. The iframe is connected to an `ExtensionRuntimeBridge` only after its content window exists. The current loader is intentionally explicit: a lifecycle-approved package URL must be supplied by the later package registry or launcher integration layer.
+
+The runtime protocol envelope contains a protocol name, protocol version, message type, correlation ID, app ID, and JSON-safe payload. Message size, identity, method-name, nesting, array, and object-key limits are enforced before messages are accepted or sent. The supported message types are `hello`, `hello-ack`, `request`, `response`, `event`, and `shutdown`.
+
+```ts
+const runtime = loadSandboxedExtension({
+  appId: "nexuss-git",
+  expectedOrigin: "null",
+  container: extensionContainer,
+  url: packageEntrypointUrl,
+  permissions: ["repository.read"],
+  capabilities: ["repository.workspace"],
+  onEvent: (name, data) => activityStore.record(name, data),
+});
+
+runtime.bridge.registerMethod(
+  "readWorkspaceFile",
+  (args, signal) => sandbox.readWorkspaceFile(String((args as { path: string }).path), signal),
+  { permission: "repository.read", capability: "repository.workspace" },
+);
+
+await runtime.bridge.start();
+```
+
+The extension-side package runtime uses `ExtensionRuntimeClient`:
+
+```ts
+const client = new ExtensionRuntimeClient({
+  appId: "nexuss-git",
+  expectedOrigin: "https://nexuss-agent.example",
+  transport: window.parent,
+  source: window.parent,
+});
+
+await client.connect();
+const result = await client.requestHost("getProjectContext");
+```
+
+The bridge verifies both the expected `MessageEvent.origin` and, when configured, the expected `MessageEvent.source`. Messages for another app ID, malformed envelopes, unsupported protocol versions, unexpected roles, invalid payloads, unknown methods, and unauthorized methods are ignored or rejected. Host methods must be registered with an optional permission and capability policy; policy failures return `PERMISSION_DENIED` and create an audit callback.
+
+Requests have correlation IDs and time out. Pending requests are rejected when a bridge is disposed. Disposal sends a shutdown message, aborts pending work, removes message listeners, and allows the host to remove the iframe. The host should always call the returned `dispose()` function when the right-window app closes or the lifecycle manager disables/uninstalls the app.
+
+The runtime bridge is a communication and API-isolation layer, not a kernel-level security boundary. The external application still must be loaded in a separately sandboxed frame or worker, and all privileged operations must be implemented as host methods backed by the Phase 4 permission broker. The bridge does not expose arbitrary shell execution, Node.js objects, raw credentials, direct host DOM access, or unrestricted network access.
+
+The Phase 6 tests are located at `client/src/lib/extensionRuntimeBridge.test.tsx`. They cover trusted handshakes, request correlation, permission-denied host methods, origin and source rejection, malformed and oversized messages, and disposal of pending requests.
