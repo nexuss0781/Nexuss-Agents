@@ -507,7 +507,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   useEffect(() => {
     const handleWorkspaceShortcut = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      const isEditable = Boolean(target?.closest("input, textarea, select, [contenteditable='true']"));
+      const isEditable = Boolean(target && typeof target.closest === "function" && target.closest("input, textarea, select, [contenteditable='true']"));
       const commandKey = event.ctrlKey || event.metaKey;
       if (commandKey && event.key.toLowerCase() === "n" && !isEditable) {
         event.preventDefault();
