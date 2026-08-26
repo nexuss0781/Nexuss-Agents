@@ -7,14 +7,14 @@ export const AXOLOTL_CATALOG = [
     id: "nexuss-git",
     name: "Nexuss-Git",
     shortName: "Git",
-    version: "0.1.0",
+    version: "0.2.0",
     description:
       "A safe repository workspace for GitHub and local Git operations.",
     icon: "https://raw.githubusercontent.com/nexuss0781/Nexuss-Git/main/public/icon.svg",
     sourceRepository: "https://github.com/nexuss0781/Nexuss-Git",
     manifestUrl:
-      "https://raw.githubusercontent.com/nexuss0781/Nexuss-Git/v0.1.0/axolotl.manifest.json",
-    sourceRef: "v0.1.0",
+      "https://raw.githubusercontent.com/nexuss0781/Nexuss-Git/v0.2.0/axolotl.manifest.json",
+    sourceRef: "v0.2.0",
   },
 ];
 
