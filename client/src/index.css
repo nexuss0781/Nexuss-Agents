@@ -2287,6 +2287,7 @@ body { color: var(--paper); }
 .nexuss-git-change-target { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(160px, .7fr) minmax(170px, .75fr); gap: 10px; padding: 14px; background: rgba(255,255,255,.022); border: 1px solid rgba(255,255,255,.08); border-radius: 4px; }
 .nexuss-git-change-target label, .nexuss-git-commit-controls label { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
 .nexuss-git-change-target label > span, .nexuss-git-commit-controls label > span { color: rgba(235,231,223,.43); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; }
+.nexuss-git-change-helper { display: block; margin-top: 1px; color: rgba(235,231,223,.38); font-size: 9px; line-height: 1.25; }
 .nexuss-git-change-select, .nexuss-git-model-select { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; height: 36px; padding: 0 10px; color: #e7e2d9; background: #101415; border: 1px solid rgba(255,255,255,.1); border-radius: 3px; }
 .nexuss-git-change-select > svg:first-child, .nexuss-git-model-select > svg:first-child { color: #c7a27f; flex: 0 0 auto; }
 .nexuss-git-change-select > svg:last-child, .nexuss-git-model-select > svg:last-child { position: absolute; right: 9px; color: rgba(235,231,223,.46); pointer-events: none; }
