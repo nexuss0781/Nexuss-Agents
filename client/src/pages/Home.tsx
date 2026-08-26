@@ -611,7 +611,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   }, [activeThreadSummary, activeChatQuery.data?.messages]);
   const latestUserMessageId = activeThread?.messages.filter((message) => message.role === "user").at(-1)?.id;
   const activeProject = workspace.projects.find((project) => project.id === activeThread?.projectId);
-  const currentWorkspaceProject = workspace.projects.find((project) => project.id === selectedProjectId) || activeProject || null;
+  const navigatedProject = workspace.projects[projectSlide] || workspace.projects[0] || null;
+  const currentWorkspaceProject = workspace.projects.find((project) => project.id === selectedProjectId) || activeProject || navigatedProject;
   const currentProjectHasGit = Boolean(currentWorkspaceProject && (currentWorkspaceProject.sourceType === "github" || (currentWorkspaceProject.sourceUrl && repositoryNameFromUrl(currentWorkspaceProject.sourceUrl))));
   const composerProjectId = activeThread?.projectId || pendingProjectId || (!activeThread && !composerProjectSelectionRef.current.manual && currentProjectHasGit ? currentWorkspaceProject?.id || null : null);
   useEffect(() => {

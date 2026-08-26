@@ -73,7 +73,7 @@ export default function NexussGitApp({ api, currentProject }: { api: RightWindow
   function selectFile(path: string) { setSelectedPath(path); setAnalysisOpen(false); }
   function toggleFolder(path: string) { setExpanded((current) => { const next = new Set(current); if (next.has(path)) next.delete(path); else next.add(path); return next; }); }
   useEffect(() => {
-    const linkedFullName = githubFullNameFromSourceUrl(currentProject?.sourceUrl);
+    const linkedFullName = githubFullNameFromSourceUrl(currentProject?.sourceUrl) || (currentProject?.sourceType === "github" ? repositories.find((repository) => repository.name.toLowerCase() === currentProject.name.trim().toLowerCase())?.fullName || "" : "");
     const projectKey = currentProject ? `${currentProject.id}:${currentProject.sourceType || "none"}:${currentProject.sourceUrl || ""}` : "";
     const projectChanged = repositorySelectionRef.current.projectKey !== projectKey;
     if (projectChanged) {
@@ -88,7 +88,7 @@ export default function NexussGitApp({ api, currentProject }: { api: RightWindow
     if (linkedRepository && selectedRepository?.fullName !== linkedRepository.fullName) {
       chooseRepository(linkedRepository, false);
     }
-  }, [currentProject?.id, currentProject?.sourceType, currentProject?.sourceUrl, repositories]);
+  }, [currentProject?.id, currentProject?.name, currentProject?.sourceType, currentProject?.sourceUrl, repositories]);
   const connectionLabel = githubStatusQuery.isLoading ? "Checking connection…" : githubStatusQuery.data?.connected ? `Connected as ${githubStatusQuery.data.login || "GitHub user"}` : "Not connected";
   const repositoryDetail = selectedRepository ? `${selectedRepository.private ? "Private" : "Public"} · ${selectedRepository.defaultBranch}` : githubStatusQuery.data?.connected ? `${repositories.length} repositories available` : "Connect GitHub to begin";
   return <section className="nexuss-git-app" aria-label="Nexuss-Git workspace">

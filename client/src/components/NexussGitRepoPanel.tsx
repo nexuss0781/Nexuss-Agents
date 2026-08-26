@@ -52,7 +52,7 @@ export default function NexussGitRepoPanel({ repositories, login, selectedReposi
     onSuccess: () => {
       setDeleteOpen(false); setNotice("Repository deleted."); setInspected(null); onSelect(null); void utils.workspace.github.repositories.invalidate();
     },
-    onError: (error) => setNotice(error.message || "Repository could not be deleted."),
+    onError: (error) => setNotice(error.message === "github_repository_delete_permission_denied" || error.message === "github_repository_delete_failed" ? "GitHub refused deletion. Reconnect GitHub in Settings and approve repository deletion permission, then try again." : error.message || "Repository could not be deleted."),
   });
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
