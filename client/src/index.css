@@ -1747,3 +1747,17 @@ body { color: var(--paper); }
 .nexuss-git-repository-option { min-height:42px; padding:7px 9px; }
 .nexuss-git-repository-option small { font-size:9px; }
 .nexuss-git-repository-menu { max-height:min(48vh,300px); }
+
+/* Narrow repository rows with branch selection aligned to the right of each repository. */
+.project-onboarding-card { width:min(700px, calc(100vw - 32px)); padding:22px; gap:14px; }
+.project-onboarding-card .github-repository-list.has-repositories { min-height:150px; max-height:190px; padding:4px; }
+.github-repository-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(128px,180px); align-items:center; gap:8px; min-height:42px; padding:2px; border:1px solid transparent; border-radius:8px; }
+.github-repository-row.selected { border-color:rgba(203,214,219,.26); background:linear-gradient(90deg,rgba(203,214,219,.12),rgba(203,214,219,.045)); }
+.github-repository-row .github-repository { min-width:0; min-height:38px; padding:6px 8px; border:0; background:transparent; }
+.github-repository-row .github-repository:hover { background:rgba(203,214,219,.07); }
+.github-repository-branch { width:100%; min-width:0; min-height:30px; padding:0 8px; border:1px solid rgba(203,214,219,.15); border-radius:6px; outline:0; background:#171b1d; color:#dfe8e9; font:9px "IBM Plex Mono",monospace; }
+.github-repository-branch:hover, .github-repository-branch:focus { border-color:rgba(203,214,219,.38); }
+.github-repository-branch:disabled { cursor:wait; opacity:.62; }
+.project-modal-footer { position:sticky; bottom:-22px; z-index:3; margin:8px -22px -22px; padding:12px 22px 22px; border-top:1px solid rgba(203,214,219,.12); background:linear-gradient(180deg,rgba(21,23,25,.72),rgba(21,23,25,.99) 28%); }
+.project-onboarding-card .project-modal-footer .modal-actions { position:static; margin:0; padding:0; background:none; }
+@media (max-width:560px) { .github-repository-row { grid-template-columns:minmax(0,1fr) 118px; gap:5px; } .github-repository-branch { padding:0 5px; font-size:8px; } }
