@@ -2160,3 +2160,22 @@ body { color: var(--paper); }
   .nexuss-git-editor-gutter { border-color:rgba(217,229,226,.1); color:#5e6c65; }
   .nexuss-git-editor pre { color:#c5d2c8; }
 }
+
+/* Desktop editor correction: keep the workbench black, with Monaco-style syntax contrast rather than a white canvas. */
+@media (min-width:801px) {
+  .nexuss-git-file-editor-card { border-color:rgba(217,229,226,.12); background:#0d1213; }
+  .nexuss-git-editor-card-heading { border-color:rgba(217,229,226,.1); background:#111718; }
+  .nexuss-git-editor-card-heading strong { color:#e7eee8; }
+  .nexuss-git-file-editor-card .nexuss-git-preview { background:#0b1011; color:#c6d2ca; }
+  .nexuss-git-file-editor-card .nexuss-git-preview-header { border-color:rgba(217,229,226,.1); background:rgba(14,19,20,.94); }
+  .nexuss-git-file-editor-card .nexuss-git-preview-header strong { color:#e6eee7; }
+  .nexuss-git-file-editor-card .nexuss-git-preview-header span { color:#77857e; }
+  .nexuss-git-file-editor-card .nexuss-git-preview-header button { border-color:rgba(217,229,226,.14); background:rgba(255,255,255,.04); color:#becbc2; }
+  .nexuss-git-file-editor-card .nexuss-git-analysis { border-color:rgba(217,229,226,.12); background:#141a1b; color:#ccd7cf; }
+  .nexuss-git-file-editor-card .nexuss-git-analysis-heading strong, .nexuss-git-file-editor-card .nexuss-git-analysis-grid strong { color:#e0e9e1; }
+  .nexuss-git-file-editor-card .nexuss-git-analysis-grid > div { border-color:rgba(217,229,226,.11); background:rgba(255,255,255,.03); }
+  .nexuss-git-file-editor-card .nexuss-git-analysis-note { color:#82918a; }
+  .nexuss-git-editor { background:#0b1011; }
+  .nexuss-git-editor-gutter { border-color:rgba(217,229,226,.1); color:#5e6c65; }
+  .nexuss-git-editor pre { color:#c5d2c8; }
+}
