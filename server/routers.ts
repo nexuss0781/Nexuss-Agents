@@ -22,9 +22,11 @@ import {
   WorkspaceAccessError,
   withWorkspaceDb,
 } from "./paradoxWorkspace";
-import { createMission, getMission, listMissions, listMissionArtifacts, listLearningCandidates } from "./mission/store";
+import { createMission, getMission, listMissions, listMissionArtifacts, listMissionEvidence, listMissionVerifications, listLearningCandidates } from "./mission/store";
 import { recordLearningReplay } from "./mission/learning";
 import { createMissionFromIntake, getStoredMissionIntake, runMissionIntake } from "./mission/intake";
+import { launchMissionFromConversation } from "./mission/integration";
+import { buildMissionReport } from "./mission/reporting";
 import { pauseMission, queueMission, recoverMissions, resumeMission, retryMission, stopMission } from "./mission/commands";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
@@ -36,6 +38,7 @@ import { storeAction, storeInstall, storeSnapshot } from "./packageManager/store
 import { commitAndPushLocalChanges, generateLocalCommitMessage, getLocalChanges } from "./localChanges";
 import { runProjectFileSystem } from "./fileSystemRuntime";
 import type { FileSystemAction } from "../tools/file-system/types";
+import { classifyConversationHandoff } from "./mission/conversationHandoff";
 
 const projectInput = z.object({ name: z.string().trim().min(1).max(120), description: z.string().trim().max(500), tone: z.string().max(32).default("#f4f4f0"), sourceType: z.enum(["none", "upload", "github"]).default("none") });
 const messageInput = z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(100_000) });
@@ -137,6 +140,7 @@ export const appRouter = router({
       }),
     }),
     chat: publicProcedure.input(z.object({ chatSlug: z.string().regex(/^chat-[a-z0-9]{32}$/).max(40) })).query(async ({ ctx, input }) => loadWorkspaceChat(await workspaceOwner(ctx), input.chatSlug)),
+    handoff: publicProcedure.input(z.object({ prompt: z.string().trim().max(100_000), mode: z.enum(["complex", "general", "instant"]), hasAttachments: z.boolean().optional() })).mutation(async ({ ctx, input }) => { await workspaceOwner(ctx); return classifyConversationHandoff(input); }),
     load: publicProcedure.input(z.object({ chatSlug: z.string().regex(/^chat-[a-z0-9]{32}$/).max(40) }).optional()).query(async ({ ctx, input }) => loadWorkspace(await workspaceOwner(ctx), input?.chatSlug)),
     createProject: publicProcedure.input(projectInput).mutation(async ({ ctx, input }) => createProject(await workspaceOwner(ctx), input)),
     cloneGithubProject: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128), url: z.string().trim().min(1).max(500), branch: z.string().trim().max(200).optional() })).mutation(async ({ ctx, input }) => {
@@ -177,10 +181,23 @@ export const appRouter = router({
     mission: router({
       intakePreview: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128).nullable().optional(), model: z.string().trim().min(1).max(256).optional(), sources: z.array(intakeSourceInput).min(1).max(20) })).mutation(async ({ ctx, input }) => missionCall(async () => runMissionIntake(await workspaceOwner(ctx), input))),
       createFromIntake: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128).nullable().optional(), model: z.string().trim().min(1).max(256).optional(), sources: z.array(intakeSourceInput).min(1).max(20), budget: z.object({ maxDepth: z.number().int().min(1).max(10), maxChildWorkItems: z.number().int().min(1).max(1_000), maxAgentAttempts: z.number().int().min(1).max(20), maxToolCalls: z.number().int().min(1).max(10_000), maxModelTokens: z.number().int().min(1_000).max(10_000_000), maxDurationSeconds: z.number().int().min(1).max(86_400) }).optional() })).mutation(async ({ ctx, input }) => missionCall(async () => createMissionFromIntake(await workspaceOwner(ctx), input))),
+      launchFromConversation: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128).nullable().optional(), model: z.string().trim().min(1).max(256).optional(), sources: z.array(intakeSourceInput).min(1).max(20), budget: z.object({ maxDepth: z.number().int().min(1).max(10), maxChildWorkItems: z.number().int().min(1).max(1_000), maxAgentAttempts: z.number().int().min(1).max(20), maxToolCalls: z.number().int().min(1).max(10_000), maxModelTokens: z.number().int().min(1_000).max(10_000_000), maxDurationSeconds: z.number().int().min(1).max(86_400) }).optional() })).mutation(async ({ ctx, input }) => missionCall(async () => launchMissionFromConversation(await workspaceOwner(ctx), input))),
       intake: publicProcedure.input(z.object({ intakeId: z.string().min(1).max(128) })).query(async ({ ctx, input }) => missionCall(async () => getStoredMissionIntake(await workspaceOwner(ctx), input.intakeId))),
       create: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128).nullable().optional(), parentMissionId: z.string().min(1).max(128).nullable().optional(), goal: z.string().trim().min(1).max(100_000), contract: z.object({ model: z.string().trim().min(1).max(256).optional(), deliverables: z.array(z.string().trim().min(1).max(500)).max(100).optional(), acceptanceCriteria: z.array(z.object({ id: z.string().trim().min(1).max(128), description: z.string().trim().min(1).max(2_000), verification: z.enum(["automated", "runtime", "visual", "manual", "mixed"]), required: z.boolean() })).max(100), constraints: z.array(z.string().trim().min(1).max(2_000)).max(100).optional(), assumptions: z.array(z.string().trim().min(1).max(2_000)).max(100).optional(), projectScope: z.record(z.string(), z.unknown()).optional(), riskLevel: z.enum(["low", "medium", "high", "critical"]).optional(), autonomyPolicy: z.record(z.string(), z.unknown()).optional(), executionBudget: z.record(z.string(), z.unknown()).optional(), completionPolicy: z.array(z.string().trim().min(1).max(2_000)).max(100).optional() }), budget: z.object({ maxDepth: z.number().int().min(1).max(10), maxChildWorkItems: z.number().int().min(1).max(1_000), maxAgentAttempts: z.number().int().min(1).max(20), maxToolCalls: z.number().int().min(1).max(10_000), maxModelTokens: z.number().int().min(1_000).max(10_000_000), maxDurationSeconds: z.number().int().min(1).max(86_400) }).optional() })).mutation(async ({ ctx, input }) => missionCall(async () => createMission(await workspaceOwner(ctx), input))),
       get: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).query(async ({ ctx, input }) => missionCall(async () => getMission(await workspaceOwner(ctx), input.missionId))),
       artifacts: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).query(async ({ ctx, input }) => missionCall(async () => listMissionArtifacts(await workspaceOwner(ctx), input.missionId))),
+      report: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).query(async ({ ctx, input }) => missionCall(async () => {
+        const ownerId = await workspaceOwner(ctx);
+        const [snapshot, artifacts, evidence, verifications] = await Promise.all([
+          getMission(ownerId, input.missionId),
+          listMissionArtifacts(ownerId, input.missionId),
+          listMissionEvidence(ownerId, input.missionId),
+          listMissionVerifications(ownerId, input.missionId),
+        ]);
+        return buildMissionReport({ snapshot, artifacts, evidence, verifications });
+      })),
+      evidence: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).query(async ({ ctx, input }) => missionCall(async () => listMissionEvidence(await workspaceOwner(ctx), input.missionId))),
+      verifications: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).query(async ({ ctx, input }) => missionCall(async () => listMissionVerifications(await workspaceOwner(ctx), input.missionId))),
       learningCandidates: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128) })).query(async ({ ctx, input }) => missionCall(async () => listLearningCandidates(await workspaceOwner(ctx), input.missionId))),
       replayCandidate: publicProcedure.input(z.object({ missionId: z.string().min(1).max(128), candidateId: z.string().min(1).max(128), passed: z.boolean(), evidence: z.record(z.string(), z.unknown()) })).mutation(async ({ ctx, input }) => missionCall(async () => recordLearningReplay(await workspaceOwner(ctx), input.missionId, input))),
       list: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128).optional() }).optional()).query(async ({ ctx, input }) => missionCall(async () => listMissions(await workspaceOwner(ctx), input?.projectId))),

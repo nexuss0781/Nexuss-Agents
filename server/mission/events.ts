@@ -17,6 +17,8 @@ export const MISSION_EVENT_TYPES = [
   "work_item.blocked",
   "runner.error",
   "runner.recovery_started",
+  "runner.recovery_reconciled",
+  "work_item.recovered",
   "filesystem.started",
   "filesystem.completed",
   "filesystem.failed",

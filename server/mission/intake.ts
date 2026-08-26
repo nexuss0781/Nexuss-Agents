@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { streamWorkspaceModel } from "../paradoxWorkspace";
 import { getAttachment } from "../attachments";
 import { redactSensitiveData } from "./redaction";
-import { MISSION_INTAKE_SYSTEM_PROMPT } from "./intakePrompt";
+import { composeWorkflowSystemPrompt } from "./promptComposer";
+import { selectMissionSkills } from "./skillRuntime";
 import { getAgentContract } from "./agentContracts";
 import { assertHarnessAllowed, assertSkillAllowed } from "./capabilityGuard";
 import {
@@ -240,7 +241,17 @@ export async function runMissionIntake(ownerId: string, input: { projectId?: str
     const signal = input.signal || new AbortController().signal;
     const modelInput = redactSensitiveData({ sources: sources.map((source) => ({ id: source.id, kind: source.kind, name: source.name, mimeType: source.mimeType, text: source.text })) });
     try {
-      const result = await streamWorkspaceModel(ownerId, { model: input.model, messages: [{ role: "system", content: MISSION_INTAKE_SYSTEM_PROMPT }, { role: "user", content: JSON.stringify(modelInput) }] }, signal);
+      const workflowPrompt = await composeWorkflowSystemPrompt({
+        role: "mission_intake",
+        authority: "intake_only",
+        stage: "intake",
+        domains: ["general_problem_solving", "research", "software_delivery", "mathematics"],
+        skills: intakeContract.allowedSkills,
+        harnesses: intakeContract.allowedHarnesses,
+        mission: { projectId: input.projectId || null, sourceCount: sources.length },
+        outputContract: "Return JSON matching the MissionBrief shape with source-linked requirements, assumptions, acceptance criteria, risk, domains, required skills, verification expectations, escalation conditions, and one intake decision.",
+      });
+      const result = await streamWorkspaceModel(ownerId, { model: input.model, messages: [{ role: "system", content: workflowPrompt.content }, { role: "user", content: JSON.stringify(modelInput) }] }, signal);
       if (result.stopped || !result.finished) throw new Error("Intake normalization was not completed");
       brief = validateModelBrief(extractJson(result.content), deterministic.brief, sources);
       if (isMateriallyVagueObjective(brief.objective) && !isMateriallyVagueObjective(deterministic.brief.objective)) brief = { ...brief, objective: deterministic.brief.objective };
@@ -250,6 +261,12 @@ export async function runMissionIntake(ownerId: string, input: { projectId?: str
       if (signal.aborted) throw error;
       console.warn("[MissionIntake] model normalization rejected; using deterministic extraction", { error: error instanceof Error ? error.message : String(error) });
     }
+  }
+  try {
+    const selectedSkills = await selectMissionSkills({ objective: brief.objective, domains: brief.domains, requiredSkills: brief.requiredSkills });
+    brief = { ...brief, requiredSkills: Array.from(new Set([...brief.requiredSkills, ...selectedSkills.map((skill) => skill.skillId)])) };
+  } catch (error) {
+    console.warn("[MissionIntake] domain skill selection unavailable; preserving legacy skill IDs", { error: error instanceof Error ? error.message : String(error) });
   }
   const decision = decisionFor(brief, issues);
   assertHarnessAllowed(intakeContract, { harness: "mission_intake", operation: "classify_risk", input: { issueCount: issues.length, riskLevel: brief.riskLevel } });

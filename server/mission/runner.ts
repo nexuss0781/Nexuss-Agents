@@ -6,6 +6,7 @@ import {
   transitionMission,
   updateWorkItem,
   heartbeatWorkItemLease,
+  saveMissionCheckpoint,
   type MissionSnapshot,
   type MissionWorkItem,
 } from "./store";
@@ -13,6 +14,14 @@ import type { MissionStatus } from "./constitution";
 import { extractMissionLearningCandidates } from "./learning";
 import { dispatchFilesystemHarness } from "./filesystemHarness";
 import type { HarnessRequest, HarnessResult } from "./harnessRegistry";
+import { assertBudget, consumeBudget, type BudgetUsage } from "./budgetPolicy";
+import { assertConcurrency } from "./concurrencyPolicy";
+import { actionForWorkItem, assertWorkItemAuthority, authorityForRole, retryForResult, runnerBudget, runnerUsage } from "./runnerPolicy";
+import { assertSkillBindings, readSkillBindings } from "./skillRuntime";
+import { createWorkItem, listMissionEvidence, listMissionVerifications, recordMissionEvidence, recordMissionVerification } from "./store";
+import { completionEvidenceDecision, evaluateAcceptance } from "./evidenceRuntime";
+import { decideMissionQuality } from "./qualityPolicy";
+import { buildReplanRequest, diagnoseFailure, planRepair, type FailureDiagnosis, type ReplanRequest } from "./repairRuntime";
 
 export type MissionExecutionContext = {
   ownerId: string;
@@ -20,7 +29,30 @@ export type MissionExecutionContext = {
   mission: MissionSnapshot;
   signal: AbortSignal;
   activeWorkItem?: MissionWorkItem;
+  authority?: import("./agentContracts").AgentAuthority;
+  action?: import("./authorityPolicy").WorkflowAction;
+  domainSkillBindings?: import("./skillTypes").SkillBinding[];
   filesystem: (request: HarnessRequest, contract: import("./agentContracts").AgentRoleContract, agentId?: string) => Promise<HarnessResult>;
+};
+
+export type MissionExecutionEvidence = {
+  kind: string;
+  summary: string;
+  strength: "weak" | "moderate" | "strong" | "conclusive";
+  provenance: Array<{ kind: string; ref: string; label?: string }>;
+  data?: Record<string, unknown>;
+  artifactId?: string;
+};
+
+export type MissionExecutionVerification = {
+  subjectRefs: string[];
+  method: string;
+  independenceMode: "self_check" | "fresh_context" | "blind_review" | "separate_agent" | "separate_model" | "runtime_reproduction";
+  status: import("./workflowTypes").VerificationStatus;
+  observations?: string[];
+  failedChecks?: string[];
+  evidenceRefs?: string[];
+  performedBy: string;
 };
 
 export type MissionExecutionResult = {
@@ -30,6 +62,14 @@ export type MissionExecutionResult = {
   failureClass?: string;
   nextAction?: string;
   artifactIds?: string[];
+  strategyFingerprint?: string;
+  changedCondition?: string;
+  budgetUsage?: Partial<BudgetUsage>;
+  evidence?: MissionExecutionEvidence[];
+  verifications?: MissionExecutionVerification[];
+  diagnosis?: FailureDiagnosis;
+  replanRequest?: ReplanRequest;
+  newInformation?: string[];
 };
 
 export type MissionExecutor = (context: MissionExecutionContext) => Promise<MissionExecutionResult>;
@@ -42,6 +82,22 @@ export class MissionRunnerError extends Error {
     super(message);
     this.name = "MissionRunnerError";
     this.code = code;
+  }
+}
+
+function assertRunnerBudget(input: Parameters<typeof assertBudget>[0]) {
+  try {
+    return assertBudget(input);
+  } catch (error) {
+    throw new MissionRunnerError(error instanceof Error ? error.message : String(error), "MISSION_BUDGET_DENIED");
+  }
+}
+
+function assertRunnerConcurrency(input: Parameters<typeof assertConcurrency>[0]) {
+  try {
+    return assertConcurrency(input);
+  } catch (error) {
+    throw new MissionRunnerError(error instanceof Error ? error.message : String(error), "MISSION_CONCURRENCY_DENIED");
   }
 }
 
@@ -105,7 +161,14 @@ class ServerMissionRunner {
       if (controller.signal.aborted) return;
       if (snapshot.mission.status === "planning") {
         const needsPlan = snapshot.workItems.length === 0;
-        if (needsPlan && this.orchestrator) await this.orchestrator(ownerId, missionId, controller.signal);
+        const budget = runnerBudget(snapshot.mission.budget);
+        const usage = runnerUsage(snapshot.latestCheckpoint?.state?.budgetUsage);
+        if (needsPlan && this.orchestrator) {
+          assertRunnerBudget({ budget, usage, resource: "childWorkItems", amount: 1 });
+          const planResult = await this.orchestrator(ownerId, missionId, controller.signal);
+          const plannedCount = Array.isArray(planResult.workItems) ? planResult.workItems.length : 0;
+          if (plannedCount > budget.maxChildWorkItems) throw new MissionRunnerError("Planned work exceeds the mission child-work-item budget", "MISSION_CHILD_WORK_BUDGET_EXCEEDED");
+        }
         snapshot = { ...snapshot, mission: await transitionMission(ownerId, missionId, "planning", "planned", snapshot.mission.version, workerId, { workerId, orchestrated: Boolean(needsPlan && this.orchestrator), reusedWorkGraph: !needsPlan }) };
       }
       if (controller.signal.aborted) return;
@@ -118,7 +181,27 @@ class ServerMissionRunner {
 
       while (!controller.signal.aborted) {
         const executionSnapshot = await getMission(ownerId, missionId);
+        const budget = runnerBudget(executionSnapshot.mission.budget);
+        const usage = runnerUsage(executionSnapshot.latestCheckpoint?.state?.budgetUsage);
+        const startedAt = executionSnapshot.mission.startedAt ? Date.parse(executionSnapshot.mission.startedAt) : Number.NaN;
+        const elapsedSeconds = Number.isFinite(startedAt) ? Math.max(0, Math.floor((Date.now() - startedAt) / 1_000)) : 0;
+        if (elapsedSeconds > budget.maxDurationSeconds) throw new MissionRunnerError(`Mission duration budget exceeded: ${elapsedSeconds} > ${budget.maxDurationSeconds} seconds`, "MISSION_DURATION_BUDGET_EXCEEDED");
         const nextWorkItem = executionSnapshot.workItems.find((item) => claimable(item, executionSnapshot.workItems));
+        if (nextWorkItem) {
+          const authorityDecision = assertWorkItemAuthority(nextWorkItem);
+          if (!authorityDecision.allowed) throw new MissionRunnerError(`Work-item authority denied: ${authorityDecision.reason}`, "MISSION_AUTHORITY_DENIED");
+          const skillBindings = readSkillBindings(nextWorkItem.input.skillBindings);
+          if (skillBindings.length) {
+            try {
+              await assertSkillBindings({ bindings: skillBindings, role: nextWorkItem.role, stage: "execute", action: actionForWorkItem(nextWorkItem) });
+            } catch (error) {
+              throw new MissionRunnerError(error instanceof Error ? error.message : String(error), "MISSION_SKILL_BINDING_DENIED");
+            }
+          }
+          assertRunnerConcurrency({ candidate: nextWorkItem, active: executionSnapshot.workItems.filter((item) => item.id !== nextWorkItem.id), maxParallelWorkItems: budget.maxParallelWorkItems, exclusiveWorkspace: true });
+        }
+        assertRunnerBudget({ budget, usage, resource: "agentAttempts" });
+        assertRunnerBudget({ budget, usage, resource: "toolCalls" });
         let claimedWorkItem: { workItem: MissionWorkItem; lease: { workItemId: string; workerId: string } } | undefined;
         let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
         try {
@@ -134,40 +217,142 @@ class ServerMissionRunner {
             heartbeatTimer.unref?.();
           }
 
-          const result = await this.executor({ ownerId, workerId, mission: executionSnapshot, signal: controller.signal, activeWorkItem: claimedWorkItem?.workItem, filesystem: (request, contract, agentId = workerId) => {
+          const reservedUsage = consumeBudget(consumeBudget(usage, "agentAttempts"), "toolCalls");
+          await saveMissionCheckpoint(ownerId, missionId, {
+            version: executionSnapshot.mission.version,
+            status: executionSnapshot.mission.status,
+            state: {
+              ...(executionSnapshot.latestCheckpoint?.state || {}),
+              budgetUsage: reservedUsage,
+              lastExecution: { workerId, ...(claimedWorkItem ? { workItemId: claimedWorkItem.workItem.id, attempt: claimedWorkItem.workItem.attempt } : {}), status: "reserved" },
+            },
+            nextAction: "execute reserved work item",
+          });
+
+          const result = await this.executor({ ownerId, workerId, mission: executionSnapshot, signal: controller.signal, activeWorkItem: claimedWorkItem?.workItem, ...(claimedWorkItem ? { authority: authorityForRole(claimedWorkItem.workItem.role), action: actionForWorkItem(claimedWorkItem.workItem), domainSkillBindings: readSkillBindings(claimedWorkItem.workItem.input.skillBindings) } : {}), filesystem: (request, contract, agentId = workerId) => {
             const projectId = executionSnapshot.mission.projectId;
             if (!projectId) return Promise.reject(new MissionRunnerError("Filesystem operations require a project-bound mission", "MISSION_PROJECT_REQUIRED"));
             return dispatchFilesystemHarness({ ownerId, projectId, contract, request, missionId, agentId });
           } });
           if (controller.signal.aborted) return;
+          const evidenceIds: string[] = [];
+          if (claimedWorkItem && result.evidence?.length) {
+            for (const evidence of result.evidence) {
+              const persisted = await recordMissionEvidence(ownerId, missionId, { workItemId: claimedWorkItem.workItem.id, artifactId: evidence.artifactId, kind: evidence.kind, summary: evidence.summary, strength: evidence.strength, provenance: evidence.provenance, data: evidence.data, producedBy: workerId });
+              evidenceIds.push(persisted.id);
+            }
+          }
+          const verificationIds: string[] = [];
+          if (claimedWorkItem && result.verifications?.length) {
+            for (const verification of result.verifications) {
+              const persisted = await recordMissionVerification(ownerId, missionId, { workItemId: claimedWorkItem.workItem.id, subjectRefs: verification.subjectRefs, method: verification.method, independenceMode: verification.independenceMode, status: verification.status, observations: verification.observations, failedChecks: verification.failedChecks, evidenceRefs: Array.from(new Set([...(verification.evidenceRefs || []), ...evidenceIds])), performedBy: verification.performedBy });
+              verificationIds.push(persisted.id);
+            }
+          }
+          const diagnosis = claimedWorkItem && !result.verified ? result.diagnosis || diagnoseFailure({ failureClass: result.failureClass, summary: result.summary, nextAction: result.nextAction, evidenceRefs: evidenceIds, changedCondition: result.changedCondition, newInformation: result.newInformation }) : undefined;
+          const repairPlan = claimedWorkItem && diagnosis ? planRepair({ item: claimedWorkItem.workItem, diagnosis, strategyFingerprint: result.strategyFingerprint, nextAction: result.nextAction }) : undefined;
+          let replannedWorkItemId: string | undefined;
+          const replanRequest = claimedWorkItem && repairPlan?.replanRequired ? buildReplanRequest({ missionId, item: claimedWorkItem.workItem, diagnosis: repairPlan.diagnosis, completedWorkItemIds: executionSnapshot.workItems.filter((item) => item.status === "completed").map((item) => item.id) }) : undefined;
+          if (claimedWorkItem && repairPlan?.replanRequired && replanRequest) {
+            const replacement = await createWorkItem(ownerId, missionId, { parentWorkItemId: claimedWorkItem.workItem.id, title: `Repair: ${claimedWorkItem.workItem.title}`, description: repairPlan.nextAction, role: claimedWorkItem.workItem.role, dependencies: claimedWorkItem.workItem.dependencies.filter((dependencyId) => executionSnapshot.workItems.some((item) => item.id === dependencyId && item.status === "completed")), acceptanceCriteria: claimedWorkItem.workItem.acceptanceCriteria, input: { ...claimedWorkItem.workItem.input, repairOf: claimedWorkItem.workItem.id, replanRequest, repair: { failureClass: repairPlan.diagnosis.failureClass, changedCondition: repairPlan.changedCondition, strategyFingerprint: repairPlan.strategyFingerprint, evidenceRefs: evidenceIds } } });
+            replannedWorkItemId = replacement.id;
+          }
+          const completionDecision = claimedWorkItem ? completionEvidenceDecision({ role: claimedWorkItem.workItem.role, verified: result.verified, evidenceIds, verificationIds, verifications: result.verifications || [] }) : { allowed: true, reason: "No work item completion claim" };
+          if (!completionDecision.allowed) throw new MissionRunnerError(`Mission evidence denied: ${completionDecision.reason}`, "MISSION_EVIDENCE_INCOMPLETE");
+          const reportedModelTokens = Math.max(0, Number(result.budgetUsage?.modelTokens || 0));
+          const reportedToolCalls = Math.max(0, Number(result.budgetUsage?.toolCalls || 0));
+          assertRunnerBudget({ budget, usage: reservedUsage, resource: "modelTokens", amount: reportedModelTokens });
+          assertRunnerBudget({ budget, usage: reservedUsage, resource: "toolCalls", amount: reportedToolCalls });
+          const withReportedModelTokens = consumeBudget(reservedUsage, "modelTokens", reportedModelTokens);
+          const nextUsage = {
+            ...consumeBudget(withReportedModelTokens, "toolCalls", reportedToolCalls),
+            durationSeconds: elapsedSeconds,
+          };
+          const retryDecision = claimedWorkItem && !result.verified ? retryForResult({
+            budget,
+            item: claimedWorkItem.workItem,
+            failureClass: result.failureClass,
+            nextAction: result.nextAction,
+            changedCondition: result.changedCondition,
+            strategyFingerprint: result.strategyFingerprint,
+            previousStrategyFingerprint: typeof claimedWorkItem.workItem.output?.strategyFingerprint === "string" ? claimedWorkItem.workItem.output.strategyFingerprint : undefined,
+          }) : undefined;
           if (claimedWorkItem) {
+            const effectiveRetryAllowed = Boolean(retryDecision?.allowed && !repairPlan?.replanRequired);
+            const workItemOutput = {
+              summary: result.summary,
+              artifactIds: result.artifactIds || [],
+              ...(evidenceIds.length ? { evidenceIds } : {}),
+              ...(verificationIds.length ? { verificationIds } : {}),
+              ...(result.failureClass ? { failureClass: result.failureClass } : {}),
+              ...(result.strategyFingerprint || retryDecision ? { strategyFingerprint: result.strategyFingerprint || retryDecision?.nextStrategyFingerprint } : {}),
+              ...(result.changedCondition || retryDecision ? { changedCondition: result.changedCondition || retryDecision?.changedCondition } : {}),
+              ...(retryDecision ? { retryClassification: retryDecision.classification, retryAllowed: effectiveRetryAllowed, retryReason: repairPlan?.replanRequired ? "Re-plan required; replacement work item created" : retryDecision.reason } : {}),
+              ...(diagnosis ? { diagnosis } : {}),
+              ...(repairPlan ? { repairPlan: { disposition: repairPlan.disposition, nextAction: repairPlan.nextAction, replanRequired: repairPlan.replanRequired } } : {}),
+              ...(replannedWorkItemId ? { replannedWorkItemId } : {}),
+              ...(replanRequest ? { replanRequest } : {}),
+            };
             claimedWorkItem.workItem = await updateWorkItem(ownerId, claimedWorkItem.workItem.id, {
-              status: result.verified ? "completed" : "failed",
-              output: { summary: result.summary, artifactIds: result.artifactIds || [], ...(result.failureClass ? { failureClass: result.failureClass } : {}) },
+              status: result.verified ? "completed" : repairPlan?.replanRequired ? "cancelled" : retryDecision?.allowed ? "repairing" : "failed",
+              output: workItemOutput,
               expectedVersion: claimedWorkItem.workItem.version,
             });
           }
 
           const latest = await getMission(ownerId, missionId);
+          await saveMissionCheckpoint(ownerId, missionId, {
+            version: latest.mission.version,
+            status: latest.mission.status,
+            state: {
+              ...(latest.latestCheckpoint?.state || {}),
+              budgetUsage: nextUsage,
+              lastExecution: {
+                workerId,
+                ...(claimedWorkItem ? { workItemId: claimedWorkItem.workItem.id, attempt: claimedWorkItem.workItem.attempt } : {}),
+                verified: result.verified,
+                ...(retryDecision ? { retryAllowed: retryDecision.allowed, retryReason: retryDecision.reason, strategyFingerprint: retryDecision.nextStrategyFingerprint } : {}),
+                evidenceDecision: completionDecision,
+              },
+            },
+            nextAction: result.verified ? "continue execution" : retryDecision?.allowed ? "execute changed repair strategy" : "escalate failed work item",
+          });
           const unresolved = latest.workItems.filter((item) => !["completed", "cancelled"].includes(item.status));
           if (result.continueMission) {
             if (latest.workItems.length <= executionSnapshot.workItems.length) throw new MissionRunnerError("Executor reported progress without creating new work", "MISSION_EXECUTOR_NO_PROGRESS");
             continue;
           }
           if (!result.verified) {
-            const verifying = await transitionMission(ownerId, missionId, "executing", "verifying", latest.mission.version, workerId, { summary: result.summary, artifactIds: result.artifactIds || [] });
-            await transitionMission(ownerId, missionId, "verifying", "repairing", verifying.version, workerId, { failureClass: result.failureClass || "QUALITY_GATE_FAILED", summary: result.summary, nextAction: result.nextAction || "repair failed work" });
+            const verifying = await transitionMission(ownerId, missionId, "executing", "verifying", latest.mission.version, workerId, { summary: result.summary, artifactIds: result.artifactIds || [], ...(retryDecision ? { retryAllowed: retryDecision.allowed, retryReason: retryDecision.reason, strategyFingerprint: retryDecision.nextStrategyFingerprint } : {}) });
+            if (repairPlan?.replanRequired && replannedWorkItemId) {
+              await transitionMission(ownerId, missionId, "verifying", "repairing", verifying.version, workerId, { failureClass: result.failureClass || "REPLAN_REQUIRED", summary: result.summary, nextAction: repairPlan.nextAction, strategyFingerprint: repairPlan.strategyFingerprint, changedCondition: repairPlan.changedCondition, replannedWorkItemId, diagnosis, replanRequest });
+            } else if (retryDecision?.allowed) {
+              await transitionMission(ownerId, missionId, "verifying", "repairing", verifying.version, workerId, { failureClass: result.failureClass || "QUALITY_GATE_FAILED", summary: result.summary, nextAction: result.nextAction || "execute changed repair strategy", strategyFingerprint: retryDecision.nextStrategyFingerprint, changedCondition: retryDecision.changedCondition, ...(diagnosis ? { diagnosis } : {}) });
+            } else {
+              await transitionMission(ownerId, missionId, "verifying", "failed", verifying.version, workerId, { code: "RETRY_POLICY_DENIED", failureClass: result.failureClass || "QUALITY_GATE_FAILED", summary: result.summary, reason: retryDecision?.reason || "No retry decision was available" });
+            }
             return;
           }
           if (unresolved.length === 0) {
-            const verifying = await transitionMission(ownerId, missionId, "executing", "verifying", latest.mission.version, workerId, { summary: result.summary, artifactIds: result.artifactIds || [] });
-            await transitionMission(ownerId, missionId, "verifying", "completed", verifying.version, workerId, { summary: result.summary, artifactIds: result.artifactIds || [] });
+            const [missionEvidence, missionVerifications] = await Promise.all([listMissionEvidence(ownerId, missionId), listMissionVerifications(ownerId, missionId)]);
+            const acceptance = evaluateAcceptance({ criteria: executionSnapshot.mission.contract.acceptanceCriteria || [], evidence: missionEvidence, verifications: missionVerifications });
+            const quality = decideMissionQuality({ riskLevel: executionSnapshot.mission.contract.riskLevel || "low", evidence: missionEvidence, verifications: missionVerifications, completedWorkItemRoles: latest.workItems.filter((item) => item.status === "completed").map((item) => item.role) });
+            const verifying = await transitionMission(ownerId, missionId, "executing", "verifying", latest.mission.version, workerId, { summary: result.summary, artifactIds: result.artifactIds || [], acceptance, quality });
+            if (!acceptance.satisfied) {
+              await transitionMission(ownerId, missionId, "verifying", "failed", verifying.version, workerId, { code: "MISSION_ACCEPTANCE_INCOMPLETE", summary: acceptance.reason, missingEvidenceKinds: acceptance.missingEvidenceKinds, unsatisfiedCriteria: acceptance.unsatisfiedCriteria, quality });
+              return;
+            }
+            if (!quality.allowed) {
+              await transitionMission(ownerId, missionId, "verifying", "failed", verifying.version, workerId, { code: "MISSION_QUALITY_GATE_INCOMPLETE", summary: quality.reason, missingEvidenceKinds: quality.missingEvidenceKinds, passingVerificationCount: quality.passingVerificationCount, quality });
+              return;
+            }
+            await transitionMission(ownerId, missionId, "verifying", "completed", verifying.version, workerId, { summary: result.summary, artifactIds: result.artifactIds || [], acceptance, quality });
             await extractMissionLearningCandidates(ownerId, missionId).catch((error) => console.error("[MissionRunner] learning candidate extraction failed", { missionId, error: error instanceof Error ? error.message : String(error) }));
             return;
           }
           if (unresolved.some((item) => item.status === "failed")) {
             const verifying = await transitionMission(ownerId, missionId, "executing", "verifying", latest.mission.version, workerId, { summary: result.summary, artifactIds: result.artifactIds || [] });
-            await transitionMission(ownerId, missionId, "verifying", "repairing", verifying.version, workerId, { failureClass: "WORK_GRAPH_HAS_FAILED_ITEMS", summary: "A required work item failed", nextAction: "repair failed work item" });
+            await transitionMission(ownerId, missionId, "verifying", "repairing", verifying.version, workerId, { failureClass: "WORK_GRAPH_HAS_FAILED_ITEMS", summary: "A required work item failed", nextAction: "repair failed work item", changedCondition: "The work graph contains a failed item" });
             return;
           }
           if (!unresolved.some((item) => claimable(item, latest.workItems))) {
@@ -192,7 +377,7 @@ class ServerMissionRunner {
       try {
         const current = await getMission(ownerId, missionId);
         if (["executing", "planning", "planned", "repairing"].includes(current.mission.status)) {
-          await transitionMission(ownerId, missionId, current.mission.status, "failed", current.mission.version, workerId, { code: error instanceof MissionRunnerError ? error.code : "MISSION_EXECUTION_FAILED" });
+          await transitionMission(ownerId, missionId, current.mission.status, "failed", current.mission.version, workerId, { code: error instanceof MissionRunnerError ? error.code : "MISSION_EXECUTION_FAILED", ...(error instanceof Error ? { message: error.message } : {}) });
           await extractMissionLearningCandidates(ownerId, missionId).catch((learningError) => console.error("[MissionRunner] failed-mission learning extraction failed", { missionId, error: learningError instanceof Error ? learningError.message : String(learningError) }));
         }
       } catch (transitionError) {

@@ -5,6 +5,10 @@ import {
   createMission,
   createWorkItem,
   getMission,
+  listMissionEvidence,
+  listMissionVerifications,
+  recordMissionEvidence,
+  recordMissionVerification,
   listMissions,
   saveMissionCheckpoint,
   transitionMission,
@@ -14,6 +18,8 @@ import { withWorkspaceDb } from "../paradoxWorkspace";
 
 async function cleanupMission(ownerId: string, missionId: string) {
   await withWorkspaceDb(true, (db) => {
+    db.execute("DELETE FROM workspace_mission_evidence WHERE mission_id = ? AND owner_id = ?", [missionId, ownerId]);
+    db.execute("DELETE FROM workspace_mission_verifications WHERE mission_id = ? AND owner_id = ?", [missionId, ownerId]);
     db.execute("DELETE FROM workspace_mission_events WHERE mission_id = ? AND owner_id = ?", [missionId, ownerId]);
     db.execute("DELETE FROM workspace_mission_checkpoints WHERE mission_id = ? AND owner_id = ?", [missionId, ownerId]);
     db.execute("DELETE FROM workspace_mission_work_items WHERE mission_id = ? AND owner_id = ?", [missionId, ownerId]);
@@ -65,6 +71,21 @@ describe("durable Autonomous Repository Change mission store", () => {
       expect(loaded.events.map((item) => item.sequence)).toEqual([1, 2, 3, 4, 5, 6, 7]);
       expect(loaded.latestCheckpoint).toMatchObject({ version: 2, nextAction: "begin planning" });
       expect(await listMissions(ownerId)).toEqual([expect.objectContaining({ id: created.mission.id, status: "queued" })]);
+    } finally {
+      await cleanupMission(ownerId, created.mission.id);
+    }
+  }, 90_000);
+
+  it("persists provenance-aware evidence and independent verification records", async () => {
+    const ownerId = `mission-evidence-owner-${randomUUID()}`;
+    const created = await createMission(ownerId, { goal: "Persist evidence and verification", contract: { acceptanceCriteria: [] } });
+    try {
+      const evidence = await recordMissionEvidence(ownerId, created.mission.id, { kind: "test_result", summary: "Focused test passed", strength: "strong", provenance: [{ kind: "command", ref: "pnpm test" }], data: { exitCode: 0 }, producedBy: "quality_gate" });
+      expect(evidence).toMatchObject({ missionId: created.mission.id, kind: "test_result", strength: "strong", provenance: [{ ref: "pnpm test" }] });
+      const verification = await recordMissionVerification(ownerId, created.mission.id, { subjectRefs: [created.mission.id], method: "independent test", independenceMode: "separate_agent", status: "passed", observations: ["test passed"], evidenceRefs: [evidence.id], performedBy: "quality_gate" });
+      expect(verification).toMatchObject({ missionId: created.mission.id, status: "passed", evidenceRefs: [evidence.id] });
+      await expect(listMissionEvidence(ownerId, created.mission.id)).resolves.toHaveLength(1);
+      await expect(listMissionVerifications(ownerId, created.mission.id)).resolves.toHaveLength(1);
     } finally {
       await cleanupMission(ownerId, created.mission.id);
     }

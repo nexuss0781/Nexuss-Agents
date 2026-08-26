@@ -2,7 +2,7 @@ import { getMission, listMissions, transitionMission, type MissionSnapshot } fro
 import type { MissionStatus } from "./../mission/constitution";
 import { missionRunner } from "./runner";
 import { recordMissionEvent } from "./events";
-import { listResumableMissionOwners } from "./store";
+import { listResumableMissionOwners, reconcileMissionRuntime } from "./store";
 import { extractMissionLearningCandidates } from "./learning";
 
 const pausableStatuses: readonly MissionStatus[] = ["planning", "planned", "executing", "verifying", "repairing"];
@@ -67,8 +67,16 @@ export async function recoverMissions(ownerId: string) {
   const missions = await listMissions(ownerId);
   const resumable = missions.filter((mission) => ["queued", "planning", "planned", "executing", "verifying", "repairing"].includes(mission.status));
   for (const mission of resumable) {
-    void recordMissionEvent(ownerId, mission.id, { type: "runner.recovery_started", actor: "mission_runner", payload: { previousStatus: mission.status } }).catch((error) => console.error("[MissionRunner] recovery event failed", { missionId: mission.id, error: error instanceof Error ? error.message : String(error) }));
-    void missionRunner.start(ownerId, mission.id).catch((error) => console.error("[MissionRunner] recovery start failed", { missionId: mission.id, error: error instanceof Error ? error.message : String(error) }));
+    if (missionRunner.isRunning(mission.id)) continue;
+    try {
+      await recordMissionEvent(ownerId, mission.id, { type: "runner.recovery_started", actor: "mission_runner", payload: { previousStatus: mission.status } });
+      const report = await reconcileMissionRuntime(ownerId, mission.id, { forceReclaim: true });
+      const current = await getMission(ownerId, mission.id);
+      if (current.mission.status === "verifying") await transitionMission(ownerId, mission.id, "verifying", "repairing", current.mission.version, "mission_runner", { recoveryId: report.recoveryId, reason: "verification interrupted; resume through repair" });
+      await missionRunner.start(ownerId, mission.id);
+    } catch (error) {
+      console.error("[MissionRunner] recovery failed", { missionId: mission.id, error: error instanceof Error ? error.message : String(error) });
+    }
   }
   return resumable;
 }

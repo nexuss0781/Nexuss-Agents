@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { EvidenceStrength, VerificationStatus } from "./workflowTypes";
 import {
   assertMissionTransition,
   AUTONOMOUS_REPOSITORY_CHANGE_MISSION_TYPE,
@@ -470,6 +471,64 @@ export async function releaseWorkItemLease(ownerId: string, workItemId: string, 
   });
 }
 
+export type MissionRecoveryReport = {
+  recoveryId: string;
+  missionId: string;
+  ownerId: string;
+  reclaimedLeaseCount: number;
+  reconciledWorkItemIds: string[];
+  resumableWorkItemIds: string[];
+  previousMissionStatus: MissionStatus;
+  checkpoint: MissionCheckpoint;
+};
+
+export async function reconcileMissionRuntime(ownerId: string, missionId: string, options: { forceReclaim?: boolean; recoveryId?: string } = {}): Promise<MissionRecoveryReport> {
+  return withWorkspaceDb(true, (db) => {
+    const mission = readMission(readMissionRow(db, ownerId, missionId));
+    const recoveryId = options.recoveryId || randomUUID();
+    const now = timestamp();
+    const previousCheckpoint = rows<Parameters<typeof readCheckpoint>[0]>(db.execute("SELECT id, mission_id, owner_id, version, status, state_json, next_action, created_at FROM workspace_mission_checkpoints WHERE mission_id = ? AND owner_id = ? ORDER BY version DESC LIMIT 1", [missionId, ownerId]))[0];
+    const leaseRows = rows<{ work_item_id: string; worker_id: string; expires_at: string }>(db.execute("SELECT work_item_id, worker_id, expires_at FROM workspace_mission_leases WHERE mission_id = ? AND owner_id = ?", [missionId, ownerId]));
+    const reclaimable = leaseRows.filter((lease) => options.forceReclaim || lease.expires_at <= now);
+    const reclaimedIds = new Set(reclaimable.map((lease) => lease.work_item_id));
+    const reconciledWorkItemIds: string[] = [];
+    const resumableWorkItemIds: string[] = [];
+    for (const lease of reclaimable) {
+      const item = rows<{ id: string; status: WorkItemStatus; version: number; output_json: string | null }>(db.execute("SELECT id, status, version, output_json FROM workspace_mission_work_items WHERE id = ? AND mission_id = ? AND owner_id = ? LIMIT 1", [lease.work_item_id, missionId, ownerId]))[0];
+      if (item && ["claimed", "executing"].includes(item.status)) {
+        const recoveryOutput = { ...parseJson<Record<string, unknown>>(item.output_json, {}), recovery: { recoveryId, previousStatus: item.status, previousWorkerId: lease.worker_id, reclaimedAt: now, reason: "worker lease was no longer live" } };
+        db.execute("UPDATE workspace_mission_work_items SET status = ?, output_json = ?, version = ?, updated_at = ? WHERE id = ? AND owner_id = ? AND version = ?", ["repairing", json(recoveryOutput), item.version + 1, now, item.id, ownerId, item.version]);
+        insertMissionEvent(db, ownerId, missionId, { type: "work_item.recovered", actor: "mission_runner", workItemId: item.id, payload: { recoveryId, previousStatus: item.status, previousWorkerId: lease.worker_id, nextStatus: "repairing" } }, now);
+        reconciledWorkItemIds.push(item.id);
+      } else if (item && ["pending", "ready", "repairing"].includes(item.status)) {
+        resumableWorkItemIds.push(item.id);
+      }
+      db.execute("DELETE FROM workspace_mission_leases WHERE work_item_id = ? AND owner_id = ?", [lease.work_item_id, ownerId]);
+    }
+    const orphanedItems = rows<{ id: string; status: WorkItemStatus; version: number; output_json: string | null }>(db.execute("SELECT id, status, version, output_json FROM workspace_mission_work_items WHERE mission_id = ? AND owner_id = ? AND status IN ('claimed', 'executing')", [missionId, ownerId])).filter((item) => !reclaimedIds.has(item.id));
+    for (const item of orphanedItems) {
+      const recoveryOutput = { ...parseJson<Record<string, unknown>>(item.output_json, {}), recovery: { recoveryId, previousStatus: item.status, previousWorkerId: "unknown", reclaimedAt: now, reason: "work item was active without a live lease" } };
+      db.execute("UPDATE workspace_mission_work_items SET status = ?, output_json = ?, version = ?, updated_at = ? WHERE id = ? AND owner_id = ? AND version = ?", ["repairing", json(recoveryOutput), item.version + 1, now, item.id, ownerId, item.version]);
+      insertMissionEvent(db, ownerId, missionId, { type: "work_item.recovered", actor: "mission_runner", workItemId: item.id, payload: { recoveryId, previousStatus: item.status, previousWorkerId: "unknown", nextStatus: "repairing" } }, now);
+      reconciledWorkItemIds.push(item.id);
+    }
+    if (!reclaimable.length && !reconciledWorkItemIds.length && previousCheckpoint) {
+      const priorState = readCheckpoint(previousCheckpoint).state;
+      const priorRecovery = priorState.recovery;
+      if (priorRecovery && typeof priorRecovery === "object") {
+        const recovery = priorRecovery as Record<string, unknown>;
+        const recoveredIds = Array.isArray(recovery.reconciledWorkItemIds) ? recovery.reconciledWorkItemIds.filter((id): id is string => typeof id === "string") : [];
+        const resumableIds = Array.isArray(recovery.resumableWorkItemIds) ? recovery.resumableWorkItemIds.filter((id): id is string => typeof id === "string") : [];
+        if (typeof recovery.recoveryId === "string") return { recoveryId: recovery.recoveryId, missionId, ownerId, reclaimedLeaseCount: Number(recovery.reclaimedLeaseCount || 0), reconciledWorkItemIds: recoveredIds, resumableWorkItemIds: resumableIds, previousMissionStatus: mission.status, checkpoint: readCheckpoint(previousCheckpoint) };
+      }
+    }
+    const state = { ...(previousCheckpoint ? readCheckpoint(previousCheckpoint).state : {}), recovery: { recoveryId, reclaimedLeaseCount: reclaimable.length, reconciledWorkItemIds, resumableWorkItemIds, previousMissionStatus: mission.status, recordedAt: now } };
+    insertMissionEvent(db, ownerId, missionId, { type: "runner.recovery_reconciled", actor: "mission_runner", payload: { recoveryId, reclaimedLeaseCount: reclaimable.length, reconciledWorkItemIds, resumableWorkItemIds, previousMissionStatus: mission.status } }, now);
+    const checkpoint = insertCheckpoint(db, ownerId, missionId, { version: mission.version, status: mission.status, state, nextAction: reconciledWorkItemIds.length ? "resume with repaired work items" : "resume from durable checkpoint" }, now);
+    return { recoveryId, missionId, ownerId, reclaimedLeaseCount: reclaimable.length, reconciledWorkItemIds, resumableWorkItemIds, previousMissionStatus: mission.status, checkpoint };
+  });
+}
+
 export type MissionArtifact = {
   id: string;
   missionId: string;
@@ -480,6 +539,41 @@ export type MissionArtifact = {
   summary: string;
   metadata: Record<string, unknown>;
   createdAt: string;
+};
+
+export type MissionEvidence = {
+  id: string;
+  missionId: string;
+  ownerId: string;
+  stageRunId?: string;
+  workItemId?: string;
+  artifactId?: string;
+  kind: string;
+  summary: string;
+  strength: EvidenceStrength;
+  provenance: Array<{ kind: string; ref: string; label?: string }>;
+  data: Record<string, unknown>;
+  producedBy: string;
+  observedAt: string;
+  createdAt: string;
+};
+
+export type MissionVerification = {
+  id: string;
+  missionId: string;
+  ownerId: string;
+  stageRunId?: string;
+  workItemId?: string;
+  subjectRefs: string[];
+  method: string;
+  independenceMode: "self_check" | "fresh_context" | "blind_review" | "separate_agent" | "separate_model" | "runtime_reproduction";
+  status: VerificationStatus;
+  observations: string[];
+  failedChecks: string[];
+  evidenceRefs: string[];
+  performedBy: string;
+  startedAt: string;
+  completedAt?: string;
 };
 
 export type MissionLearningCandidate = {
@@ -509,6 +603,14 @@ function readArtifact(row: { id: string; mission_id: string; owner_id: string; w
   return { id: row.id, missionId: row.mission_id, ownerId: row.owner_id, ...(row.work_item_id ? { workItemId: row.work_item_id } : {}), kind: row.kind, locator: row.locator, summary: row.summary, metadata: parseJson<Record<string, unknown>>(row.metadata_json, {}), createdAt: row.created_at };
 }
 
+function readEvidence(row: { id: string; mission_id: string; owner_id: string; stage_run_id: string | null; work_item_id: string | null; artifact_id: string | null; kind: string; summary: string; strength: EvidenceStrength; provenance_json: string; data_json: string; produced_by: string; observed_at: string; created_at: string }): MissionEvidence {
+  return { id: row.id, missionId: row.mission_id, ownerId: row.owner_id, ...(row.stage_run_id ? { stageRunId: row.stage_run_id } : {}), ...(row.work_item_id ? { workItemId: row.work_item_id } : {}), ...(row.artifact_id ? { artifactId: row.artifact_id } : {}), kind: row.kind, summary: row.summary, strength: row.strength, provenance: parseJson<MissionEvidence["provenance"]>(row.provenance_json, []), data: parseJson<Record<string, unknown>>(row.data_json, {}), producedBy: row.produced_by, observedAt: row.observed_at, createdAt: row.created_at };
+}
+
+function readVerification(row: { id: string; mission_id: string; owner_id: string; stage_run_id: string | null; work_item_id: string | null; subject_refs_json: string; method: string; independence_mode: MissionVerification["independenceMode"]; status: VerificationStatus; observations_json: string; failed_checks_json: string; evidence_refs_json: string; performed_by: string; started_at: string; completed_at: string | null }): MissionVerification {
+  return { id: row.id, missionId: row.mission_id, ownerId: row.owner_id, ...(row.stage_run_id ? { stageRunId: row.stage_run_id } : {}), ...(row.work_item_id ? { workItemId: row.work_item_id } : {}), subjectRefs: parseJson<string[]>(row.subject_refs_json, []), method: row.method, independenceMode: row.independence_mode, status: row.status, observations: parseJson<string[]>(row.observations_json, []), failedChecks: parseJson<string[]>(row.failed_checks_json, []), evidenceRefs: parseJson<string[]>(row.evidence_refs_json, []), performedBy: row.performed_by, startedAt: row.started_at, ...(row.completed_at ? { completedAt: row.completed_at } : {}) };
+}
+
 function readLearningCandidate(row: { id: string; mission_id: string; owner_id: string; candidate_type: MissionLearningCandidate["candidateType"]; domain: string; title: string; content_json: string; confidence: number; status: MissionLearningCandidate["status"]; created_at: string }): MissionLearningCandidate {
   return { id: row.id, missionId: row.mission_id, ownerId: row.owner_id, candidateType: row.candidate_type, domain: row.domain, title: row.title, content: parseJson<Record<string, unknown>>(row.content_json, {}), confidence: row.confidence, status: row.status, createdAt: row.created_at };
 }
@@ -517,14 +619,14 @@ function readReplay(row: { id: string; mission_id: string; owner_id: string; can
   return { id: row.id, missionId: row.mission_id, ownerId: row.owner_id, ...(row.candidate_id ? { candidateId: row.candidate_id } : {}), status: row.status, evidence: parseJson<Record<string, unknown>>(row.evidence_json, {}), createdAt: row.created_at };
 }
 
-export async function recordMissionArtifact(ownerId: string, missionId: string, input: { workItemId?: string; kind: string; locator: string; summary: string; metadata?: Record<string, unknown> }): Promise<MissionArtifact> {
+export async function recordMissionArtifact(ownerId: string, missionId: string, input: { workItemId?: string; kind: string; locator: string; summary: string; metadata?: Record<string, unknown>; provenance?: Record<string, unknown> }): Promise<MissionArtifact> {
   return withWorkspaceDb(true, (db) => {
     assertOwner(db, ownerId, missionId);
     if (input.workItemId) {
       const item = rows<{ id: string }>(db.execute("SELECT id FROM workspace_mission_work_items WHERE id = ? AND mission_id = ? AND owner_id = ? LIMIT 1", [input.workItemId, missionId, ownerId]))[0];
       if (!item) throw new WorkspaceAccessError("Work item not found");
     }
-    const metadata = input.metadata || {};
+    const metadata = { ...(input.metadata || {}), ...(input.provenance ? { provenance: input.provenance } : {}) };
     assertSafeEventPayload(metadata);
     const id = randomUUID();
     const createdAt = timestamp();
@@ -536,6 +638,46 @@ export async function recordMissionArtifact(ownerId: string, missionId: string, 
 
 export async function listMissionArtifacts(ownerId: string, missionId: string): Promise<MissionArtifact[]> {
   return withWorkspaceDb(false, (db) => { assertOwner(db, ownerId, missionId); return rows<Parameters<typeof readArtifact>[0]>(db.execute("SELECT id, mission_id, owner_id, work_item_id, kind, locator, summary, metadata_json, created_at FROM workspace_mission_artifacts WHERE mission_id = ? AND owner_id = ? ORDER BY created_at ASC", [missionId, ownerId])).map(readArtifact); });
+}
+
+export async function recordMissionEvidence(ownerId: string, missionId: string, input: { stageRunId?: string; workItemId?: string; artifactId?: string; kind: string; summary: string; strength: EvidenceStrength; provenance: MissionEvidence["provenance"]; data?: Record<string, unknown>; producedBy: string; observedAt?: string }): Promise<MissionEvidence> {
+  return withWorkspaceDb(true, (db) => {
+    assertOwner(db, ownerId, missionId);
+    if (input.workItemId && !rows<{ id: string }>(db.execute("SELECT id FROM workspace_mission_work_items WHERE id = ? AND mission_id = ? AND owner_id = ? LIMIT 1", [input.workItemId, missionId, ownerId]))[0]) throw new WorkspaceAccessError("Work item not found");
+    if (input.artifactId && !rows<{ id: string }>(db.execute("SELECT id FROM workspace_mission_artifacts WHERE id = ? AND mission_id = ? AND owner_id = ? LIMIT 1", [input.artifactId, missionId, ownerId]))[0]) throw new WorkspaceAccessError("Artifact not found");
+    if (!input.provenance.length) throw new Error("Evidence requires provenance");
+    const data = input.data || {};
+    assertSafeEventPayload(data);
+    const id = randomUUID();
+    const createdAt = timestamp();
+    const observedAt = input.observedAt || createdAt;
+    db.execute("INSERT INTO workspace_mission_evidence (id, mission_id, owner_id, stage_run_id, work_item_id, artifact_id, kind, summary, strength, provenance_json, data_json, produced_by, observed_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [id, missionId, ownerId, input.stageRunId || null, input.workItemId || null, input.artifactId || null, input.kind.slice(0, 128), input.summary.slice(0, 2_000), input.strength, json(input.provenance), json(data), input.producedBy.slice(0, 256), observedAt, createdAt]);
+    insertMissionEvent(db, ownerId, missionId, { type: "evidence.recorded", actor: "system", workItemId: input.workItemId, payload: { evidenceId: id, kind: input.kind.slice(0, 128), strength: input.strength, artifactId: input.artifactId || null } }, createdAt);
+    return readEvidence(rows<Parameters<typeof readEvidence>[0]>(db.execute("SELECT id, mission_id, owner_id, stage_run_id, work_item_id, artifact_id, kind, summary, strength, provenance_json, data_json, produced_by, observed_at, created_at FROM workspace_mission_evidence WHERE id = ? AND owner_id = ?", [id, ownerId]))[0]);
+  });
+}
+
+export async function listMissionEvidence(ownerId: string, missionId: string): Promise<MissionEvidence[]> {
+  return withWorkspaceDb(false, (db) => { assertOwner(db, ownerId, missionId); return rows<Parameters<typeof readEvidence>[0]>(db.execute("SELECT id, mission_id, owner_id, stage_run_id, work_item_id, artifact_id, kind, summary, strength, provenance_json, data_json, produced_by, observed_at, created_at FROM workspace_mission_evidence WHERE mission_id = ? AND owner_id = ? ORDER BY created_at ASC", [missionId, ownerId])).map(readEvidence); });
+}
+
+export async function recordMissionVerification(ownerId: string, missionId: string, input: { stageRunId?: string; workItemId?: string; subjectRefs: string[]; method: string; independenceMode: MissionVerification["independenceMode"]; status: VerificationStatus; observations?: string[]; failedChecks?: string[]; evidenceRefs?: string[]; performedBy: string; startedAt?: string; completedAt?: string }): Promise<MissionVerification> {
+  return withWorkspaceDb(true, (db) => {
+    assertOwner(db, ownerId, missionId);
+    if (!input.subjectRefs.length) throw new Error("Verification requires at least one subject reference");
+    if (input.workItemId && !rows<{ id: string }>(db.execute("SELECT id FROM workspace_mission_work_items WHERE id = ? AND mission_id = ? AND owner_id = ? LIMIT 1", [input.workItemId, missionId, ownerId]))[0]) throw new WorkspaceAccessError("Work item not found");
+    const evidenceRefs = input.evidenceRefs || [];
+    if (input.status === "passed" && !evidenceRefs.length) throw new Error("Passed verification requires evidence references");
+    const id = randomUUID();
+    const startedAt = input.startedAt || timestamp();
+    db.execute("INSERT INTO workspace_mission_verifications (id, mission_id, owner_id, stage_run_id, work_item_id, subject_refs_json, method, independence_mode, status, observations_json, failed_checks_json, evidence_refs_json, performed_by, started_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [id, missionId, ownerId, input.stageRunId || null, input.workItemId || null, json(input.subjectRefs), input.method.slice(0, 2_000), input.independenceMode, input.status, json((input.observations || []).slice(0, 200)), json((input.failedChecks || []).slice(0, 200)), json(evidenceRefs.slice(0, 500)), input.performedBy.slice(0, 256), startedAt, input.completedAt || null]);
+    insertMissionEvent(db, ownerId, missionId, { type: "quality_gate.completed", actor: "system", workItemId: input.workItemId, payload: { verificationId: id, status: input.status, independenceMode: input.independenceMode, evidenceCount: evidenceRefs.length } }, startedAt);
+    return readVerification(rows<Parameters<typeof readVerification>[0]>(db.execute("SELECT id, mission_id, owner_id, stage_run_id, work_item_id, subject_refs_json, method, independence_mode, status, observations_json, failed_checks_json, evidence_refs_json, performed_by, started_at, completed_at FROM workspace_mission_verifications WHERE id = ? AND owner_id = ?", [id, ownerId]))[0]);
+  });
+}
+
+export async function listMissionVerifications(ownerId: string, missionId: string): Promise<MissionVerification[]> {
+  return withWorkspaceDb(false, (db) => { assertOwner(db, ownerId, missionId); return rows<Parameters<typeof readVerification>[0]>(db.execute("SELECT id, mission_id, owner_id, stage_run_id, work_item_id, subject_refs_json, method, independence_mode, status, observations_json, failed_checks_json, evidence_refs_json, performed_by, started_at, completed_at FROM workspace_mission_verifications WHERE mission_id = ? AND owner_id = ? ORDER BY started_at ASC", [missionId, ownerId])).map(readVerification); });
 }
 
 export async function createLearningCandidate(ownerId: string, missionId: string, input: { candidateType: MissionLearningCandidate["candidateType"]; domain: string; title: string; content: Record<string, unknown>; confidence: number }): Promise<MissionLearningCandidate> {

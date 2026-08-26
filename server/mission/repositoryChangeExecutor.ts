@@ -4,25 +4,15 @@ import { planRepositoryChange } from "./orchestrator";
 import { recordMissionEvent } from "./events";
 import { redactSensitiveData } from "./redaction";
 import { runSpecialistAgent, spawnBuilderReviews } from "./specialistOrchestrator";
-import type { MissionExecutionResult, MissionExecutor } from "./runner";
+import type { MissionExecutionEvidence, MissionExecutionResult, MissionExecutionVerification, MissionExecutor } from "./runner";
 import { assertHarnessAllowed, assertIndependentVerificationAllowed, assertRepositoryWriteAllowed, assertSkillAllowed } from "./capabilityGuard";
+import { assertCapabilityInvocation } from "./capabilityRegistry";
 import { getAgentContract } from "./agentContracts";
+import { readSkillBindings, skillEvidenceMetadata } from "./skillRuntime";
+import { composeWorkflowSystemPrompt } from "./promptComposer";
 import { specialistForRole } from "./specialists";
 import { recordMissionArtifact } from "./store";
 import type { MissionSnapshot, MissionWorkItem } from "./store";
-
-const executionPrompt = `You are executing one bounded repository work item inside an autonomous coding mission. Return JSON only with this shape:
-{"summary":"string","writes":[{"path":"relative/path","content":"complete file content"}],"commands":[{"program":"pnpm|npm|yarn|git","args":["allowlisted arguments"]}]}
-
-Rules:
-- Inspect the supplied repository snapshot and work item before deciding.
-- Make the smallest cohesive change that advances the work item.
-- Use at most 20 file writes and never write secrets, .env files, key files, certificates, .git data, or files outside the repository.
-- Commands are optional and must be allowlisted verification or inspection commands only.
-- Do not claim verification; the harness will execute commands and determine their result.
-- Do not include credentials, prompts, cookies, or tokens in output.
-- Return complete file contents for every write; do not return patches or omissions.
-- If this work item is inspection-only, return no writes and a concise summary.`;
 
 type ProposedChange = {
   summary?: unknown;
@@ -60,7 +50,7 @@ function normalizeCommands(value: unknown): ProposedCommand[] {
   });
 }
 
-async function executeQualityGate(ownerId: string, missionId: string, root: string, signal: AbortSignal) {
+async function executeQualityGate(ownerId: string, missionId: string, root: string, signal: AbortSignal, workItemId?: string) {
   const qualityContract = getAgentContract("quality_gate");
   assertIndependentVerificationAllowed(qualityContract);
   assertSkillAllowed(qualityContract, "quality_verification");
@@ -68,6 +58,7 @@ async function executeQualityGate(ownerId: string, missionId: string, root: stri
   const checks: Array<Awaited<ReturnType<typeof runRepositoryCommand>>> = [];
   for (const [program, args] of [["pnpm", ["check"]], ["pnpm", ["test"]], ["pnpm", ["build"]], ["git", ["diff", "--check"]]] as const) {
     const operation = program === "git" ? "git_diff_check" : args[0] === "check" ? "run_check" : args[0] === "test" ? "run_test" : "run_build";
+    assertCapabilityInvocation({ capabilityId: "repository_verification", operation, actorRole: "quality_gate", authority: "verification_only" });
     assertHarnessAllowed(qualityContract, { harness: "repository_verification", operation, input: { program, args } });
     const result = await runRepositoryCommand(root, program, args, signal);
     checks.push(result);
@@ -76,25 +67,34 @@ async function executeQualityGate(ownerId: string, missionId: string, root: stri
   const failed = checks.find((check) => check.cancelled || check.timedOut || check.exitCode !== 0);
   const verified = !failed && checks.length === 4;
   const artifactIds: string[] = [];
+  const evidence: MissionExecutionEvidence[] = [];
   for (const check of checks) {
-    const artifact = await recordMissionArtifact(ownerId, missionId, { kind: "quality_check", locator: [check.program, ...check.args].join(" "), summary: `Quality check exited with ${check.exitCode ?? "signal"}`, metadata: { exitCode: check.exitCode, durationMs: check.durationMs, timedOut: check.timedOut, cancelled: check.cancelled } });
+    const artifact = await recordMissionArtifact(ownerId, missionId, { workItemId, kind: "quality_check", locator: [check.program, ...check.args].join(" "), summary: `Quality check exited with ${check.exitCode ?? "signal"}`, metadata: { exitCode: check.exitCode, durationMs: check.durationMs, timedOut: check.timedOut, cancelled: check.cancelled } });
     artifactIds.push(artifact.id);
+    evidence.push({ kind: "quality_check", summary: artifact.summary, strength: verified ? "strong" : "moderate", provenance: [{ kind: "artifact", ref: artifact.id }], data: { command: [check.program, ...check.args].join(" "), exitCode: check.exitCode, durationMs: check.durationMs, timedOut: check.timedOut, cancelled: check.cancelled }, artifactId: artifact.id });
   }
+  const verifications: MissionExecutionVerification[] = [{ subjectRefs: artifactIds.length ? artifactIds : [missionId], method: "Independent repository type, test, build, and diff verification", independenceMode: "runtime_reproduction", status: verified ? "passed" : "failed", observations: checks.map((check) => `${check.program} ${check.args.join(" ")} exited with ${check.exitCode ?? "signal"}`), failedChecks: failed ? [`${failed.program} ${failed.args.join(" ")}`] : [], performedBy: "quality_gate" }];
   await recordMissionEvent(ownerId, missionId, { type: "quality_gate.completed", actor: "quality_gate", payload: { verified, checkCount: checks.length, failedCommand: failed ? `${failed.program} ${failed.args.join(" ")}` : null } });
   return {
     verified,
     summary: failed ? `Quality gate failed: ${failed.program} ${failed.args.join(" ")}` : "TypeScript, tests, build, and diff checks passed",
     checks: checks.map((check) => ({ command: [check.program, ...check.args].join(" "), exitCode: check.exitCode, durationMs: check.durationMs, timedOut: check.timedOut, cancelled: check.cancelled, stdout: check.stdout.slice(-2_000), stderr: check.stderr.slice(-2_000) })),
     artifactIds,
+    evidence,
+    verifications,
   };
 }
 
 async function executeModelWorkItem(ownerId: string, missionId: string, root: string, model: string, mission: MissionSnapshot, item: MissionWorkItem, signal: AbortSignal): Promise<MissionExecutionResult> {
   const agentContract = getAgentContract(specialistForRole(item.role).kind);
+  const domainSkillBindings = readSkillBindings(item.input.skillBindings);
+  const executionAuthority = item.role === "builder" ? "execution_only" as const : "verification_only" as const;
   assertSkillAllowed(agentContract, "repository_inspection");
+  assertCapabilityInvocation({ capabilityId: "repository_inspection", operation: "snapshot", actorRole: item.role, authority: executionAuthority });
   assertHarnessAllowed(agentContract, { harness: "repository_inspection", operation: "snapshot", input: {} });
   if (item.role === "builder") {
     assertSkillAllowed(agentContract, "bounded_execution");
+    assertCapabilityInvocation({ capabilityId: "repository_change", operation: "write_files", actorRole: item.role, authority: "execution_only" });
     assertHarnessAllowed(agentContract, { harness: "repository_change", operation: "write_files", input: {} });
     assertRepositoryWriteAllowed(agentContract);
   }
@@ -102,8 +102,21 @@ async function executeModelWorkItem(ownerId: string, missionId: string, root: st
   const snapshot = await collectRepositorySnapshot(root, signal);
   const relevantFiles = snapshot.trackedFiles.filter((path) => !/(^|[\\/])\.env(?:\.|$)|\.(?:pem|key|p12|pfx)$/i.test(path)).slice(0, 250);
   const specialistEvidence = mission.workItems.filter((candidate) => candidate.status === "completed" && ["sub_orchestrator", "architect", "security_auditor"].includes(candidate.role)).map((candidate) => ({ title: candidate.title, role: candidate.role, output: candidate.output || {} }));
+  const workflowPrompt = await composeWorkflowSystemPrompt({
+    role: specialistForRole(item.role).kind,
+    authority: item.role === "builder" ? "execution_only" : "verification_only",
+    stage: "execute",
+    domains: mission.mission.contract.domains || ["software_delivery"],
+    skills: agentContract.allowedSkills,
+    domainSkillBindings,
+    harnesses: agentContract.allowedHarnesses,
+    mission: { missionId, objective: mission.mission.goal },
+    workItem: { title: item.title, description: item.description, role: item.role, acceptanceCriteria: item.acceptanceCriteria, input: item.input },
+    priorEvidence: { specialistEvidence, repository: { status: snapshot.status, trackedFiles: relevantFiles, packageJson: snapshot.packageJson } },
+    outputContract: "Return JSON only with summary, writes, and commands. Each write must contain a relative path and complete file content. Commands must be allowlisted inspection or verification commands. Return no writes for read-only work.",
+  });
   const messages = [
-    { role: "system" as const, content: `${executionPrompt}\nRole policy: ${item.role === "builder" ? "You may propose bounded file writes." : "You are read-only for this role; return no writes."}` },
+    { role: "system" as const, content: `${workflowPrompt.content}\n\nRole policy: ${item.role === "builder" ? "You may propose bounded file writes." : "You are read-only for this role; return no writes."}` },
     { role: "user" as const, content: JSON.stringify(redactSensitiveData({ workItem: { title: item.title, description: item.description, role: item.role, acceptanceCriteria: item.acceptanceCriteria, input: item.input }, specialistEvidence, repository: { status: snapshot.status, trackedFiles: relevantFiles, packageJson: snapshot.packageJson } })) },
   ];
   const result = await streamWorkspaceModel(ownerId, { model, messages }, signal);
@@ -116,6 +129,7 @@ async function executeModelWorkItem(ownerId: string, missionId: string, root: st
   const commandResults = [];
   for (const command of commands) {
     const operation = command.program === "git" ? "git_diff_check" : command.args[0] === "check" ? "run_check" : command.args[0] === "test" ? "run_test" : "run_build";
+    assertCapabilityInvocation({ capabilityId: "repository_verification", operation, actorRole: item.role, authority: executionAuthority });
     assertHarnessAllowed(agentContract, { harness: "repository_verification", operation, input: { program: command.program, args: command.args } });
     const commandResult = await runRepositoryCommand(root, command.program, command.args, signal);
     commandResults.push(commandResult);
@@ -125,20 +139,25 @@ async function executeModelWorkItem(ownerId: string, missionId: string, root: st
   const verified = !failedCommand;
   const artifactIds: string[] = [];
   for (const changedFile of changedFiles) {
-    const artifact = await recordMissionArtifact(ownerId, missionId, { workItemId: item.id, kind: "repository_file_change", locator: changedFile, summary: "Bounded repository file write applied", metadata: { sideEffect: "bounded_repository_write" } });
+    const artifact = await recordMissionArtifact(ownerId, missionId, { workItemId: item.id, kind: "repository_file_change", locator: changedFile, summary: "Bounded repository file write applied", metadata: { sideEffect: "bounded_repository_write", domainSkills: skillEvidenceMetadata(domainSkillBindings) } });
     artifactIds.push(artifact.id);
   }
   for (const command of commandResults) {
-    const artifact = await recordMissionArtifact(ownerId, missionId, { workItemId: item.id, kind: "command_result", locator: [command.program, ...command.args].join(" "), summary: `Bounded command exited with ${command.exitCode ?? "signal"}`, metadata: { exitCode: command.exitCode, durationMs: command.durationMs, timedOut: command.timedOut, cancelled: command.cancelled, stdoutLength: command.stdout.length, stderrLength: command.stderr.length } });
+    const artifact = await recordMissionArtifact(ownerId, missionId, { workItemId: item.id, kind: "command_result", locator: [command.program, ...command.args].join(" "), summary: `Bounded command exited with ${command.exitCode ?? "signal"}`, metadata: { exitCode: command.exitCode, durationMs: command.durationMs, timedOut: command.timedOut, cancelled: command.cancelled, stdoutLength: command.stdout.length, stderrLength: command.stderr.length, domainSkills: skillEvidenceMetadata(domainSkillBindings) } });
     artifactIds.push(artifact.id);
   }
-  await recordMissionEvent(ownerId, missionId, { type: verified ? "executor.completed" : "executor.failed", actor: "repository_executor", workItemId: item.id, payload: { verified, changedFileCount: changedFiles.length, commandCount: commandResults.length, failedCommand: failedCommand ? `${failedCommand.program} ${failedCommand.args.join(" ")}` : null } });
-  if (changedFiles.length || commandResults.length) await recordMissionEvent(ownerId, missionId, { type: "evidence.recorded", actor: "repository_executor", workItemId: item.id, payload: { changedFileCount: changedFiles.length, commandCount: commandResults.length } });
+  const evidence: MissionExecutionEvidence[] = [
+    ...changedFiles.map((file) => ({ kind: "repository_diff", summary: `Repository file changed: ${file}`, strength: verified ? "strong" as const : "moderate" as const, provenance: [{ kind: "artifact", ref: artifactIds[changedFiles.indexOf(file)] || file }], data: { path: file }, artifactId: artifactIds[changedFiles.indexOf(file)] })),
+    ...commandResults.map((command, index) => ({ kind: "command_result", summary: `Command result: ${command.program} ${command.args.join(" ")}`, strength: command.exitCode === 0 ? "strong" as const : "moderate" as const, provenance: [{ kind: "artifact", ref: artifactIds[changedFiles.length + index] || `${command.program}:${command.args.join(" ")}` }], data: { program: command.program, args: command.args, exitCode: command.exitCode, timedOut: command.timedOut }, artifactId: artifactIds[changedFiles.length + index] })),
+  ];
+  await recordMissionEvent(ownerId, missionId, { type: verified ? "executor.completed" : "executor.failed", actor: "repository_executor", workItemId: item.id, payload: { verified, changedFileCount: changedFiles.length, commandCount: commandResults.length, failedCommand: failedCommand ? `${failedCommand.program} ${failedCommand.args.join(" ")}` : null, domainSkills: skillEvidenceMetadata(domainSkillBindings) } });
+  if (changedFiles.length || commandResults.length) await recordMissionEvent(ownerId, missionId, { type: "evidence.recorded", actor: "repository_executor", workItemId: item.id, payload: { changedFileCount: changedFiles.length, commandCount: commandResults.length, domainSkills: skillEvidenceMetadata(domainSkillBindings) } });
   return {
     verified,
     summary: bounded(proposed.summary, changedFiles.length ? `Applied ${changedFiles.length} repository change(s)` : "Inspected the repository without file changes", 2_000),
     ...(failedCommand ? { failureClass: failedCommand.timedOut ? "COMMAND_TIMEOUT" : failedCommand.cancelled ? "CANCELLED" : "COMMAND_FAILED", nextAction: "inspect the failed command and repair the change" } : {}),
     artifactIds,
+    evidence,
   };
 }
 
@@ -157,14 +176,14 @@ export function createRepositoryChangeExecutor(): MissionExecutor {
       return { verified: findings.every((finding) => finding.completed), summary: findings.every((finding) => finding.completed) ? "Architecture and security specialists completed their independent reviews" : "One or more specialist reviews were unavailable", artifactIds: findings.map((finding) => `specialist-${finding.kind}`), ...(findings.every((finding) => finding.completed) ? {} : { failureClass: "SPECIALIST_REVIEW_FAILED", nextAction: "retry the specialist review stage" }) };
     }
     if (activeWorkItem.role === "security_auditor") {
-      if (!mission.mission.contract.model) return { verified: true, summary: "Security audit used the bounded harness policy without a model", artifactIds: ["security-policy-baseline"] };
+      if (!mission.mission.contract.model) return { verified: true, summary: "Security audit used the bounded harness policy without a model", artifactIds: ["security-policy-baseline"], evidence: [{ kind: "security_review", summary: "Bounded security policy baseline completed", strength: "moderate", provenance: [{ kind: "policy", ref: "security-policy-baseline" }], data: { completed: true } }], verifications: [{ subjectRefs: [activeWorkItem.id], method: "Bounded security policy baseline", independenceMode: "separate_agent", status: "passed", performedBy: "security_auditor" }] };
       const snapshot = await collectRepositorySnapshot(root, signal);
       const finding = await runSpecialistAgent({ ownerId, missionId: mission.mission.id, model: mission.mission.contract.model, kind: "security_auditor", workItem: activeWorkItem, repositoryContext: snapshot, signal });
-      return { verified: finding.completed, summary: finding.summary, artifactIds: ["specialist-security_auditor"], ...(finding.completed ? {} : { failureClass: "SECURITY_REVIEW_FAILED", nextAction: "retry the independent security audit" }) };
+      return { verified: finding.completed, summary: finding.summary, artifactIds: ["specialist-security_auditor"], evidence: [{ kind: "security_review", summary: finding.summary, strength: finding.completed ? "strong" : "moderate", provenance: [{ kind: "specialist_review", ref: "security_auditor" }], data: { completed: finding.completed } }], verifications: [{ subjectRefs: [activeWorkItem.id], method: "Independent security specialist review", independenceMode: "separate_agent", status: finding.completed ? "passed" : "failed", observations: [finding.summary], failedChecks: finding.completed ? [] : [finding.summary], performedBy: "security_auditor" }], ...(finding.completed ? {} : { failureClass: "SECURITY_REVIEW_FAILED", nextAction: "retry the independent security audit" }) };
     }
     if (activeWorkItem.role === "quality") {
-      const quality = await executeQualityGate(ownerId, mission.mission.id, root, signal);
-      return { verified: quality.verified, summary: quality.summary, ...(quality.verified ? {} : { failureClass: "QUALITY_GATE_FAILED", nextAction: "repair the repository change using the failed check evidence" }), artifactIds: quality.artifactIds };
+      const quality = await executeQualityGate(ownerId, mission.mission.id, root, signal, activeWorkItem.id);
+      return { verified: quality.verified, summary: quality.summary, ...(quality.verified ? {} : { failureClass: "QUALITY_GATE_FAILED", nextAction: "repair the repository change using the failed check evidence" }), artifactIds: quality.artifactIds, evidence: quality.evidence, verifications: quality.verifications };
     }
     if (activeWorkItem.role === "architect" && mission.mission.contract.model) {
       const snapshot = await collectRepositorySnapshot(root, signal);

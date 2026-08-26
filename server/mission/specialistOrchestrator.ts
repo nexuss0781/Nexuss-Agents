@@ -2,7 +2,9 @@ import { streamWorkspaceModel } from "../paradoxWorkspace";
 import { recordMissionEvent } from "./events";
 import { redactSensitiveData } from "./redaction";
 import { getSpecialist, type SpecialistKind } from "./specialists";
-import { buildAgentSystemPrompt, getAgentContract } from "./agentContracts";
+import { getAgentContract } from "./agentContracts";
+import { composeWorkflowSystemPrompt } from "./promptComposer";
+import { readSkillBindings } from "./skillRuntime";
 import { assertDelegationAllowed, assertHarnessAllowed, assertSkillAllowed } from "./capabilityGuard";
 import { claimWorkItem, createMission, createWorkItem, releaseWorkItemLease, transitionMission, updateWorkItem, type MissionWorkItem } from "./store";
 
@@ -18,7 +20,7 @@ async function createChildMission(input: { ownerId: string; missionId: string; m
   const child = await createMission(input.ownerId, { parentMissionId: input.missionId, goal: `${descriptor.title}: ${input.workItem.title}`, contract: { model: input.model, acceptanceCriteria: input.workItem.acceptanceCriteria, constraints: ["Operate only as a bounded read-only specialist; do not modify the repository."] } });
   const queued = await transitionMission(input.ownerId, child.mission.id, "created", "queued", child.mission.version, "principal_orchestrator", { parentMissionId: input.missionId, specialistKind: input.kind });
   const planning = await transitionMission(input.ownerId, child.mission.id, "queued", "planning", queued.version, "principal_orchestrator", { specialistKind: input.kind });
-  const childWorkItem = await createWorkItem(input.ownerId, child.mission.id, { title: input.workItem.title, description: input.workItem.description, role: input.kind, dependencies: [], acceptanceCriteria: input.workItem.acceptanceCriteria, input: { parentWorkItemId: input.workItem.id, specialistKind: input.kind } });
+  const childWorkItem = await createWorkItem(input.ownerId, child.mission.id, { title: input.workItem.title, description: input.workItem.description, role: input.kind, dependencies: [], acceptanceCriteria: input.workItem.acceptanceCriteria, input: { parentWorkItemId: input.workItem.id, specialistKind: input.kind, skillBindings: readSkillBindings(input.workItem.input.skillBindings) } });
   await transitionMission(input.ownerId, child.mission.id, "planning", "planned", planning.version, "principal_orchestrator", { specialistKind: input.kind });
   const executing = await transitionMission(input.ownerId, child.mission.id, "planned", "executing", planning.version + 1, "principal_orchestrator", { specialistKind: input.kind });
   return { childMissionId: child.mission.id, childWorkItem, workerId: `specialist-${input.kind}-${child.mission.id.slice(0, 8)}`, executingVersion: executing.version };
@@ -33,10 +35,23 @@ export async function runSpecialistAgent(input: { ownerId: string; missionId: st
   try {
     child = await createChildMission(input);
     const claimed = await claimWorkItem(input.ownerId, child.childWorkItem.id, child.workerId, child.childWorkItem.version);
+    const workflowPrompt = await composeWorkflowSystemPrompt({
+      role: input.kind,
+      authority: input.kind === "quality_gate" ? "verification_only" : input.kind === "sub_orchestrator" ? "delegation_only" : "execution_only",
+      stage: "research_inspect",
+      domains: ["software_delivery", "research", "security"],
+      skills: specialistContract.allowedSkills,
+      domainSkillBindings: readSkillBindings(input.workItem.input.skillBindings),
+      harnesses: specialistContract.allowedHarnesses,
+      mission: { missionId: input.missionId, objective: input.workItem.description },
+      workItem: { title: input.workItem.title, description: input.workItem.description, acceptanceCriteria: input.workItem.acceptanceCriteria },
+      priorEvidence: input.repositoryContext,
+      outputContract: "Return JSON only with summary, risks, and recommendations. Preserve evidence-oriented findings and do not include secrets or complete file contents.",
+    });
     const result = await streamWorkspaceModel(input.ownerId, {
       model: input.model,
       messages: [
-        { role: "system", content: `${buildAgentSystemPrompt(getAgentContract(input.kind), { missionGoal: input.workItem.description, workItemTitle: input.workItem.title, workItemDescription: input.workItem.description, acceptanceCriteria: input.workItem.acceptanceCriteria, allowedSkills: getAgentContract(input.kind).allowedSkills, allowedHarnesses: getAgentContract(input.kind).allowedHarnesses, priorEvidence: input.repositoryContext })}\nReturn a concise JSON object: {"summary":"string","risks":["string"],"recommendations":["string"]}. Do not include secrets or complete file contents.` },
+        { role: "system", content: `${workflowPrompt.content}\n\nReturn a concise JSON object: {"summary":"string","risks":["string"],"recommendations":["string"]}. Do not include secrets or complete file contents.` },
         { role: "user", content: JSON.stringify(redactSensitiveData({ workItem: { title: input.workItem.title, description: input.workItem.description, acceptanceCriteria: input.workItem.acceptanceCriteria }, repository: input.repositoryContext })) },
       ],
     }, input.signal);

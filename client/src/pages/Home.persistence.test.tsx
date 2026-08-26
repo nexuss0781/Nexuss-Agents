@@ -325,8 +325,7 @@ describe("persistent workspace client", () => {
       inputs(path, input);
       if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-live"], availableModels: ["model-live"], apiKeyConfigured: true };
       if (path === "workspace.createThread") return { id: "first-thread", chatSlug: "chat-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", title: "New thread", projectId: "pntp", updatedAt: "2026-08-18T00:00:00.000Z", messages: [] };
-      if (path === "workspace.mission.createFromIntake") return { intake: { id: "intake-created" }, mission: { mission: { id: "mission-created", status: "created" }, workItems: [], events: [] } };
-      if (path === "workspace.mission.start") return { mission: { id: "mission-created", status: "queued" }, workItems: [], events: [] };
+      if (path === "workspace.mission.launchFromConversation") return { intake: { id: "intake-created" }, mission: { mission: { id: "mission-created", status: "queued" }, workItems: [], events: [] }, decision: "ready_for_planning", status: "started", issues: [], assistantMessage: "I’m taking this on now. I’ll work through the request, check the result, and bring the finished work back here." };
       if (path === "workspace.appendMessages") return { threadId: "first-thread", messages: [] };
       if (path === "workspace.mission.list") return [{ id: "mission-created", ownerId: "owner-1", goal: "Build the release workflow", status: "executing", version: 1, createdAt: "2026-08-24T00:00:00.000Z", updatedAt: "2026-08-24T00:00:00.000Z" }];
       return empty;
@@ -347,8 +346,9 @@ describe("persistent workspace client", () => {
     });
 
     await waitForText(host, "Build the release workflow");
-    expect(inputs).toHaveBeenCalledWith("workspace.mission.createFromIntake", { projectId: null, model: "model-live", sources: [{ kind: "raw_prompt", text: "Build the release workflow" }] });
-    expect(inputs).toHaveBeenCalledWith("workspace.mission.start", { missionId: "mission-created" });
+    expect(inputs).toHaveBeenCalledWith("workspace.mission.launchFromConversation", { projectId: null, model: "model-live", sources: [{ kind: "raw_prompt", text: "Build the release workflow" }] });
+    expect(inputs).not.toHaveBeenCalledWith("workspace.mission.createFromIntake", expect.anything());
+    expect(inputs).not.toHaveBeenCalledWith("workspace.mission.start", expect.anything());
     expect(inputs).toHaveBeenCalledWith("workspace.appendMessages", { threadId: "first-thread", messages: [{ role: "user", content: "Build the release workflow" }, { role: "assistant", content: "I’m taking this on now. I’ll work through the request, check the result, and bring the finished work back here." }], title: "Build the release workflow" });
   });
 
@@ -393,7 +393,7 @@ describe("persistent workspace client", () => {
       inputs(path, input);
       if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-live"], availableModels: ["model-live"], apiKeyConfigured: true };
       if (path === "workspace.createThread") return { id: "clarification-thread", chatSlug: "chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", title: "New thread", updatedAt: "2026-08-24T00:00:00.000Z", messages: [] };
-      if (path === "workspace.mission.createFromIntake") return { intake: { id: "intake-clarification" }, mission: null, decision: "needs_clarification", issues: [{ code: "MATERIAL_AMBIGUITY", summary: "The desired outcome is too vague to plan reliably." }] };
+      if (path === "workspace.mission.launchFromConversation") return { intake: { id: "intake-clarification" }, mission: null, decision: "needs_clarification", status: "needs_clarification", issues: [{ code: "MATERIAL_AMBIGUITY", summary: "The desired outcome is too vague to plan reliably." }], assistantMessage: "I need a little more detail before I start. The desired outcome is too vague to plan reliably." };
       if (path === "workspace.appendMessages") return { threadId: "clarification-thread", messages: [] };
       return empty;
     });
@@ -404,6 +404,8 @@ describe("persistent workspace client", () => {
     const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
     await act(async () => { setValue?.call(composer, "Fix it"); composer.dispatchEvent(new Event("input", { bubbles: true })); host.querySelector<HTMLButtonElement>('button[aria-label="Start work"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
     expect(inputs).toHaveBeenCalledWith("workspace.appendMessages", expect.objectContaining({ threadId: "clarification-thread", messages: [{ role: "user", content: "Fix it" }, { role: "assistant", content: expect.stringContaining("I need a little more detail") }] }));
+    expect(inputs).not.toHaveBeenCalledWith("workspace.mission.launchFromConversation", expect.objectContaining({ status: "started" }));
+    expect(inputs).not.toHaveBeenCalledWith("workspace.mission.createFromIntake", expect.anything());
     expect(inputs).not.toHaveBeenCalledWith("workspace.mission.start", expect.anything());
   });
 

@@ -1,9 +1,11 @@
 import type { AgentRoleContract } from "./agentContracts";
 import { assertHarnessAllowed } from "./capabilityGuard";
+import { assertCapabilityInvocation } from "./capabilityRegistry";
 import { runProjectFileSystem } from "../fileSystemRuntime";
 import type { FileSystemAction, FileSystemRequest, FileSystemResult } from "../../tools/file-system/types";
 import type { HarnessRequest, HarnessResult } from "./harnessRegistry";
 import { recordMissionEvent } from "./events";
+import { recordMissionEvidence } from "./store";
 
 const FILESYSTEM_ACTIONS = new Set<FileSystemAction>([
   "list", "tree", "stat", "exists", "find", "du", "read", "read_many", "tail", "binary_metadata", "grep", "grep_batch", "glob",
@@ -25,7 +27,7 @@ function requestFromHarness(request: HarnessRequest): FileSystemRequest {
 }
 
 function summarize(result: FileSystemResult) {
-  if (!result.ok) return result.message.slice(0, 320);
+  if ("message" in result) return result.message.slice(0, 320);
   return `${result.action} completed in ${Math.round(result.durationMs)}ms`;
 }
 
@@ -39,6 +41,7 @@ export async function dispatchFilesystemHarness(input: {
 }): Promise<HarnessResult> {
   assertHarnessAllowed(input.contract, input.request);
   const request = requestFromHarness(input.request);
+  assertCapabilityInvocation({ capabilityId: "filesystem.operations", operation: request.action, actorRole: input.contract.kind, authority: input.contract.authority, confirmed: Boolean(request.confirmed), timeoutMs: input.request.timeoutMs });
   if (input.missionId) {
     await recordMissionEvent(input.ownerId, input.missionId, {
       type: "filesystem.started",
@@ -57,8 +60,9 @@ export async function dispatchFilesystemHarness(input: {
       await recordMissionEvent(input.ownerId, input.missionId, {
         type: result.ok ? "filesystem.completed" : "filesystem.failed",
         actor: "repository_executor",
-        payload: { action: request.action, operationId: result.operationId, path: request.path || request.sourcePath || request.destinationPath || null, ...(result.ok ? {} : { code: result.code, retryable: result.retryable }) },
+        payload: { action: request.action, operationId: result.operationId, path: request.path || request.sourcePath || request.destinationPath || null, ...(result.ok ? {} : { code: "code" in result ? result.code : "OPERATION_FAILED", retryable: "retryable" in result ? result.retryable : false }) },
       });
+      if (result.ok) await recordMissionEvidence(input.ownerId, input.missionId, { kind: "filesystem_observation", summary: summarize(result), strength: "strong", provenance: [{ kind: "filesystem_operation", ref: result.operationId }], data: { action: request.action, path: request.path || request.sourcePath || request.destinationPath || null, result: result.data }, producedBy: input.agentId || "repository_executor" });
     }
     const sideEffects = MUTATING_ACTIONS.has(request.action) ? ["project workspace may have changed"] : [];
     return {
@@ -66,9 +70,9 @@ export async function dispatchFilesystemHarness(input: {
       status: result.ok ? "completed" : "failed",
       summary: summarize(result),
       artifacts: [],
-      evidence: result.ok ? { operationId: result.operationId, action: result.action, path: result.path, data: result.data } : { operationId: result.operationId, code: result.code },
+      evidence: result.ok ? { operationId: result.operationId, action: result.action, path: result.path, data: result.data } : { operationId: result.operationId, code: "code" in result ? result.code : "OPERATION_FAILED" },
       sideEffects,
-      retryable: !result.ok && result.retryable,
+      retryable: "retryable" in result ? result.retryable : false,
     };
   } catch (error) {
     if (input.missionId) {

@@ -2,11 +2,12 @@ import { randomUUID } from "node:crypto";
 import { streamWorkspaceModel, type WorkspaceModelMessage } from "../paradoxWorkspace";
 import { createWorkItem, getMission, type MissionSnapshot } from "./store";
 import { recordMissionEvent } from "./events";
-import { AUTONOMOUS_REPOSITORY_CHANGE_SYSTEM_PROMPT } from "./autonomousRepositoryChangePrompt";
+import { composeWorkflowSystemPrompt } from "./promptComposer";
 import type { AcceptanceCriterion } from "./constitution";
 import { redactSensitiveData } from "./redaction";
 import { specialistForRole, type SpecialistKind } from "./specialists";
-import { buildAgentSystemPrompt, getAgentContract } from "./agentContracts";
+import { getAgentContract } from "./agentContracts";
+import { selectMissionSkills } from "./skillRuntime";
 
 export type PlannedWorkItem = {
   title: string;
@@ -119,13 +120,26 @@ function extractJson(content: string): unknown {
 export async function planRepositoryChange(ownerId: string, missionId: string, signal: AbortSignal): Promise<RepositoryChangePlan> {
   const snapshot = await getMission(ownerId, missionId);
   const model = snapshot.mission.contract.model;
+  const domainSkillBindings = await selectMissionSkills({ objective: snapshot.mission.goal, domains: snapshot.mission.contract.domains, requiredSkills: snapshot.mission.contract.requiredSkills });
   let plan: RepositoryChangePlan;
   if (!model) {
     plan = deterministicPlan(snapshot);
     await recordMissionEvent(ownerId, missionId, { type: "orchestration.plan_created", actor: "principal_orchestrator", payload: { planId: randomUUID(), source: "deterministic_fallback", workItemCount: plan.workItems.length, assumptionCount: plan.assumptions.length } });
   } else {
+    const workflowPrompt = await composeWorkflowSystemPrompt({
+      role: "principal_orchestrator",
+      authority: "mission_owner",
+      stage: "plan",
+      domains: snapshot.mission.contract.domains || ["software_delivery", "research", "mathematics"],
+      skills: getAgentContract("principal").allowedSkills,
+      domainSkillBindings,
+      harnesses: getAgentContract("principal").allowedHarnesses,
+      mission: { goal: snapshot.mission.goal, contract: snapshot.mission.contract },
+      workItem: { existingWorkItems: snapshot.workItems.map((item) => ({ title: item.title, status: item.status })) },
+      outputContract: "Return JSON matching the RepositoryChangePlan shape: summary, assumptions, acceptanceCriteria, and bounded workItems with role, specialistKind, dependencies, input, scope, and verification criteria.",
+    });
     const messages: WorkspaceModelMessage[] = [
-      { role: "system", content: `${AUTONOMOUS_REPOSITORY_CHANGE_SYSTEM_PROMPT}\n\n${buildAgentSystemPrompt(getAgentContract("principal"), { missionGoal: snapshot.mission.goal, acceptanceCriteria: snapshot.mission.contract.acceptanceCriteria, allowedSkills: ["mission_planning", "repository_inspection", "skill_selection"], allowedHarnesses: ["mission_runtime", "repository_inspection"] })}` },
+      { role: "system", content: workflowPrompt.content },
       { role: "user", content: `${planPrompt}\n\nMission:\n${JSON.stringify(redactSensitiveData({ goal: snapshot.mission.goal, contract: snapshot.mission.contract, intake: { intakeId: snapshot.mission.contract.intakeId || null, decision: snapshot.mission.contract.intakeDecision || null, requiredSkills: snapshot.mission.contract.requiredSkills || [], domains: snapshot.mission.contract.domains || [], sourceReferences: snapshot.mission.contract.sourceReferences || [] }, existingWorkItems: snapshot.workItems.map((item) => ({ title: item.title, status: item.status })) }))}` },
     ];
     try {
@@ -143,7 +157,14 @@ export async function planRepositoryChange(ownerId: string, missionId: string, s
   }
   const persistedIds: string[] = [];
   for (const [index, item] of Array.from(plan.workItems.entries())) {
-    const created = await createWorkItem(ownerId, missionId, { title: item.title, description: item.description, role: item.role, dependencies: item.dependencies.map((dependency: number) => persistedIds[dependency]).filter((id: string | undefined): id is string => Boolean(id)), acceptanceCriteria: item.acceptanceCriteria, input: { ...(item.input || {}), planIndex: index, specialistKind: item.specialistKind || specialistKindForRole(item.role) } });
+    const action = ["architect", "quality", "security_auditor", "integrator"].includes(item.role) ? "inspect" as const : item.role === "sub_orchestrator" ? "design" as const : "write" as const;
+    let itemSkillBindings = domainSkillBindings;
+    try {
+      itemSkillBindings = await selectMissionSkills({ objective: `${snapshot.mission.goal} ${item.description}`, domains: snapshot.mission.contract.domains, requiredSkills: snapshot.mission.contract.requiredSkills, role: item.role, stage: "execute", actions: [action] });
+    } catch {
+      itemSkillBindings = [];
+    }
+    const created = await createWorkItem(ownerId, missionId, { title: item.title, description: item.description, role: item.role, dependencies: item.dependencies.map((dependency: number) => persistedIds[dependency]).filter((id: string | undefined): id is string => Boolean(id)), acceptanceCriteria: item.acceptanceCriteria, input: { ...(item.input || {}), planIndex: index, specialistKind: item.specialistKind || specialistKindForRole(item.role), skillBindings: itemSkillBindings } });
     persistedIds.push(created.id);
   }
   return plan;
