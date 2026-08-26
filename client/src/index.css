@@ -1865,3 +1865,126 @@ body { color: var(--paper); }
   .nexuss-git-action-grid button small { display:none; }
 }
 @media (prefers-reduced-motion:reduce) { .nexuss-git-spin { animation:none; } }
+
+/* Foreground picker and Activity redesign. */
+.nexuss-git-repository-picker { z-index:20; }
+.nexuss-git-repository-menu { z-index:60; isolation:isolate; overflow:hidden; background:#151a1b; box-shadow:0 26px 54px rgba(0,0,0,.6),0 0 0 1px rgba(0,0,0,.34); }
+.nexuss-git-repository-menu::before { position:absolute; inset:0; z-index:-1; background:linear-gradient(145deg,rgba(215,178,145,.08),transparent 38%),#151a1b; content:""; }
+.nexuss-git-repository-menu .nexuss-git-repository-search { background:#101516; }
+.nexuss-git-repository-menu .nexuss-git-repository-option { position:relative; background:transparent; }
+.nexuss-git-repository-menu .nexuss-git-repository-option:hover, .nexuss-git-repository-menu .nexuss-git-repository-option:focus-visible { background:#242a2a; }
+.nexuss-git-repository-menu .nexuss-git-repository-option:focus-visible { outline:1px solid rgba(215,178,145,.7); outline-offset:-2px; }
+.nexuss-git-repository-menu .nexuss-git-repository-option-mark { background:#1d2423; }
+.nexuss-git-repository-menu .nexuss-git-menu-status { background:#151a1b; }
+
+.nexuss-git-activity-workspace { display:flex; min-height:0; flex-direction:column; gap:18px; }
+.nexuss-git-activity-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:2px 0 15px; border-bottom:1px solid rgba(217,229,226,.11); }
+.nexuss-git-activity-heading h2 { margin:8px 0 5px; color:#f2f5f1; font-size:23px; font-weight:560; letter-spacing:-.055em; line-height:1; }
+.nexuss-git-activity-heading p { margin:0; color:#84918b; font-size:10px; line-height:1.45; }
+.nexuss-git-activity-summary { display:grid; grid-template-columns:1.35fr 1fr 1fr; gap:0; border-top:1px solid rgba(217,229,226,.12); border-bottom:1px solid rgba(217,229,226,.12); }
+.nexuss-git-activity-summary > div { min-width:0; padding:12px 16px 13px 0; border-right:1px solid rgba(217,229,226,.1); }
+.nexuss-git-activity-summary > div + div { padding-left:16px; }
+.nexuss-git-activity-summary > div:last-child { border-right:0; }
+.nexuss-git-activity-summary span, .nexuss-git-activity-summary small { display:block; overflow:hidden; color:#72807a; font:8px "IBM Plex Mono",monospace; text-overflow:ellipsis; white-space:nowrap; }
+.nexuss-git-activity-summary strong { display:block; overflow:hidden; margin:6px 0 4px; color:#eaf0eb; font-size:17px; font-weight:560; letter-spacing:-.04em; text-overflow:ellipsis; white-space:nowrap; }
+.nexuss-git-activity-summary strong.is-success { color:#a7cdb1; }
+.nexuss-git-activity-summary strong.is-failure { color:#deb0a8; }
+.nexuss-git-activity-summary strong.is-active { color:#e0bc99; }
+.nexuss-git-activity-section { min-width:0; }
+.nexuss-git-activity-section-heading { display:flex; align-items:end; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.nexuss-git-activity-section-heading h3 { margin:7px 0 0; color:#edf2ee; font-size:15px; font-weight:560; letter-spacing:-.025em; }
+.nexuss-git-activity-section-count { color:#76837d; font:8px "IBM Plex Mono",monospace; }
+.nexuss-git-activity-timeline { position:relative; display:flex; flex-direction:column; }
+.nexuss-git-activity-timeline::before { position:absolute; top:18px; bottom:18px; left:15px; width:1px; background:linear-gradient(180deg,rgba(215,178,145,.52),rgba(215,178,145,.08)); content:""; }
+.nexuss-git-activity-run { position:relative; display:grid; grid-template-columns:31px minmax(0,1fr) auto 14px; align-items:center; gap:10px; width:100%; min-width:0; padding:13px 3px 13px 0; color:#cdd6d0; border:0; border-bottom:1px solid rgba(217,229,226,.09); background:transparent; cursor:pointer; text-align:left; }
+.nexuss-git-activity-run:first-child { padding-top:9px; }
+.nexuss-git-activity-run:hover { color:#f3f5f2; background:linear-gradient(90deg,rgba(215,178,145,.06),transparent 90%); }
+.nexuss-git-activity-run:focus-visible { outline:1px solid rgba(215,178,145,.65); outline-offset:-2px; }
+.nexuss-git-activity-run-line { position:relative; z-index:1; display:grid; width:31px; place-items:center; }
+.nexuss-git-activity-run-dot { display:grid; width:30px; height:30px; place-items:center; border:1px solid rgba(217,229,226,.16); border-radius:50%; background:#0b0f10; color:#7c8982; }
+.nexuss-git-activity-run-line.is-success .nexuss-git-activity-run-dot { border-color:rgba(142,192,161,.38); background:rgba(93,145,105,.12); color:#9dccaa; }
+.nexuss-git-activity-run-line.is-failure .nexuss-git-activity-run-dot { border-color:rgba(216,152,142,.38); background:rgba(144,79,72,.14); color:#dda59c; }
+.nexuss-git-activity-run-line.is-active .nexuss-git-activity-run-dot { border-color:rgba(215,178,145,.45); background:rgba(215,178,145,.12); color:#e0bb99; }
+.nexuss-git-activity-run-copy { min-width:0; }
+.nexuss-git-activity-run-copy strong, .nexuss-git-activity-run-copy small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.nexuss-git-activity-run-copy strong { color:#e8eee9; font-size:11px; font-weight:550; }
+.nexuss-git-activity-run-copy small { margin-top:5px; color:#74817b; font:8px "IBM Plex Mono",monospace; }
+.nexuss-git-activity-run-copy i { padding:0 3px; color:#495550; font-style:normal; }
+.nexuss-git-activity-state { display:inline-flex; align-items:center; justify-content:center; min-width:54px; padding:5px 7px; border:1px solid rgba(217,229,226,.13); border-radius:999px; color:#89958f; font:8px "IBM Plex Mono",monospace; text-transform:uppercase; white-space:nowrap; }
+.nexuss-git-activity-state.is-success { border-color:rgba(142,192,161,.25); background:rgba(93,145,105,.08); color:#a7cdb1; }
+.nexuss-git-activity-state.is-failure { border-color:rgba(216,152,142,.25); background:rgba(144,79,72,.08); color:#dda59c; }
+.nexuss-git-activity-state.is-active { border-color:rgba(215,178,145,.27); background:rgba(215,178,145,.08); color:#dfbc9b; }
+.nexuss-git-activity-open { color:#65736c; transform:rotate(-90deg); }
+.nexuss-git-activity-empty { display:flex; min-height:300px; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:28px; border-top:1px solid rgba(217,229,226,.11); border-bottom:1px solid rgba(217,229,226,.11); text-align:center; }
+.nexuss-git-activity-empty-mark { display:grid; width:46px; height:46px; place-items:center; margin-bottom:4px; border:1px solid rgba(215,178,145,.34); border-radius:13px; background:rgba(215,178,145,.07); color:#d7b291; }
+.nexuss-git-activity-empty strong { color:#edf2ed; font-size:15px; font-weight:560; }
+.nexuss-git-activity-empty p { max-width:280px; margin:0; color:#82908a; font-size:10px; line-height:1.5; }
+.nexuss-git-activity-placeholder { display:flex; min-height:150px; align-items:center; justify-content:center; gap:8px; padding:20px; color:#83908a; border-top:1px solid rgba(217,229,226,.1); border-bottom:1px solid rgba(217,229,226,.1); font-size:10px; }
+.nexuss-git-activity-placeholder.is-error { flex-wrap:wrap; color:#d6a19a; }
+.nexuss-git-activity-placeholder button { padding:0 0 0 4px; color:#d7b291; border:0; background:transparent; cursor:pointer; font-size:10px; }
+.nexuss-git-activity-spin { animation:nexuss-git-activity-spin .85s linear infinite; }
+@keyframes nexuss-git-activity-spin { to { transform:rotate(360deg); } }
+.nexuss-git-activity-detail-topline { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-bottom:11px; border-bottom:1px solid rgba(217,229,226,.11); }
+.nexuss-git-back-link { display:inline-flex; align-items:center; gap:4px; padding:0; color:#a0aca5; border:0; background:transparent; cursor:pointer; font:9px "IBM Plex Mono",monospace; }
+.nexuss-git-back-link svg { transform:rotate(180deg); }
+.nexuss-git-back-link:hover { color:#e2bd9e; }
+.nexuss-git-activity-external { display:inline-flex; align-items:center; gap:5px; color:#d7b291; font:8px "IBM Plex Mono",monospace; text-decoration:none; }
+.nexuss-git-activity-detail-hero { display:grid; grid-template-columns:42px minmax(0,1fr) auto; align-items:center; gap:11px; padding:17px 0; border-bottom:1px solid rgba(217,229,226,.11); }
+.nexuss-git-activity-status-mark { display:grid; width:40px; height:40px; place-items:center; border:1px solid rgba(217,229,226,.17); border-radius:12px; color:#87938c; background:#111718; }
+.nexuss-git-activity-status-mark.is-success { border-color:rgba(142,192,161,.38); color:#9dccaa; background:rgba(93,145,105,.11); }
+.nexuss-git-activity-status-mark.is-failure { border-color:rgba(216,152,142,.38); color:#dda59c; background:rgba(144,79,72,.11); }
+.nexuss-git-activity-status-mark.is-active { border-color:rgba(215,178,145,.4); color:#e0bb99; background:rgba(215,178,145,.11); }
+.nexuss-git-activity-detail-copy { min-width:0; }
+.nexuss-git-activity-detail-copy h2 { overflow:hidden; margin:7px 0 4px; color:#f1f4f0; font-size:19px; font-weight:560; letter-spacing:-.045em; text-overflow:ellipsis; white-space:nowrap; }
+.nexuss-git-activity-detail-copy p { margin:0; overflow:hidden; color:#7d8a83; font:9px "IBM Plex Mono",monospace; text-overflow:ellipsis; white-space:nowrap; }
+.nexuss-git-activity-detail-meta { display:flex; flex-wrap:wrap; gap:7px 17px; padding:12px 0; color:#85928b; border-bottom:1px solid rgba(217,229,226,.09); font:8px "IBM Plex Mono",monospace; }
+.nexuss-git-activity-detail-meta span { display:inline-flex; align-items:center; gap:5px; min-width:0; }
+.nexuss-git-activity-detail-meta svg { color:#d0a989; }
+.nexuss-git-activity-jobs { display:flex; flex-direction:column; gap:7px; }
+.nexuss-git-activity-job { overflow:hidden; border:1px solid rgba(217,229,226,.1); border-radius:8px; background:rgba(255,255,255,.018); }
+.nexuss-git-activity-job.is-open { border-color:rgba(215,178,145,.28); background:rgba(215,178,145,.045); }
+.nexuss-git-activity-job-head { display:grid; grid-template-columns:27px minmax(0,1fr) auto 14px; align-items:center; gap:9px; width:100%; min-width:0; padding:10px; color:#d3dcd5; border:0; background:transparent; cursor:pointer; text-align:left; }
+.nexuss-git-activity-job-head:hover { background:rgba(215,178,145,.06); }
+.nexuss-git-activity-job-mark { display:grid; width:27px; height:27px; place-items:center; border-radius:8px; color:#89958f; background:rgba(255,255,255,.05); }
+.nexuss-git-activity-job-mark.is-success { color:#9dccaa; background:rgba(93,145,105,.12); }
+.nexuss-git-activity-job-mark.is-failure { color:#dda59c; background:rgba(144,79,72,.12); }
+.nexuss-git-activity-job-mark.is-active { color:#e0bb99; background:rgba(215,178,145,.12); }
+.nexuss-git-activity-job-name { min-width:0; }
+.nexuss-git-activity-job-name strong, .nexuss-git-activity-job-name small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.nexuss-git-activity-job-name strong { color:#e8eee9; font-size:10px; font-weight:550; }
+.nexuss-git-activity-job-name small { margin-top:3px; color:#738079; font:8px "IBM Plex Mono",monospace; }
+.nexuss-git-activity-job-head > svg { color:#708078; transition:transform .18s ease; }
+.nexuss-git-activity-job-head > svg.is-open { transform:rotate(180deg); }
+.nexuss-git-activity-job-body { padding:0 10px 12px 46px; border-top:1px solid rgba(217,229,226,.1); }
+.nexuss-git-activity-steps { display:flex; flex-direction:column; gap:7px; padding:11px 0; }
+.nexuss-git-activity-step { display:grid; grid-template-columns:17px minmax(0,1fr) auto; align-items:center; gap:6px; min-width:0; color:#a1ada5; font-size:9px; }
+.nexuss-git-activity-step-mark { display:grid; place-items:center; color:#78857f; }
+.nexuss-git-activity-step-mark.is-success { color:#9dccaa; }
+.nexuss-git-activity-step-mark.is-failure { color:#dda59c; }
+.nexuss-git-activity-step-mark.is-active { color:#e0bb99; }
+.nexuss-git-activity-step > span:nth-child(2) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.nexuss-git-activity-step em { color:#6e7a74; font:8px "IBM Plex Mono",monospace; font-style:normal; }
+.nexuss-git-activity-log-heading { display:flex; justify-content:space-between; gap:8px; padding:9px 0 7px; border-top:1px solid rgba(217,229,226,.1); color:#aeb9b2; font:8px "IBM Plex Mono",monospace; text-transform:uppercase; letter-spacing:.08em; }
+.nexuss-git-activity-log-heading small { color:#69766f; font:8px "IBM Plex Mono",monospace; text-transform:none; letter-spacing:0; }
+.nexuss-git-activity-log-heading small.is-error { color:#d39e96; }
+.nexuss-git-activity-log-placeholder { display:flex; min-height:68px; align-items:center; gap:7px; color:#829089; font-size:9px; }
+.nexuss-git-activity-log-placeholder.is-error { color:#d29d95; }
+.nexuss-git-activity-log { max-height:260px; overflow:auto; margin:0; padding:11px; border:1px solid rgba(217,229,226,.1); border-radius:6px; background:#090d0e; color:#aab7af; font:8px/1.6 "IBM Plex Mono",monospace; white-space:pre-wrap; scrollbar-color:rgba(215,178,145,.4) transparent; scrollbar-width:thin; }
+@media (max-width:680px) {
+  .nexuss-git-activity-summary { grid-template-columns:1.2fr 1fr 1fr; }
+  .nexuss-git-activity-summary > div { padding-right:10px; }
+  .nexuss-git-activity-summary > div + div { padding-left:10px; }
+  .nexuss-git-activity-run { grid-template-columns:29px minmax(0,1fr) auto; }
+  .nexuss-git-activity-open { display:none; }
+}
+@media (max-width:440px) {
+  .nexuss-git-activity-heading h2 { font-size:21px; }
+  .nexuss-git-activity-run { grid-template-columns:29px minmax(0,1fr); gap:8px; }
+  .nexuss-git-activity-run .nexuss-git-activity-state { grid-column:2; justify-self:start; margin-top:-4px; }
+  .nexuss-git-activity-summary { grid-template-columns:1fr; }
+  .nexuss-git-activity-summary > div, .nexuss-git-activity-summary > div + div { padding:10px 0; border-right:0; border-bottom:1px solid rgba(217,229,226,.1); }
+  .nexuss-git-activity-summary > div:last-child { border-bottom:0; }
+  .nexuss-git-activity-detail-hero { grid-template-columns:40px minmax(0,1fr); }
+  .nexuss-git-activity-detail-hero .nexuss-git-activity-state { grid-column:2; justify-self:start; }
+}
+@media (prefers-reduced-motion:reduce) { .nexuss-git-activity-spin, .nexuss-git-activity-job-head > svg { animation:none; transition:none; } }
