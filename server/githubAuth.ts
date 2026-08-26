@@ -2,6 +2,28 @@ import { loadGithubGrant } from "./paradoxWorkspace";
 
 type CentralAuthConfig = { authUrl: string; projectId: string; redirectUri: string };
 export type GithubRepository = { id: number; name: string; fullName: string; description: string | null; private: boolean; htmlUrl: string; defaultBranch: string };
+type RawGithubRepository = Record<string, unknown>;
+
+function normalizeGithubRepository(value: unknown, index: number): GithubRepository | null {
+  if (!value || typeof value !== "object") return null;
+  const repository = value as RawGithubRepository;
+  const owner = repository.owner && typeof repository.owner === "object" ? (repository.owner as RawGithubRepository) : undefined;
+  const rawFullName = typeof repository.fullName === "string" ? repository.fullName : typeof repository.full_name === "string" ? repository.full_name : "";
+  const rawName = typeof repository.name === "string" ? repository.name : "";
+  const ownerLogin = owner && typeof owner.login === "string" ? owner.login : "";
+  const fullName = (rawFullName || (ownerLogin && rawName ? `${ownerLogin}/${rawName}` : "")).trim().replace(/^\/+|\/+$/g, "");
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName)) return null;
+  const name = rawName.trim() || fullName.split("/")[1] || fullName;
+  const rawId = typeof repository.id === "number" ? repository.id : Number(repository.id);
+  const htmlUrl = typeof repository.htmlUrl === "string" ? repository.htmlUrl : typeof repository.html_url === "string" ? repository.html_url : `https://github.com/${fullName}`;
+  const defaultBranch = typeof repository.defaultBranch === "string" ? repository.defaultBranch : typeof repository.default_branch === "string" ? repository.default_branch : "main";
+  return { id: Number.isFinite(rawId) ? rawId : index + 1, name, fullName, description: typeof repository.description === "string" ? repository.description : null, private: repository.private === true, htmlUrl, defaultBranch: defaultBranch || "main" };
+}
+
+export function normalizeGithubRepositories(value: unknown): GithubRepository[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((repository, index) => normalizeGithubRepository(repository, index)).filter((repository): repository is GithubRepository => Boolean(repository)).slice(0, 100);
+}
 export type GithubTreeEntry = { path: string; type: "blob" | "tree"; sha: string; size: number | null };
 export type GithubTree = { owner: string; repo: string; ref: string; sha: string | null; truncated: boolean; tree: GithubTreeEntry[] };
 export type GithubFile = { owner: string; repo: string; ref: string; path: string; name: string; sha: string | null; size: number; content: string; htmlUrl: string | null };
@@ -81,8 +103,8 @@ export async function githubConnectionStatus(ownerId: string): Promise<{ configu
 }
 
 export async function listGithubRepositories(ownerId: string): Promise<{ connected: true; login: string; repositories: GithubRepository[] }> {
-  const result = await centralGithubRequest<{ login: string; repositories: GithubRepository[] }>(ownerId, "/v1/github/repositories");
-  return { connected: true, login: result.login, repositories: Array.isArray(result.repositories) ? result.repositories.slice(0, 100) : [] };
+  const result = await centralGithubRequest<{ login: string; repositories: unknown }>(ownerId, "/v1/github/repositories");
+  return { connected: true, login: result.login, repositories: normalizeGithubRepositories(result.repositories) };
 }
 
 export async function getGithubAnalytics(ownerId: string, fullName: string): Promise<GithubAnalyticsResponse> {

@@ -753,8 +753,9 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       setSelectedProjectId(project.id);
       if (projectTab === "github") {
         if (repositoryTab === "import") {
-          if (!selectedGithubRepository) throw new Error("Connect GitHub and choose a repository.");
-          await authorizedCloneGithubProjectMutation.mutateAsync({ projectId: project.id, fullName: selectedGithubRepository.fullName });
+          const fullName = selectedGithubRepository?.fullName?.trim();
+          if (!fullName || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName)) throw new Error("Choose a valid GitHub repository before cloning.");
+          await authorizedCloneGithubProjectMutation.mutateAsync({ projectId: project.id, fullName });
         } else {
           if (!projectGithubUrl.trim()) throw new Error("Paste a public repository URL.");
           await cloneGithubProjectMutation.mutateAsync({ projectId: project.id, url: projectGithubUrl.trim() });
@@ -809,10 +810,14 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   }
 
   function selectAuthorizedRepository(repository: GithubRepository) {
+    if (!repository.fullName || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository.fullName)) {
+      toast.error("This repository could not be identified. Refresh GitHub and try again.");
+      return;
+    }
     setSelectedGithubRepository(repository);
     setProjectGithubUrl("");
-    setProjectNameDraft(repository.name);
-    setSuggestedProjectName(repository.name);
+    setProjectNameDraft(repository.name || repository.fullName.split("/")[1] || "Repository");
+    setSuggestedProjectName(repository.name || repository.fullName.split("/")[1] || "Repository");
   }
 
   function deleteProject(id: string) {
