@@ -176,9 +176,17 @@ function runGit(args: string[], cwd: string, timeoutMs: number, accessToken?: st
   });
 }
 
-export async function clonePublicGithubProject(ownerId: string, projectId: string, inputUrl: string, accessToken?: string): Promise<ProjectImportResult> {
+export function parseGithubBranch(value?: string) {
+  const branch = value?.trim();
+  if (!branch) return undefined;
+  if (branch.length > 200 || !/^[A-Za-z0-9._/-]+$/.test(branch) || branch.startsWith("/") || branch.endsWith("/") || branch.includes("..") || branch.includes("@{")) throw new ProjectWorkspaceError("Choose a valid GitHub branch.", "INVALID_GITHUB_URL");
+  return branch;
+}
+
+export async function clonePublicGithubProject(ownerId: string, projectId: string, inputUrl: string, accessToken?: string, branch?: string): Promise<ProjectImportResult> {
   await ensureProjectOwner(ownerId, projectId);
   const github = parsePublicGithubUrl(inputUrl);
+  const selectedBranch = parseGithubBranch(branch);
   const finalRoot = projectWorkspacePath(ownerId, projectId);
   const parent = dirname(finalRoot);
   await ensureWorkspaceReady(parent);
@@ -186,7 +194,8 @@ export async function clonePublicGithubProject(ownerId: string, projectId: strin
   await fs.rm(staging, { recursive: true, force: true });
   await fs.mkdir(staging, { recursive: true, mode: 0o750 });
   try {
-    const result = await runGit(["clone", "--depth=1", "--no-tags", "--single-branch", github.normalizedUrl, staging], parent, MAX_GITHUB_CLONE_SECONDS * 1_000, accessToken);
+    const branchArgs = selectedBranch ? ["--branch", selectedBranch] : [];
+    const result = await runGit(["clone", "--depth=1", "--no-tags", "--single-branch", ...branchArgs, github.normalizedUrl, staging], parent, MAX_GITHUB_CLONE_SECONDS * 1_000, accessToken);
     if (result.code !== 0) throw new ProjectWorkspaceError("GitHub could not be cloned. Check that the repository is public and the URL is correct.", "CLONE_FAILED");
     const summary = await summarizeWorkspace(staging);
     const commit = await runGit(["rev-parse", "HEAD"], staging, 10_000);

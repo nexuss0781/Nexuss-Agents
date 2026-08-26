@@ -2,6 +2,7 @@ import { loadGithubGrant } from "./paradoxWorkspace";
 
 type CentralAuthConfig = { authUrl: string; projectId: string; redirectUri: string };
 export type GithubRepository = { id: number; name: string; fullName: string; description: string | null; private: boolean; htmlUrl: string; defaultBranch: string };
+export type GithubBranch = { name: string; protected: boolean };
 type RawGithubRepository = Record<string, unknown>;
 
 function normalizeGithubRepository(value: unknown, index: number): GithubRepository | null {
@@ -107,6 +108,13 @@ export async function listGithubRepositories(ownerId: string): Promise<{ connect
   return { connected: true, login: result.login, repositories: normalizeGithubRepositories(result.repositories) };
 }
 
+export async function listGithubBranches(ownerId: string, fullName: string): Promise<{ owner: string; repo: string; branches: GithubBranch[] }> {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName)) throw new GithubOAuthError("Choose a valid GitHub repository.");
+  const [owner, repo] = fullName.split("/");
+  const result = await centralGithubRequest<{ owner: string; repo: string; branches: GithubBranch[] }>(ownerId, `/v1/github/branches?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`);
+  return { ...result, branches: Array.isArray(result.branches) ? result.branches.filter((branch) => typeof branch?.name === "string").slice(0, 100) : [] };
+}
+
 export async function getGithubAnalytics(ownerId: string, fullName: string): Promise<GithubAnalyticsResponse> {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName)) throw new GithubOAuthError("Choose a valid GitHub repository.");
   const [owner, repo] = fullName.split("/"); return centralGithubRequest<GithubAnalyticsResponse>(ownerId, `/v1/github/analytics?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`);
@@ -174,11 +182,12 @@ export async function getGithubFile(ownerId: string, fullName: string, path: str
   return centralGithubRequest<GithubFile>(ownerId, `/v1/github/file?${params.toString()}`);
 }
 
-export async function cloneAuthorizedGithubProject(ownerId: string, projectId: string, fullName: string, clone: (ownerId: string, projectId: string, url: string, token: string) => Promise<unknown>) {
+export async function cloneAuthorizedGithubProject(ownerId: string, projectId: string, fullName: string, branch: string | undefined, clone: (ownerId: string, projectId: string, url: string, token: string, branch?: string) => Promise<unknown>) {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName)) throw new GithubOAuthError("Choose a valid GitHub repository.");
+  if (branch && (branch.length > 200 || !/^[A-Za-z0-9._/-]+$/.test(branch) || branch.startsWith("/") || branch.endsWith("/") || branch.includes("..") || branch.includes("@{"))) throw new GithubOAuthError("Choose a valid GitHub branch.");
   const result = await centralGithubRequest<{ accessToken: string }>(ownerId, "/v1/github/clone-token");
   if (!result.accessToken) throw new GithubOAuthError("Central Nexuss Auth did not return a GitHub clone authorization.", "GITHUB_API_FAILED");
-  return clone(ownerId, projectId, `https://github.com/${fullName}.git`, result.accessToken);
+  return clone(ownerId, projectId, `https://github.com/${fullName}.git`, result.accessToken, branch);
 }
 
 export function githubRequiredScope() { return "repo"; }

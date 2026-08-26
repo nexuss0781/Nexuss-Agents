@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { parsePublicGithubUrl, projectWorkspaceConfig, projectWorkspacePath, ProjectWorkspaceError } from "./projectWorkspace";
+import { parseGithubBranch, parsePublicGithubUrl, projectWorkspaceConfig, projectWorkspacePath, ProjectWorkspaceError } from "./projectWorkspace";
 
 describe("project workspace boundaries", () => {
   const previousRoot = process.env.NEXUSS_PROJECTS_ROOT;
@@ -26,6 +26,14 @@ describe("project workspace boundaries", () => {
     "https://github.com/acme/example/../../escape",
   ])("rejects unsafe GitHub URL %s", (value) => {
     expect(() => parsePublicGithubUrl(value)).toThrow(ProjectWorkspaceError);
+  });
+
+  it("accepts safe branch refs and rejects unsafe clone arguments", () => {
+    expect(parseGithubBranch()).toBeUndefined();
+    expect(parseGithubBranch("feature/search")).toBe("feature/search");
+    expect(() => parseGithubBranch("../escape")).toThrow(ProjectWorkspaceError);
+    expect(() => parseGithubBranch("feature/@{1}")).toThrow(ProjectWorkspaceError);
+    expect(() => parseGithubBranch("/leading-slash")).toThrow(ProjectWorkspaceError);
   });
 
   it("assigns different owner/project roots under the configured storage root", () => {

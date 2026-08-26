@@ -1722,3 +1722,28 @@ body { color: var(--paper); }
 @keyframes axolotl-store-spin { to { transform:rotate(360deg); } }
 @media (max-width: 480px) { .axolotl-store-app { padding:12px; } .axolotl-store-intro p { font-size:9px; } .axolotl-store-actions button { flex:1 1 auto; } .axolotl-store-footnote { align-items:flex-start; flex-direction:column; } }
 @media (prefers-reduced-motion: reduce) { .axolotl-store-card,.axolotl-store-actions button { transition:none; } .axolotl-spin { animation:none; } }
+
+/* Compact GitHub repository picker: keep the list close to the reference height while preserving a fast search surface. */
+.project-repository-search { display:flex; align-items:center; gap:8px; min-height:36px; padding:0 11px; border:1px solid rgba(203,214,219,.13); border-radius:9px; background:rgba(8,11,12,.28); color:#7f8d92; }
+.project-repository-search:focus-within { border-color:rgba(203,214,219,.32); background:rgba(8,11,12,.42); color:#dce5e7; }
+.project-repository-search input { width:100%; min-width:0; border:0; outline:0; background:transparent; color:#eaf0f1; font-size:11px; }
+.project-repository-search input::placeholder { color:#69777c; }
+.project-onboarding-card .github-repository-list.has-repositories { min-height:170px; max-height:190px; gap:3px; padding:4px; border-radius:10px; }
+.project-onboarding-card .github-repository { min-height:42px; padding:7px 10px; border-radius:7px; }
+.project-onboarding-card .github-repository strong { font-size:11px; }
+.project-onboarding-card .github-repository small { font-size:9px; }
+.project-onboarding-card .github-repository.selected { border-color:rgba(203,214,219,.34); background:linear-gradient(90deg,rgba(203,214,219,.14),rgba(203,214,219,.06)); }
+.project-branch-picker { display:grid; grid-template-columns:minmax(0,1fr) minmax(150px,220px); align-items:center; gap:10px; padding:10px 11px; border:1px solid rgba(203,214,219,.13); border-radius:10px; background:rgba(8,11,12,.28); }
+.project-branch-picker > div { display:grid; gap:3px; min-width:0; }
+.project-branch-picker .github-input-label { color:#dfe7e8; font-size:10px; font-weight:600; }
+.project-branch-picker small { color:#7f8d92; font-size:9px; line-height:1.35; }
+.project-branch-picker select { width:100%; min-height:34px; padding:0 9px; border:1px solid rgba(203,214,219,.18); border-radius:7px; outline:0; background:#171b1d; color:#eaf0f1; font-size:10px; }
+.project-branch-picker select:focus { border-color:rgba(203,214,219,.4); }
+.project-branch-picker select:disabled { cursor:wait; opacity:.65; }
+.project-branch-error { grid-column:1 / -1; color:#d7a19b !important; }
+@media (max-width:560px) { .project-branch-picker { grid-template-columns:1fr; } .project-branch-picker select { min-height:38px; } }
+
+/* The in-app Nexuss-Git picker uses the same compact row rhythm. */
+.nexuss-git-repository-option { min-height:42px; padding:7px 9px; }
+.nexuss-git-repository-option small { font-size:9px; }
+.nexuss-git-repository-menu { max-height:min(48vh,300px); }
