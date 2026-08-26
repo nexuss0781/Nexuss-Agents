@@ -182,12 +182,17 @@ export async function getGithubFile(ownerId: string, fullName: string, path: str
   return centralGithubRequest<GithubFile>(ownerId, `/v1/github/file?${params.toString()}`);
 }
 
+export async function getGithubCloneToken(ownerId: string): Promise<string> {
+  const result = await centralGithubRequest<{ accessToken: string }>(ownerId, "/v1/github/clone-token");
+  if (!result.accessToken) throw new GithubOAuthError("Central Nexuss Auth did not return a GitHub clone authorization.", "GITHUB_API_FAILED");
+  return result.accessToken;
+}
+
 export async function cloneAuthorizedGithubProject(ownerId: string, projectId: string, fullName: string, branch: string | undefined, clone: (ownerId: string, projectId: string, url: string, token: string, branch?: string) => Promise<unknown>) {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName)) throw new GithubOAuthError("Choose a valid GitHub repository.");
   if (branch && (branch.length > 200 || !/^[A-Za-z0-9._/-]+$/.test(branch) || branch.startsWith("/") || branch.endsWith("/") || branch.includes("..") || branch.includes("@{"))) throw new GithubOAuthError("Choose a valid GitHub branch.");
-  const result = await centralGithubRequest<{ accessToken: string }>(ownerId, "/v1/github/clone-token");
-  if (!result.accessToken) throw new GithubOAuthError("Central Nexuss Auth did not return a GitHub clone authorization.", "GITHUB_API_FAILED");
-  return clone(ownerId, projectId, `https://github.com/${fullName}.git`, result.accessToken, branch);
+  const token = await getGithubCloneToken(ownerId);
+  return clone(ownerId, projectId, `https://github.com/${fullName}.git`, token, branch);
 }
 
 export function githubRequiredScope() { return "repo"; }

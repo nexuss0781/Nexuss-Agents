@@ -2275,3 +2275,110 @@ body { color: var(--paper); }
   .nexuss-git-repo-row-chevron { display:none; }
   .nexuss-git-create-repo-panel { margin:12px 16px; }
 }
+
+/* Local Changes workbench */
+.nexuss-git-changes-workspace { display: flex; flex-direction: column; gap: 16px; padding: 22px 0 24px; }
+.nexuss-git-changes-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 0 0 18px; border-bottom: 1px solid rgba(255,255,255,.09); }
+.nexuss-git-changes-header h2 { margin: 5px 0 4px; font-size: 25px; letter-spacing: -.04em; color: #f3f0e9; }
+.nexuss-git-changes-header p { margin: 0; color: rgba(235,231,223,.52); font-size: 12px; }
+.nexuss-git-changes-header-actions { display: flex; align-items: center; gap: 10px; }
+.nexuss-git-local-badge { display: inline-flex; align-items: center; gap: 7px; color: rgba(235,231,223,.58); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+.nexuss-git-local-badge > span, .nexuss-git-target-meta > span > span { width: 6px; height: 6px; border-radius: 50%; display: inline-block; background: #88b89b; box-shadow: 0 0 0 3px rgba(136,184,155,.1); }
+.nexuss-git-change-target { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(160px, .7fr) minmax(170px, .75fr); gap: 10px; padding: 14px; background: rgba(255,255,255,.022); border: 1px solid rgba(255,255,255,.08); border-radius: 4px; }
+.nexuss-git-change-target label, .nexuss-git-commit-controls label { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.nexuss-git-change-target label > span, .nexuss-git-commit-controls label > span { color: rgba(235,231,223,.43); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; }
+.nexuss-git-change-select, .nexuss-git-model-select { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; height: 36px; padding: 0 10px; color: #e7e2d9; background: #101415; border: 1px solid rgba(255,255,255,.1); border-radius: 3px; }
+.nexuss-git-change-select > svg:first-child, .nexuss-git-model-select > svg:first-child { color: #c7a27f; flex: 0 0 auto; }
+.nexuss-git-change-select > svg:last-child, .nexuss-git-model-select > svg:last-child { position: absolute; right: 9px; color: rgba(235,231,223,.46); pointer-events: none; }
+.nexuss-git-change-select select, .nexuss-git-model-select select { min-width: 0; width: 100%; appearance: none; border: 0; outline: 0; background: transparent; color: inherit; font-size: 11px; padding-right: 18px; }
+.nexuss-git-change-select option, .nexuss-git-model-select option { background: #151919; color: #eee9df; }
+.nexuss-git-target-meta { display: flex; flex-direction: column; justify-content: center; gap: 7px; padding-left: 6px; }
+.nexuss-git-target-meta > span { display: inline-flex; align-items: center; gap: 8px; color: #9fc0a7; font-size: 10px; }
+.nexuss-git-target-meta > span.is-warning { color: #d2ae82; }
+.nexuss-git-target-meta > span.is-warning > span { background: #c7a27f; box-shadow: 0 0 0 3px rgba(199,162,127,.1); }
+.nexuss-git-target-meta small { color: rgba(235,231,223,.38); font-size: 10px; }
+.nexuss-git-commit-composer { display: grid; grid-template-columns: minmax(0, 1fr) 210px; min-height: 154px; background: #101415; border: 1px solid rgba(255,255,255,.1); border-radius: 4px; overflow: hidden; }
+.nexuss-git-commit-input { display: flex; flex-direction: column; padding: 16px; border-right: 1px solid rgba(255,255,255,.08); }
+.nexuss-git-commit-input textarea { flex: 1; min-height: 72px; resize: none; outline: 0; border: 0; padding: 14px 0 7px; color: #f0ece5; background: transparent; font: 500 17px/1.35 ui-sans-serif, system-ui, sans-serif; letter-spacing: -.02em; }
+.nexuss-git-commit-input textarea::placeholder { color: rgba(235,231,223,.24); }
+.nexuss-git-commit-input-footer { display: flex; justify-content: space-between; gap: 10px; color: rgba(235,231,223,.32); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.nexuss-git-commit-controls { display: flex; flex-direction: column; justify-content: space-between; gap: 16px; padding: 16px; background: rgba(255,255,255,.018); }
+.nexuss-git-commit-controls label > span { display: flex; align-items: center; gap: 6px; }
+.nexuss-git-commit-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 37px; border: 1px solid rgba(200,168,132,.38); border-radius: 3px; color: #191817; background: #d4b18a; font-size: 11px; font-weight: 700; cursor: pointer; transition: background .18s ease, transform .18s ease; }
+.nexuss-git-commit-button:hover:not(:disabled) { background: #e5c39d; transform: translateY(-1px); }
+.nexuss-git-commit-button.is-commit { color: #f7f4ed; background: #3d6657; border-color: rgba(138,192,164,.5); }
+.nexuss-git-commit-button:disabled { opacity: .45; cursor: not-allowed; }
+.nexuss-git-commit-controls small, .nexuss-git-changes-footer span { display: inline-flex; align-items: center; gap: 5px; color: rgba(235,231,223,.34); font-size: 9px; line-height: 1.35; }
+.nexuss-git-changes-notice { display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: #a7c7ad; background: rgba(118,167,135,.08); border-left: 2px solid #83b08c; font-size: 11px; }
+.nexuss-git-commit-confirm { display: flex; flex-direction: column; gap: 14px; padding: 15px; background: rgba(152,104,62,.1); border: 1px solid rgba(206,161,112,.38); border-radius: 4px; }
+.nexuss-git-commit-confirm > div:first-child { display: flex; gap: 10px; color: #e0b88f; }
+.nexuss-git-commit-confirm strong { display: block; color: #efe6da; font-size: 12px; }
+.nexuss-git-commit-confirm p { margin: 4px 0 0; color: rgba(235,231,223,.54); font-size: 10px; }
+.nexuss-git-command-preview { overflow: auto; padding: 10px; color: #d6b38d; background: #0a0d0e; border: 1px solid rgba(255,255,255,.07); font: 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
+.nexuss-git-form-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+.nexuss-git-danger-button { min-height: 32px; padding: 0 12px; color: #fff4e9; background: #733f36; border: 1px solid rgba(217,139,119,.45); border-radius: 3px; font-size: 10px; cursor: pointer; }
+.nexuss-git-danger-button:disabled { opacity: .5; cursor: not-allowed; }
+.nexuss-git-changes-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-block: 1px solid rgba(255,255,255,.08); }
+.nexuss-git-changes-summary > div { display: flex; flex-direction: column; gap: 5px; min-height: 90px; padding: 14px; border-right: 1px solid rgba(255,255,255,.08); }
+.nexuss-git-changes-summary > div:last-child { border-right: 0; }
+.nexuss-git-changes-summary span { color: rgba(235,231,223,.4); font-size: 9px; letter-spacing: .13em; text-transform: uppercase; }
+.nexuss-git-changes-summary strong { color: #ede9e1; font-size: 20px; letter-spacing: -.04em; }
+.nexuss-git-changes-summary small { color: rgba(235,231,223,.33); font-size: 9px; }
+.nexuss-git-changes-summary .is-additions strong { color: #8fc39c; }
+.nexuss-git-changes-summary .is-deletions strong { color: #d79784; }
+.nexuss-git-changes-list { overflow: hidden; background: rgba(255,255,255,.015); border: 1px solid rgba(255,255,255,.08); border-radius: 4px; }
+.nexuss-git-changes-list-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 15px; padding: 15px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.nexuss-git-changes-list-heading > div { display: flex; flex-direction: column; gap: 5px; }
+.nexuss-git-changes-list-heading strong { color: #eeeae1; font-size: 13px; }
+.nexuss-git-changes-list-heading > span { display: inline-flex; align-items: center; gap: 6px; color: rgba(235,231,223,.4); font-size: 10px; }
+.nexuss-git-changes-state { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 190px; padding: 24px; color: rgba(235,231,223,.45); font-size: 11px; text-align: center; }
+.nexuss-git-changes-state > span { display: flex; flex-direction: column; gap: 6px; }
+.nexuss-git-changes-state small { color: rgba(235,231,223,.3); font-size: 10px; }
+.nexuss-git-changes-state.is-error { color: #d79784; }
+.nexuss-git-changes-state button { border: 0; color: #d4b18a; background: transparent; font-size: 10px; cursor: pointer; text-decoration: underline; }
+.nexuss-git-change-file + .nexuss-git-change-file { border-top: 1px solid rgba(255,255,255,.07); }
+.nexuss-git-change-file-heading { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; color: #e8e3da; background: transparent; border: 0; text-align: left; cursor: pointer; }
+.nexuss-git-change-file-heading:hover, .nexuss-git-change-file.is-expanded .nexuss-git-change-file-heading { background: rgba(255,255,255,.035); }
+.nexuss-git-change-file-icon { display: grid; place-items: center; width: 26px; height: 26px; color: #c6a27f; background: rgba(198,162,127,.1); border: 1px solid rgba(198,162,127,.2); border-radius: 3px; }
+.nexuss-git-change-file-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.nexuss-git-change-file-copy strong { overflow: hidden; color: #eeeae1; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.nexuss-git-change-file-copy small { color: rgba(235,231,223,.35); font-size: 9px; }
+.nexuss-git-change-counts { display: inline-flex; gap: 9px; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.nexuss-git-change-counts em { font-style: normal; }
+.nexuss-git-change-counts .is-addition { color: #8fc39c; }
+.nexuss-git-change-counts .is-deletion { color: #d79784; }
+.nexuss-git-change-diff { overflow: auto; max-height: 430px; border-top: 1px solid rgba(255,255,255,.06); background: #080b0c; }
+.nexuss-git-change-diff pre { margin: 0; padding: 13px 14px; color: rgba(239,235,226,.72); font: 10px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+.nexuss-git-change-diff pre span { display: block; min-width: max-content; padding-inline: 4px; }
+.nexuss-git-change-diff pre span.is-addition { color: #a3d4ad; background: rgba(69,139,87,.13); }
+.nexuss-git-change-diff pre span.is-deletion { color: #e3a89c; background: rgba(152,70,59,.14); }
+.nexuss-git-change-diff pre span.is-hunk { color: #c4a5dd; background: rgba(140,93,174,.11); }
+.nexuss-git-binary-diff { display: flex; align-items: center; gap: 8px; padding: 18px; color: rgba(235,231,223,.46); font-size: 10px; }
+.nexuss-git-changes-footer { display: flex; justify-content: space-between; gap: 15px; padding-top: 2px; }
+.nexuss-git-changes-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 360px; gap: 10px; text-align: center; }
+.nexuss-git-changes-empty > span { display: grid; place-items: center; width: 44px; height: 44px; color: #c9a37e; border: 1px solid rgba(201,163,126,.28); border-radius: 50%; background: rgba(201,163,126,.08); }
+.nexuss-git-changes-empty h2 { margin: 4px 0 0; color: #eeeae1; font-size: 17px; letter-spacing: -.03em; }
+.nexuss-git-changes-empty p { max-width: 300px; margin: 0; color: rgba(235,231,223,.42); font-size: 11px; line-height: 1.5; }
+@media (max-width: 760px) {
+  .nexuss-git-changes-workspace { padding-top: 15px; }
+  .nexuss-git-change-target { grid-template-columns: 1fr; }
+  .nexuss-git-target-meta { padding: 4px 0 0; }
+  .nexuss-git-commit-composer { grid-template-columns: 1fr; }
+  .nexuss-git-commit-input { border-right: 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .nexuss-git-commit-controls { display: grid; grid-template-columns: 1fr 1fr; align-items: end; }
+  .nexuss-git-commit-controls small { grid-column: 1 / -1; }
+  .nexuss-git-changes-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nexuss-git-changes-summary > div:nth-child(2) { border-right: 0; }
+  .nexuss-git-changes-summary > div:nth-child(-n+2) { border-bottom: 1px solid rgba(255,255,255,.08); }
+  .nexuss-git-changes-header { align-items: flex-start; }
+  .nexuss-git-local-badge { display: none; }
+  .nexuss-git-changes-footer { flex-direction: column; }
+}
+@media (max-width: 480px) {
+  .nexuss-git-changes-header-actions { align-self: flex-end; }
+  .nexuss-git-commit-controls { grid-template-columns: 1fr; }
+  .nexuss-git-commit-controls small { grid-column: auto; }
+  .nexuss-git-change-file-heading { grid-template-columns: 28px minmax(0, 1fr) auto; }
+  .nexuss-git-change-counts { grid-column: 2 / 3; grid-row: 2; }
+  .nexuss-git-change-file-heading > svg:last-child { grid-column: 3; grid-row: 1; }
+}

@@ -658,3 +658,10 @@ export async function streamWorkspaceModel(ownerId: string, input: WorkspaceMode
   }
   return readOpenAICompatibleStream(response, signal, onToken);
 }
+
+export async function findGithubWorkspaceProjectId(ownerId: string, fullName: string): Promise<string | null> {
+  const parts = fullName.trim().split("/");
+  if (parts.length !== 2 || !parts.every((part) => /^[A-Za-z0-9_.-]+$/.test(part))) return null;
+  const sourceUrl = `https://github.com/${parts[0]}/${parts[1]}`;
+  return withWorkspaceDb(false, (db) => rows<{ id: string }>(db.execute("SELECT id FROM workspace_projects WHERE owner_id = ? AND source_type = 'github' AND lower(rtrim(source_url, '/')) = lower(?) LIMIT 1", [ownerId, sourceUrl]))[0]?.id || null);
+}
