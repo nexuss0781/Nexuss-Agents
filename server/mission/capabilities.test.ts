@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertHarnessRequest } from "./harnessRegistry";
+import { assertHarnessRequest, getHarness } from "./harnessRegistry";
 import { getSkill, isSkillImplemented } from "./skills";
 
 describe("skills and harness registries", () => {
@@ -14,5 +14,7 @@ describe("skills and harness registries", () => {
     expect(assertHarnessRequest({ harness: "repository_inspection", operation: "snapshot", input: {}, timeoutMs: 1_000 }).id).toBe("repository_inspection");
     expect(() => assertHarnessRequest({ harness: "repository_inspection", operation: "publish", input: {} })).toThrow(/not allowlisted/);
     expect(() => assertHarnessRequest({ harness: "repository_change", operation: "write_files", input: {}, timeoutMs: 120_001 })).toThrow(/timeout/);
+    expect(getHarness("filesystem")).toMatchObject({ status: "implemented", sideEffect: "bounded_repository_write" });
+    expect(() => assertHarnessRequest({ harness: "filesystem", operation: "shell", input: {} })).toThrow(/not allowlisted/);
   });
 });

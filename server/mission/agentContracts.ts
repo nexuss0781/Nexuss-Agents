@@ -80,7 +80,7 @@ export function getAgentContract(kind: SpecialistKind | "principal" | "intake"):
     objective: descriptor.systemInstruction,
     loop: isSub ? ["intake", "inspect", "plan", "delegate", "checkpoint", "report"] : isQuality ? ["intake", "inspect", "execute", "verify", "checkpoint", "report"] : ["intake", "inspect", "execute", "verify", "recover", "checkpoint", "report"],
     allowedSkills: isQuality ? ["quality_verification", "failure_classification"] : isSub ? ["mission_decomposition", "specialist_selection"] : ["repository_inspection", "bounded_execution", "failure_classification"],
-    allowedHarnesses: isQuality ? ["repository_verification"] : isSub ? ["mission_runtime", "specialist_spawn"] : ["repository_inspection", "repository_change", "repository_verification"],
+    allowedHarnesses: isQuality ? ["repository_verification", "filesystem"] : isSub ? ["mission_runtime", "specialist_spawn"] : ["repository_inspection", "filesystem", "repository_change", "repository_verification"],
     canDelegate: descriptor.canSpawnSpecialists,
     canWriteRepository: descriptor.canWriteRepository,
     canVerifyProducerOutput: isQuality || kind === "security_auditor" || kind === "integrator",

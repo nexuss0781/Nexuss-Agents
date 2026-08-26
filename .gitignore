@@ -101,6 +101,9 @@ jspm_packages/
 tmp/
 temp/
 
+# Persistent project workspace (uploaded and cloned code)
+workspace/
+
 # Database
 *.db
 *.sqlite

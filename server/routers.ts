@@ -20,6 +20,7 @@ import {
   DuplicateProjectNameError,
   ModelProviderError,
   WorkspaceAccessError,
+  withWorkspaceDb,
 } from "./paradoxWorkspace";
 import { createMission, getMission, listMissions, listMissionArtifacts, listLearningCandidates } from "./mission/store";
 import { recordLearningReplay } from "./mission/learning";
@@ -33,10 +34,13 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { storeAction, storeInstall, storeSnapshot } from "./packageManager/store";
 import { commitAndPushLocalChanges, generateLocalCommitMessage, getLocalChanges } from "./localChanges";
+import { runProjectFileSystem } from "./fileSystemRuntime";
+import type { FileSystemAction } from "../tools/file-system/types";
 
 const projectInput = z.object({ name: z.string().trim().min(1).max(120), description: z.string().trim().max(500), tone: z.string().max(32).default("#f4f4f0"), sourceType: z.enum(["none", "upload", "github"]).default("none") });
 const messageInput = z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(100_000) });
 const intakeSourceInput = z.object({ kind: z.enum(["raw_prompt", "plan_text", "specification"]), text: z.string().trim().min(1).max(120_000).optional(), attachmentId: z.string().trim().min(1).max(128).optional(), name: z.string().trim().max(240).optional(), mimeType: z.string().trim().max(120).optional() }).refine((source) => Boolean(source.text || source.attachmentId), { message: "An intake source needs text or an attachment reference." });
+const filesystemActionInput = z.enum(["list", "tree", "stat", "exists", "find", "du", "read", "read_many", "tail", "binary_metadata", "grep", "grep_batch", "glob", "create", "write", "append", "patch", "replace", "format", "copy", "move", "rename", "delete", "clean_generated", "symbols", "references", "recent_changes", "diff_file", "diff_workspace", "diff_paths", "preview_patch", "apply_patch", "rollback", "snapshot", "restore_snapshot", "manifest", "export_patch", "import_patch", "verify_workspace"] as [FileSystemAction, ...FileSystemAction[]]);
 const legacyWorkspaceInput = z.object({
   projects: z.array(z.object({ id: z.string().min(1).max(128), name: z.string().min(1).max(120), description: z.string().max(500), tone: z.string().max(32) })).max(500),
   threads: z.array(z.object({ id: z.string().min(1).max(128), title: z.string().min(1).max(240), projectId: z.string().min(1).max(128).optional(), updatedAt: z.string(), messages: z.array(z.object({ id: z.string().min(1).max(128), role: z.enum(["user", "assistant"]), content: z.string().max(100_000), createdAt: z.string() })).max(10_000) })).max(2_000),
@@ -87,6 +91,22 @@ export const appRouter = router({
   }),
   workspace: router({
     navigation: publicProcedure.query(async ({ ctx }) => loadWorkspaceNavigation(await workspaceOwner(ctx))),
+    filesystem: router({
+      execute: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128), action: filesystemActionInput, request: z.record(z.string(), z.unknown()).optional(), confirmed: z.boolean().optional() })).mutation(async ({ ctx, input }) => {
+        const ownerId = await workspaceOwner(ctx);
+        const request = { ...(input.request || {}), action: input.action, confirmed: input.confirmed === true } as never;
+        return runProjectFileSystem(ownerId, input.projectId, request, { canMutate: true, canDestructivelyMutate: input.confirmed === true });
+      }),
+      audit: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128), limit: z.number().int().min(1).max(200).default(50) })).query(async ({ ctx, input }) => {
+        const ownerId = await workspaceOwner(ctx);
+        return withWorkspaceDb(false, (db) => db.execute("SELECT id, project_id, mission_id, agent_id, action, paths_json, result, error_code, duration_ms, created_at FROM filesystem_audit_events WHERE owner_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT ?", [ownerId, input.projectId, input.limit]).rows.map((row) => {
+          const value = row as Record<string, unknown>;
+          let paths: string[] = [];
+          try { paths = JSON.parse(String(value.paths_json || "[]")); } catch { paths = []; }
+          return { id: String(value.id), projectId: String(value.project_id), missionId: value.mission_id ? String(value.mission_id) : undefined, agentId: value.agent_id ? String(value.agent_id) : undefined, action: String(value.action), paths, result: String(value.result), errorCode: value.error_code ? String(value.error_code) : undefined, durationMs: Number(value.duration_ms), createdAt: String(value.created_at) };
+        }));
+      }),
+    }),
     store: router({
       catalog: publicProcedure.query(async ({ ctx }) => { await workspaceOwner(ctx); return storeSnapshot(); }),
       install: publicProcedure.input(z.object({ appId: z.string().min(1).max(128) })).mutation(async ({ ctx, input }) => { await workspaceOwner(ctx); return storeInstall(input.appId); }),

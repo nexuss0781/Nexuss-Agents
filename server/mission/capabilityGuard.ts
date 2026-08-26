@@ -25,4 +25,4 @@ export function assertIndependentVerificationAllowed(contract: AgentRoleContract
   if (!contract.canVerifyProducerOutput) throw new Error(`Agent cannot act as an independent verifier: ${contract.kind}`);
 }
 
-export function isHarnessId(value: string): value is HarnessId { return ["mission_runtime", "repository_inspection", "repository_change", "repository_verification", "specialist_spawn", "research", "browser", "webdev", "terminal"].includes(value); }
+export function isHarnessId(value: string): value is HarnessId { return ["mission_runtime", "repository_inspection", "repository_change", "repository_verification", "filesystem", "specialist_spawn", "research", "browser", "webdev", "terminal"].includes(value); }

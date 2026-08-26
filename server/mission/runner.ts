@@ -11,6 +11,8 @@ import {
 } from "./store";
 import type { MissionStatus } from "./constitution";
 import { extractMissionLearningCandidates } from "./learning";
+import { dispatchFilesystemHarness } from "./filesystemHarness";
+import type { HarnessRequest, HarnessResult } from "./harnessRegistry";
 
 export type MissionExecutionContext = {
   ownerId: string;
@@ -18,6 +20,7 @@ export type MissionExecutionContext = {
   mission: MissionSnapshot;
   signal: AbortSignal;
   activeWorkItem?: MissionWorkItem;
+  filesystem: (request: HarnessRequest, contract: import("./agentContracts").AgentRoleContract, agentId?: string) => Promise<HarnessResult>;
 };
 
 export type MissionExecutionResult = {
@@ -131,7 +134,11 @@ class ServerMissionRunner {
             heartbeatTimer.unref?.();
           }
 
-          const result = await this.executor({ ownerId, workerId, mission: executionSnapshot, signal: controller.signal, activeWorkItem: claimedWorkItem?.workItem });
+          const result = await this.executor({ ownerId, workerId, mission: executionSnapshot, signal: controller.signal, activeWorkItem: claimedWorkItem?.workItem, filesystem: (request, contract, agentId = workerId) => {
+            const projectId = executionSnapshot.mission.projectId;
+            if (!projectId) return Promise.reject(new MissionRunnerError("Filesystem operations require a project-bound mission", "MISSION_PROJECT_REQUIRED"));
+            return dispatchFilesystemHarness({ ownerId, projectId, contract, request, missionId, agentId });
+          } });
           if (controller.signal.aborted) return;
           if (claimedWorkItem) {
             claimedWorkItem.workItem = await updateWorkItem(ownerId, claimedWorkItem.workItem.id, {

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connect } from "parad";
 import { GENERAL_AGENT_SYSTEM_PROMPT } from "./mission/generalAgentPrompt";
+import type { AuditSink, FileSystemAuditEvent } from "../tools/file-system/audit";
 
 export type ProjectSourceType = "none" | "upload" | "github";
 export type ProjectWorkspaceStatus = "empty" | "importing" | "ready" | "failed";
@@ -175,6 +176,8 @@ async function openFreshWorkspaceDb() {
     if (message.sequence !== sequenceValue) db.execute("UPDATE workspace_messages SET sequence = ? WHERE id = ?", [sequenceValue, message.id]);
   }
   db.execute("CREATE INDEX IF NOT EXISTS workspace_messages_thread_sequence ON workspace_messages(thread_id, sequence ASC)");
+  db.execute("CREATE TABLE IF NOT EXISTS filesystem_audit_events (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, project_id TEXT NOT NULL, mission_id TEXT, agent_id TEXT, action TEXT NOT NULL, paths_json TEXT NOT NULL, result TEXT NOT NULL, error_code TEXT, duration_ms INTEGER NOT NULL, created_at TEXT NOT NULL)");
+  db.execute("CREATE INDEX IF NOT EXISTS filesystem_audit_project_created ON filesystem_audit_events(project_id, created_at DESC)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_imports (owner_id TEXT PRIMARY KEY, imported_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_model_providers (owner_id TEXT PRIMARY KEY, base_url TEXT NOT NULL, api_key TEXT NOT NULL, selected_models_json TEXT NOT NULL, available_models_json TEXT NOT NULL DEFAULT '[]', updated_at TEXT NOT NULL)");
   db.execute("CREATE TABLE IF NOT EXISTS workspace_github_connections (owner_id TEXT PRIMARY KEY, github_user_id TEXT NOT NULL, github_login TEXT NOT NULL, access_token TEXT NOT NULL, refresh_token TEXT, expires_at TEXT, scopes_json TEXT NOT NULL DEFAULT '[]', updated_at TEXT NOT NULL)");
@@ -230,6 +233,13 @@ function checkpointLocalSnapshot(db: Db) {
   const engine = (db as unknown as { engine: { checkpoint?: () => void } }).engine;
   if (typeof engine.checkpoint !== "function") throw new Error("Paradox-DB local checkpoint is unavailable");
   engine.checkpoint();
+}
+
+export function createFilesystemAuditSink(ownerId: string): AuditSink {
+  return async (event: FileSystemAuditEvent) => withWorkspaceDb(true, (db) => {
+    assertProjectOwner(db, ownerId, event.projectId);
+    db.execute("INSERT INTO filesystem_audit_events (id, owner_id, project_id, mission_id, agent_id, action, paths_json, result, error_code, duration_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [event.operationId, ownerId, event.projectId, event.missionId || null, event.agentId || null, event.action, JSON.stringify(event.paths.slice(0, 100)), event.result, event.errorCode || null, Math.max(0, Math.round(event.durationMs)), event.timestamp]);
+  });
 }
 
 export async function withWorkspaceDb<T>(write: boolean, action: (db: Db) => Promise<T> | T) {

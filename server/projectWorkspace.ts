@@ -30,10 +30,10 @@ export class ProjectWorkspaceError extends Error {
 }
 
 function projectRoot() {
-  const configured = process.env.NEXUSS_PROJECTS_ROOT?.trim();
+  const configured = process.env.NEXUSS_WORKSPACE_ROOT?.trim() || process.env.NEXUSS_PROJECTS_ROOT?.trim();
   if (!configured) {
     if (process.env.NODE_ENV === "production") throw new ProjectWorkspaceError("Project storage is not configured on this server.", "STORAGE_NOT_CONFIGURED");
-    return resolve(join(process.cwd(), "Projects"));
+    return resolve(join(process.cwd(), "workspace"));
   }
   return resolve(configured);
 }
@@ -223,8 +223,8 @@ export async function markProjectImportFailed(ownerId: string, projectId: string
 }
 
 export function projectWorkspaceConfig(environment: NodeJS.ProcessEnv = process.env) {
-  const configuredRoot = environment.NEXUSS_PROJECTS_ROOT?.trim();
-  return { configured: Boolean(configuredRoot), root: configuredRoot || join(process.cwd(), "Projects") };
+  const configuredRoot = environment.NEXUSS_WORKSPACE_ROOT?.trim() || environment.NEXUSS_PROJECTS_ROOT?.trim();
+  return { configured: Boolean(configuredRoot), root: configuredRoot || join(process.cwd(), "workspace") };
 }
 
 export function registerProjectWorkspaceUploadRoute(app: Express) {

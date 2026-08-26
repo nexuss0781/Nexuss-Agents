@@ -5,11 +5,11 @@ services:
     dockerfilePath: ./Dockerfile
     disk:
       name: project-workspaces
-      mountPath: /var/lib/nexuss-projects
+      mountPath: /var/lib/nexuss-workspace
       sizeGB: 10
     envVars:
-      - key: NEXUSS_PROJECTS_ROOT
-        value: /var/lib/nexuss-projects
+      - key: NEXUSS_WORKSPACE_ROOT
+        value: /var/lib/nexuss-workspace
       - key: NEXUSS_AUTH_URL
         value: https://nexuss-auth.vercel.app
       - key: NEXUSS_AUTH_PROJECT_ID
