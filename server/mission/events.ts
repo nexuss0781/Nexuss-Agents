@@ -17,6 +17,9 @@ export const MISSION_EVENT_TYPES = [
   "work_item.blocked",
   "runner.error",
   "runner.recovery_started",
+  "filesystem.started",
+  "filesystem.completed",
+  "filesystem.failed",
 ] as const;
 
 export type MissionEventType = typeof MISSION_EVENT_TYPES[number];

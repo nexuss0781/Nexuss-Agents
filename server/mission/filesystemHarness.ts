@@ -3,6 +3,7 @@ import { assertHarnessAllowed } from "./capabilityGuard";
 import { runProjectFileSystem } from "../fileSystemRuntime";
 import type { FileSystemAction, FileSystemRequest, FileSystemResult } from "../../tools/file-system/types";
 import type { HarnessRequest, HarnessResult } from "./harnessRegistry";
+import { recordMissionEvent } from "./events";
 
 const FILESYSTEM_ACTIONS = new Set<FileSystemAction>([
   "list", "tree", "stat", "exists", "find", "du", "read", "read_many", "tail", "binary_metadata", "grep", "grep_batch", "glob",
@@ -36,23 +37,48 @@ export async function dispatchFilesystemHarness(input: {
   missionId?: string;
   agentId?: string;
 }): Promise<HarnessResult> {
-  const descriptor = assertHarnessAllowed(input.contract, input.request);
+  assertHarnessAllowed(input.contract, input.request);
   const request = requestFromHarness(input.request);
-  const result = await runProjectFileSystem(input.ownerId, input.projectId, request, {
-    missionId: input.missionId,
-    agentId: input.agentId,
-    canMutate: input.contract.canWriteRepository,
-    canDestructivelyMutate: false,
-  });
-  const sideEffects = MUTATING_ACTIONS.has(request.action) ? ["project workspace may have changed"] : [];
-  return {
-    ok: result.ok,
-    status: result.ok ? "completed" : result.code === "CONFIRMATION_REQUIRED" ? "failed" : "failed",
-    summary: summarize(result),
-    artifacts: [],
-    evidence: result.ok ? { operationId: result.operationId, action: result.action, path: result.path, data: result.data } : { operationId: result.operationId, code: result.code },
-    sideEffects,
-    retryable: !result.ok && result.retryable,
-  };
+  if (input.missionId) {
+    await recordMissionEvent(input.ownerId, input.missionId, {
+      type: "filesystem.started",
+      actor: "repository_executor",
+      payload: { action: request.action, path: request.path || request.sourcePath || request.destinationPath || null },
+    });
+  }
+  try {
+    const result = await runProjectFileSystem(input.ownerId, input.projectId, request, {
+      missionId: input.missionId,
+      agentId: input.agentId,
+      canMutate: input.contract.canWriteRepository,
+      canDestructivelyMutate: false,
+    });
+    if (input.missionId) {
+      await recordMissionEvent(input.ownerId, input.missionId, {
+        type: result.ok ? "filesystem.completed" : "filesystem.failed",
+        actor: "repository_executor",
+        payload: { action: request.action, operationId: result.operationId, path: request.path || request.sourcePath || request.destinationPath || null, ...(result.ok ? {} : { code: result.code, retryable: result.retryable }) },
+      });
+    }
+    const sideEffects = MUTATING_ACTIONS.has(request.action) ? ["project workspace may have changed"] : [];
+    return {
+      ok: result.ok,
+      status: result.ok ? "completed" : "failed",
+      summary: summarize(result),
+      artifacts: [],
+      evidence: result.ok ? { operationId: result.operationId, action: result.action, path: result.path, data: result.data } : { operationId: result.operationId, code: result.code },
+      sideEffects,
+      retryable: !result.ok && result.retryable,
+    };
+  } catch (error) {
+    if (input.missionId) {
+      await recordMissionEvent(input.ownerId, input.missionId, {
+        type: "filesystem.failed",
+        actor: "repository_executor",
+        payload: { action: request.action, path: request.path || request.sourcePath || request.destinationPath || null, code: "OPERATION_FAILED", retryable: false },
+      }).catch(() => undefined);
+    }
+    throw error;
+  }
 }
 
