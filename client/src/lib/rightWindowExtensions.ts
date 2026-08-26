@@ -7,6 +7,22 @@ export type RightWindowState = {
   activeExtensionId: string | null;
 };
 
+export type RightWindowWorkspaceProject = {
+  id: string;
+  name: string;
+  description: string;
+  sourceType?: "none" | "upload" | "github";
+  sourceUrl?: string;
+  workspaceStatus?: "empty" | "importing" | "ready" | "failed";
+  workspaceFileCount?: number;
+  workspaceBytes?: number;
+  workspaceError?: string;
+};
+
+export type RightWindowRenderContext = {
+  currentProject?: RightWindowWorkspaceProject | null;
+};
+
 export type RightWindowApi = {
   open: (extensionId?: string) => void;
   close: () => void;
@@ -23,7 +39,7 @@ export type RightWindowExtension = {
   description?: string;
   minWidth?: number;
   defaultWidth?: number;
-  render: (api: RightWindowApi) => ReactNode;
+  render: (api: RightWindowApi, context?: RightWindowRenderContext) => ReactNode;
 };
 
 const extensions = new Map<string, RightWindowExtension>();
