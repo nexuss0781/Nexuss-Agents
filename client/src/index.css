@@ -2110,3 +2110,53 @@ body { color: var(--paper); }
   .nexuss-git-branch-row { grid-template-columns:28px minmax(0,1fr) auto; }
   .nexuss-git-branch-protected { grid-column:2 / -1; }
 }
+
+/* Files workbench: desktop gets a two-card tree/editor surface; mobile keeps the stacked flow. */
+.nexuss-git-file-layout { display:grid; grid-template-columns:minmax(170px,.52fr) minmax(0,1.48fr); gap:12px; min-width:0; }
+.nexuss-git-file-tree-card, .nexuss-git-file-editor-card { display:flex; min-width:0; min-height:0; flex-direction:column; overflow:hidden; border:1px solid rgba(217,229,226,.12); border-radius:9px; background:#0e1314; }
+.nexuss-git-file-tree-card { min-height:430px; }
+.nexuss-git-file-editor-card { min-height:430px; background:#eef1ee; }
+.nexuss-git-file-panel-heading, .nexuss-git-editor-card-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; padding:11px 12px; border-bottom:1px solid rgba(217,229,226,.1); }
+.nexuss-git-file-panel-heading strong, .nexuss-git-editor-card-heading strong { display:block; max-width:100%; margin-top:5px; overflow:hidden; color:#e8eeea; font-size:10px; font-weight:540; text-overflow:ellipsis; white-space:nowrap; }
+.nexuss-git-editor-card-heading { border-color:rgba(28,42,38,.12); background:#e7ebe8; }
+.nexuss-git-editor-card-heading strong { color:#23312c; }
+.nexuss-git-file-tree-card .nexuss-git-file-search { margin:9px; }
+.nexuss-git-file-tree-card .nexuss-git-tree-list { flex:1; min-height:0; margin:0 9px 9px; border:0; border-radius:5px; background:rgba(0,0,0,.08); }
+.nexuss-git-file-tree-card .nexuss-git-file-status, .nexuss-git-file-tree-card .nexuss-git-tree-warning { margin:0 9px 9px; }
+.nexuss-git-file-editor-card .nexuss-git-preview { flex:1; min-height:0; overflow:auto; border:0; border-radius:0; background:#f2f4f1; color:#293630; }
+.nexuss-git-file-editor-card .nexuss-git-preview-placeholder { min-height:380px; color:#708078; }
+.nexuss-git-file-editor-card .nexuss-git-preview-content { min-height:100%; }
+.nexuss-git-file-editor-card .nexuss-git-preview-header { position:sticky; top:0; z-index:1; border-bottom:1px solid rgba(31,48,41,.11); background:rgba(242,244,241,.94); backdrop-filter:blur(8px); }
+.nexuss-git-file-editor-card .nexuss-git-preview-header strong { color:#24322c; }
+.nexuss-git-file-editor-card .nexuss-git-preview-header span { color:#718079; }
+.nexuss-git-file-editor-card .nexuss-git-preview-header button { border-color:rgba(31,48,41,.14); background:rgba(31,48,41,.05); color:#4d6056; }
+.nexuss-git-file-editor-card .nexuss-git-analysis { border-color:rgba(31,48,41,.12); background:#e5eae6; color:#33453b; }
+.nexuss-git-file-editor-card .nexuss-git-analysis-heading strong { color:#2a3b33; }
+.nexuss-git-file-editor-card .nexuss-git-analysis-grid > div { border-color:rgba(31,48,41,.12); background:rgba(255,255,255,.34); }
+.nexuss-git-file-editor-card .nexuss-git-analysis-grid strong { color:#2a3b33; }
+.nexuss-git-file-editor-card .nexuss-git-analysis-note { color:#687a70; }
+.nexuss-git-editor { display:grid; grid-template-columns:43px minmax(0,1fr); min-width:max-content; min-height:100%; padding:14px 0 28px; background:#f2f4f1; }
+.nexuss-git-editor-gutter { display:flex; flex-direction:column; padding:0 10px 0 0; border-right:1px solid rgba(39,56,48,.1); color:#9aa8a0; font:11px/1.7 "IBM Plex Mono",monospace; text-align:right; user-select:none; }
+.nexuss-git-editor-gutter span { min-height:18.7px; }
+.nexuss-git-editor pre { min-width:0; margin:0; padding:0 18px; color:#26362e; font:11px/1.7 "IBM Plex Mono",monospace; white-space:pre; tab-size:2; }
+@media (max-width:800px) {
+  .nexuss-git-file-layout { display:block; }
+  .nexuss-git-file-tree-card, .nexuss-git-file-editor-card { min-height:0; border:0; border-radius:0; background:transparent; }
+  .nexuss-git-file-tree-card .nexuss-git-file-panel-heading, .nexuss-git-file-editor-card .nexuss-git-editor-card-heading { display:none; }
+  .nexuss-git-file-tree-card .nexuss-git-file-search { margin:0 0 10px; }
+  .nexuss-git-file-tree-card .nexuss-git-tree-list { margin:0; }
+  .nexuss-git-file-editor-card { margin-top:12px; }
+  .nexuss-git-file-editor-card .nexuss-git-preview { min-height:260px; border:1px solid rgba(217,229,226,.11); border-radius:7px; background:#0e1314; }
+  .nexuss-git-file-editor-card .nexuss-git-preview-placeholder { min-height:260px; color:#84918b; }
+  .nexuss-git-file-editor-card .nexuss-git-preview-header { position:static; background:#111718; }
+  .nexuss-git-file-editor-card .nexuss-git-preview-header strong { color:#e7eee8; }
+  .nexuss-git-file-editor-card .nexuss-git-preview-header span { color:#77857e; }
+  .nexuss-git-file-editor-card .nexuss-git-preview-header button { border-color:rgba(217,229,226,.14); background:rgba(255,255,255,.04); color:#becbc2; }
+  .nexuss-git-file-editor-card .nexuss-git-analysis { border-color:rgba(217,229,226,.12); background:#141a1b; color:#ccd7cf; }
+  .nexuss-git-file-editor-card .nexuss-git-analysis-heading strong, .nexuss-git-file-editor-card .nexuss-git-analysis-grid strong { color:#e0e9e1; }
+  .nexuss-git-file-editor-card .nexuss-git-analysis-grid > div { border-color:rgba(217,229,226,.11); background:rgba(255,255,255,.03); }
+  .nexuss-git-file-editor-card .nexuss-git-analysis-note { color:#82918a; }
+  .nexuss-git-editor { background:#0e1314; }
+  .nexuss-git-editor-gutter { border-color:rgba(217,229,226,.1); color:#5e6c65; }
+  .nexuss-git-editor pre { color:#c5d2c8; }
+}
