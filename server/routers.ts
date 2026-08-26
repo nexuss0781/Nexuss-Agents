@@ -31,6 +31,7 @@ import { clonePublicGithubProject, markProjectImportFailed, ProjectWorkspaceErro
 import { cloneAuthorizedGithubProject, getGithubFile, getGithubPullFiles, getGithubTree, getGithubWorkflowLogs, getGithubAnalytics, githubConnectionStatus as githubStatus, GithubOAuthError, listGithubPulls, listGithubRepositories, listGithubWorkflowJobs, listGithubWorkflowRuns, postGithubPullComment, searchGithubCode } from "./githubAuth";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { storeAction, storeInstall, storeSnapshot } from "./packageManager/store";
 
 const projectInput = z.object({ name: z.string().trim().min(1).max(120), description: z.string().trim().max(500), tone: z.string().max(32).default("#f4f4f0"), sourceType: z.enum(["none", "upload", "github"]).default("none") });
 const messageInput = z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(100_000) });
@@ -85,6 +86,11 @@ export const appRouter = router({
   }),
   workspace: router({
     navigation: publicProcedure.query(async ({ ctx }) => loadWorkspaceNavigation(await workspaceOwner(ctx))),
+    store: router({
+      catalog: publicProcedure.query(async ({ ctx }) => { await workspaceOwner(ctx); return storeSnapshot(); }),
+      install: publicProcedure.input(z.object({ appId: z.string().min(1).max(128) })).mutation(async ({ ctx, input }) => { await workspaceOwner(ctx); return storeInstall(input.appId); }),
+      action: publicProcedure.input(z.object({ appId: z.string().min(1).max(128), action: z.enum(["enable", "disable", "update", "uninstall"]) })).mutation(async ({ ctx, input }) => { await workspaceOwner(ctx); return storeAction(input.appId, input.action); }),
+    }),
     github: router({
       status: publicProcedure.query(async ({ ctx }) => githubStatus(await workspaceOwner(ctx))),
       repositories: publicProcedure.query(async ({ ctx }) => { try { return await listGithubRepositories(await workspaceOwner(ctx)); } catch (error) { return workspaceFailure(error); } }),

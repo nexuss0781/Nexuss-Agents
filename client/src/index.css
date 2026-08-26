@@ -1666,3 +1666,54 @@ body { color: var(--paper); }
 .nexuss-git-log-box > div { display: flex; justify-content: space-between; padding: 7px 9px; color: #aeb8b1; border-bottom: 1px solid rgba(255,255,255,.08); font: 9px "IBM Plex Mono", monospace; }
 .nexuss-git-log-box > div small { color: #caa486; }
 .nexuss-git-log-box pre { max-height: 240px; overflow: auto; margin: 0; padding: 10px; color: #aeb9b0; font: 9px/1.55 "IBM Plex Mono", monospace; white-space: pre-wrap; scrollbar-width: thin; scrollbar-color: rgba(202,164,134,.45) transparent; }
+
+/* Axolotl Store management surface */
+.axolotl-store-app { display:flex; min-height:100%; flex-direction:column; gap:14px; padding:16px; color:#dfe6e1; background:linear-gradient(180deg,rgba(19,23,22,.96),rgba(12,15,15,.98)); }
+.axolotl-store-intro { display:flex; align-items:flex-start; gap:11px; padding:13px; border:1px solid rgba(202,164,134,.18); border-radius:12px; background:linear-gradient(135deg,rgba(202,164,134,.09),rgba(255,255,255,.025)); box-shadow:0 12px 30px rgba(0,0,0,.16); }
+.axolotl-store-intro-icon { display:grid; width:32px; height:32px; flex:0 0 auto; place-items:center; color:#d6b296; border:1px solid rgba(202,164,134,.32); border-radius:9px; background:rgba(202,164,134,.10); }
+.axolotl-store-eyebrow { display:block; color:#a99483; font:9px/1.2 "IBM Plex Mono",monospace; letter-spacing:.16em; }
+.axolotl-store-intro h2 { margin:4px 0 3px; color:#f0f2ed; font-size:17px; font-weight:600; letter-spacing:-.02em; }
+.axolotl-store-intro p { max-width:330px; margin:0; color:#8e9a94; font-size:10px; line-height:1.45; }
+.axolotl-store-refresh { display:grid; width:26px; height:26px; margin-left:auto; flex:0 0 auto; place-items:center; color:#9ba7a1; border:1px solid rgba(255,255,255,.10); border-radius:7px; background:rgba(255,255,255,.035); cursor:pointer; }
+.axolotl-store-refresh:hover { color:#f0f2ed; border-color:rgba(202,164,134,.35); background:rgba(202,164,134,.10); }
+.axolotl-store-refresh:disabled { cursor:wait; opacity:.55; }
+.axolotl-store-list { display:flex; flex-direction:column; gap:10px; }
+.axolotl-store-card { padding:13px; border:1px solid rgba(255,255,255,.09); border-radius:12px; background:rgba(255,255,255,.035); transition:border-color .18s ease,background .18s ease,transform .18s ease; }
+.axolotl-store-card:hover { transform:translateY(-1px); border-color:rgba(202,164,134,.28); background:rgba(202,164,134,.055); }
+.axolotl-store-card.is-installed { border-color:rgba(142,192,161,.18); }
+.axolotl-store-card-top { display:flex; align-items:center; gap:9px; min-width:0; }
+.axolotl-store-app-icon { display:grid; width:36px; height:36px; flex:0 0 auto; place-items:center; color:#e5e8e4; border:1px solid rgba(255,255,255,.14); border-radius:10px; background:linear-gradient(145deg,#242b28,#141918); }
+.axolotl-store-card-title { min-width:0; flex:1; }
+.axolotl-store-card-title h3 { overflow:hidden; margin:0 0 3px; color:#eef1ed; font-size:12px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+.axolotl-store-card-title span { color:#7e8b84; font:9px "IBM Plex Mono",monospace; }
+.axolotl-store-status { padding:4px 6px; color:#9ca7a1; border:1px solid rgba(255,255,255,.10); border-radius:5px; font:8px "IBM Plex Mono",monospace; text-transform:uppercase; letter-spacing:.05em; }
+.axolotl-store-status.is-live { color:#a6d1b1; border-color:rgba(142,192,161,.30); background:rgba(142,192,161,.08); }
+.axolotl-store-status.is-muted { color:#c5aa91; border-color:rgba(202,164,134,.24); background:rgba(202,164,134,.07); }
+.axolotl-store-description { min-height:31px; margin:12px 0 10px; color:#a6b0a9; font-size:10px; line-height:1.55; }
+.axolotl-store-meta { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0; border-top:1px solid rgba(255,255,255,.07); border-bottom:1px solid rgba(255,255,255,.07); color:#748078; font:8px "IBM Plex Mono",monospace; }
+.axolotl-store-meta span,.axolotl-store-meta a { display:flex; align-items:center; gap:4px; }
+.axolotl-store-meta span { color:#8eb89b; }
+.axolotl-store-meta a { color:#a89382; text-decoration:none; }
+.axolotl-store-meta a:hover { color:#e1c6af; }
+.axolotl-store-actions { display:flex; flex-wrap:wrap; gap:6px; padding-top:11px; }
+.axolotl-store-actions button { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:28px; padding:0 9px; border:1px solid transparent; border-radius:7px; font-size:9px; cursor:pointer; transition:background .16s ease,border-color .16s ease,color .16s ease,transform .16s ease; }
+.axolotl-store-actions button:active { transform:scale(.97); }
+.axolotl-store-actions button:disabled { cursor:wait; opacity:.5; }
+.axolotl-store-primary { color:#171916; background:#d1b096; border-color:#d1b096; font-weight:600; }
+.axolotl-store-primary:hover { background:#e1c2a8; border-color:#e1c2a8; }
+.axolotl-store-secondary { color:#c1cbc4; border-color:rgba(255,255,255,.12) !important; background:rgba(255,255,255,.045); }
+.axolotl-store-secondary:hover { color:#f1f3ef; border-color:rgba(202,164,134,.35) !important; background:rgba(202,164,134,.10); }
+.axolotl-store-danger { color:#d7a19b; border-color:rgba(216,152,142,.20) !important; background:rgba(216,152,142,.055); }
+.axolotl-store-danger:hover { color:#f0bdb5; border-color:rgba(216,152,142,.42) !important; background:rgba(216,152,142,.11); }
+.axolotl-store-confirm { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:9px; padding:8px; color:#c3aca0; border-radius:7px; background:rgba(216,152,142,.07); font-size:9px; }
+.axolotl-store-confirm button { padding:0; color:#e0e6e0; border:0; background:none; font-size:9px; cursor:pointer; }
+.axolotl-store-state { display:flex; min-height:140px; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#89958e; font-size:10px; text-align:center; }
+.axolotl-store-state.is-error strong { color:#e2b0a8; font-size:11px; }
+.axolotl-store-state.is-error button { margin-top:3px; padding:6px 9px; color:#dec0a8; border:1px solid rgba(202,164,134,.25); border-radius:6px; background:rgba(202,164,134,.07); font-size:9px; cursor:pointer; }
+.axolotl-store-footnote { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:auto; padding-top:3px; color:#637069; font:8px "IBM Plex Mono",monospace; }
+.axolotl-store-footnote a { display:flex; align-items:center; gap:4px; color:#96806f; text-decoration:none; }
+.axolotl-store-footnote a:hover { color:#d4b399; }
+.axolotl-spin { animation:axolotl-store-spin .8s linear infinite; }
+@keyframes axolotl-store-spin { to { transform:rotate(360deg); } }
+@media (max-width: 480px) { .axolotl-store-app { padding:12px; } .axolotl-store-intro p { font-size:9px; } .axolotl-store-actions button { flex:1 1 auto; } .axolotl-store-footnote { align-items:flex-start; flex-direction:column; } }
+@media (prefers-reduced-motion: reduce) { .axolotl-store-card,.axolotl-store-actions button { transition:none; } .axolotl-spin { animation:none; } }

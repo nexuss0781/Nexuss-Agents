@@ -41,14 +41,14 @@ import {
   Lightbulb,
   Sparkles,
   ListChecks,
+  PackageOpen,
 } from "lucide-react";
 import { getRightWindowExtension, getRightWindowExtensions, registerRightWindowExtension, subscribeRightWindowExtensions, type RightWindowApi, type RightWindowExtension } from "@/lib/rightWindowExtensions";
 import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "../lib/trpc";
 import { useLocation } from "wouter";
-import NexussGitApp from "../components/NexussGitApp";
-import { NEXUSS_GIT_RELEASE } from "@/lib/nexussGitRelease";
+import AxolotlStoreApp from "../components/AxolotlStoreApp";
 
 const AXOLOTL_ICON = "/axolotl-only.png";
 
@@ -356,17 +356,17 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const navigationQuery = trpc.workspace.navigation.useQuery(undefined, { retry: false, staleTime: 15_000 });
   const [rightWindowExtensions, setRightWindowExtensions] = useState<RightWindowExtension[]>(() => getRightWindowExtensions());
   useEffect(() => {
-    const extensionId = NEXUSS_GIT_RELEASE.id;
+    const extensionId = "axolotl-store";
     if (getRightWindowExtension(extensionId)) return undefined;
     try {
       const unregister = registerRightWindowExtension({
         id: extensionId,
-        name: NEXUSS_GIT_RELEASE.name,
-        icon: <Github size={20} strokeWidth={1.8} />,
-        description: `A focused GitHub workspace for browsing, reviewing, and shipping repository work. v${NEXUSS_GIT_RELEASE.version}`,
-        minWidth: NEXUSS_GIT_RELEASE.minWidth,
-        defaultWidth: NEXUSS_GIT_RELEASE.defaultWidth,
-        render: (api) => <NexussGitApp api={api} />,
+        name: "Axolotl Store",
+        icon: <PackageOpen size={20} strokeWidth={1.8} />,
+        description: "Install and manage verified workspace tools.",
+        minWidth: 340,
+        defaultWidth: 420,
+        render: (api) => <AxolotlStoreApp api={api} />,
       });
       setRightWindowExtensions(getRightWindowExtensions());
       return () => { unregister(); };
