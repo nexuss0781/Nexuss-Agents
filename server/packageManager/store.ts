@@ -25,12 +25,30 @@ const lifecycle = new AppLifecycleManager({
 });
 const catalog = new Map(AXOLOTL_CATALOG.map(app => [app.id, app]));
 
+function versionParts(version: string) {
+  return version.replace(/^v/, "").split(".").map(part => Number.parseInt(part.split("-")[0] || "0", 10) || 0);
+}
+
+function isNewerVersion(candidate: string, current: string) {
+  const next = versionParts(candidate);
+  const previous = versionParts(current);
+  for (let index = 0; index < 3; index += 1) {
+    if ((next[index] || 0) !== (previous[index] || 0)) return (next[index] || 0) > (previous[index] || 0);
+  }
+  return false;
+}
+
 export async function storeSnapshot() {
   const installed = await lifecycle.list();
-  return AXOLOTL_CATALOG.map(app => ({
-    ...app,
-    installed: installed.find(record => record.appId === app.id) ?? null,
-  }));
+  return AXOLOTL_CATALOG.map(app => {
+    const record = installed.find(record => record.appId === app.id) ?? null;
+    return {
+      ...app,
+      installed: record,
+      availableVersion: app.version,
+      updateAvailable: Boolean(record && record.state !== "uninstalled" && isNewerVersion(app.version, record.version)),
+    };
+  });
 }
 
 async function fetchVerifiedPackage(appId: string) {

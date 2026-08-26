@@ -98,6 +98,8 @@ export default function AxolotlStoreApp({ api }: { api: RightWindowApi }) {
             const record = app.installed;
             const installed = Boolean(record && record.state !== "uninstalled");
             const enabled = record?.state === "installed";
+            const updateAvailable = Boolean(app.updateAvailable);
+            const stateLabel = !installed ? "Available" : record?.state === "updating" ? "Updating" : record?.state === "failed" ? "Needs attention" : enabled ? "Enabled" : "Installed";
             return (
               <article
                 key={app.id}
@@ -113,11 +115,14 @@ export default function AxolotlStoreApp({ api }: { api: RightWindowApi }) {
                       {app.shortName} · v{app.version}
                     </span>
                   </div>
-                  <span
-                    className={`axolotl-store-status ${enabled ? "is-live" : installed ? "is-muted" : ""}`}
-                  >
-                    {enabled ? "Enabled" : installed ? "Disabled" : "Available"}
-                  </span>
+                  <div className="axolotl-store-statuses">
+                    <span
+                      className={`axolotl-store-status ${enabled ? "is-live" : installed ? "is-muted" : ""}`}
+                    >
+                      {stateLabel}
+                    </span>
+                    {updateAvailable && <span className="axolotl-store-update-badge">Update ready</span>}
+                  </div>
                 </div>
                 <p className="axolotl-store-description">{app.description}</p>
                 <div className="axolotl-store-meta">
@@ -158,12 +163,13 @@ export default function AxolotlStoreApp({ api }: { api: RightWindowApi }) {
                       </button>
                       <button
                         type="button"
-                        className="axolotl-store-secondary"
-                        disabled={busy}
+                        className={`axolotl-store-secondary ${updateAvailable ? "is-update-available" : ""}`}
+                        disabled={busy || !updateAvailable}
                         onClick={() => runAction(app.id, "update")}
+                        title={updateAvailable ? `Update to v${app.availableVersion}` : `v${app.version} is current`}
                       >
                         <RefreshCw size={14} />
-                        Update
+                        {updateAvailable ? `Update to v${app.availableVersion}` : "Up to date"}
                       </button>
                       <button
                         type="button"

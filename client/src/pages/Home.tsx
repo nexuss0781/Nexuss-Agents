@@ -49,6 +49,8 @@ import { toast } from "sonner";
 import { trpc } from "../lib/trpc";
 import { useLocation } from "wouter";
 import AxolotlStoreApp from "../components/AxolotlStoreApp";
+import NexussGitApp from "../components/NexussGitApp";
+import { NEXUSS_GIT_RELEASE } from "@/lib/nexussGitRelease";
 
 const AXOLOTL_ICON = "/axolotl-only.png";
 
@@ -354,7 +356,9 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     } catch { legacyWorkspace.current = seed; }
   }
   const navigationQuery = trpc.workspace.navigation.useQuery(undefined, { retry: false, staleTime: 15_000 });
+  const storeCatalogQuery = trpc.workspace.store.catalog.useQuery(undefined, { retry: false, staleTime: 10_000 });
   const [rightWindowExtensions, setRightWindowExtensions] = useState<RightWindowExtension[]>(() => getRightWindowExtensions());
+  const nexussGitUnregisterRef = useRef<(() => boolean) | null>(null);
   useEffect(() => {
     const extensionId = "axolotl-store";
     if (getRightWindowExtension(extensionId)) return undefined;
@@ -374,6 +378,32 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       return undefined;
     }
   }, []);
+  useEffect(() => {
+    const installed = storeCatalogQuery.data?.find(app => app.id === NEXUSS_GIT_RELEASE.id)?.installed;
+    const enabled = installed?.state === "installed";
+    if (enabled && !getRightWindowExtension(NEXUSS_GIT_RELEASE.id)) {
+      try {
+        nexussGitUnregisterRef.current = registerRightWindowExtension({
+          id: NEXUSS_GIT_RELEASE.id,
+          name: NEXUSS_GIT_RELEASE.name,
+          icon: <Github size={20} strokeWidth={1.8} />,
+          description: `A focused GitHub workspace for browsing, reviewing, and shipping repository work. v${NEXUSS_GIT_RELEASE.version}`,
+          minWidth: NEXUSS_GIT_RELEASE.minWidth,
+          defaultWidth: NEXUSS_GIT_RELEASE.defaultWidth,
+          render: api => <NexussGitApp api={api} />,
+        });
+      } catch { nexussGitUnregisterRef.current = null; }
+    } else if (!enabled && getRightWindowExtension(NEXUSS_GIT_RELEASE.id)) {
+      nexussGitUnregisterRef.current?.();
+      nexussGitUnregisterRef.current = null;
+      if (activeExtensionId === NEXUSS_GIT_RELEASE.id) {
+        setActiveExtensionId(null);
+        setRightWindowMinWidth(RIGHT_WINDOW_MIN_WIDTH);
+      }
+    }
+    setRightWindowExtensions(getRightWindowExtensions());
+  }, [activeExtensionId, storeCatalogQuery.data]);
+  useEffect(() => () => { nexussGitUnregisterRef.current?.(); }, []);
   useEffect(() => { const unsubscribe = subscribeRightWindowExtensions(() => setRightWindowExtensions(getRightWindowExtensions())); return () => { unsubscribe(); }; }, []);
   const activeChatQuery = trpc.workspace.chat.useQuery({ chatSlug: routeChatSlug || "chat-00000000000000000000000000000000" }, { enabled: Boolean(routeChatSlug), retry: false, staleTime: 15_000 });
   const modelSettingsQuery = trpc.workspace.modelSettings.useQuery(undefined, { retry: false, staleTime: 30_000 });
