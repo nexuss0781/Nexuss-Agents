@@ -226,8 +226,9 @@ export async function renameGithubRepository(ownerId: string, fullName: string, 
   return normalizeRepositoryMutation(result);
 }
 
-export async function deleteGithubRepository(ownerId: string, fullName: string, confirmed: boolean): Promise<{ deleted: true; fullName: string }> {
+export async function deleteGithubRepository(ownerId: string, fullName: string, confirmation: string): Promise<{ deleted: true; fullName: string }> {
   const { owner, repo } = repositoryReference(fullName);
-  if (!confirmed) throw new GithubOAuthError("Confirm the repository deletion before continuing.");
+  const expectedCommand = `sudo delete repo ${repo}`;
+  if (confirmation.trim() !== expectedCommand) throw new GithubOAuthError(`Type exactly: ${expectedCommand}`);
   return centralGithubRequest<{ deleted: true; fullName: string }>(ownerId, `/v1/github/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ confirmed: true }) });
 }
