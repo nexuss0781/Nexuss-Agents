@@ -663,5 +663,6 @@ export async function findGithubWorkspaceProjectId(ownerId: string, fullName: st
   const parts = fullName.trim().split("/");
   if (parts.length !== 2 || !parts.every((part) => /^[A-Za-z0-9_.-]+$/.test(part))) return null;
   const sourceUrl = `https://github.com/${parts[0]}/${parts[1]}`;
-  return withWorkspaceDb(false, (db) => rows<{ id: string }>(db.execute("SELECT id FROM workspace_projects WHERE owner_id = ? AND source_type = 'github' AND lower(rtrim(source_url, '/')) = lower(?) LIMIT 1", [ownerId, sourceUrl]))[0]?.id || null);
+  const repoName = parts[1];
+  return withWorkspaceDb(false, (db) => rows<{ id: string }>(db.execute("SELECT id FROM workspace_projects WHERE owner_id = ? AND source_type = 'github' AND (lower(rtrim(source_url, '/')) = lower(?) OR lower(trim(name)) = lower(?)) ORDER BY CASE WHEN lower(rtrim(source_url, '/')) = lower(?) THEN 0 ELSE 1 END, updated_at DESC LIMIT 1", [ownerId, sourceUrl, repoName, sourceUrl]))[0]?.id || null);
 }
