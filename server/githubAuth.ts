@@ -191,3 +191,38 @@ export async function cloneAuthorizedGithubProject(ownerId: string, projectId: s
 }
 
 export function githubRequiredScope() { return "repo"; }
+
+export type GithubRepositoryMutation = { id: number; name: string; fullName: string; description: string | null; private: boolean; htmlUrl: string; defaultBranch: string };
+
+function repositoryName(value: string): boolean { return /^[A-Za-z0-9_.-]{1,100}$/.test(value); }
+function repositoryReference(value: string): { owner: string; repo: string } {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value)) throw new GithubOAuthError("Choose a valid GitHub repository.");
+  const [owner, repo] = value.split("/"); return { owner, repo };
+}
+function normalizeRepositoryMutation(value: unknown): GithubRepositoryMutation {
+  const normalized = normalizeGithubRepository(value, 0);
+  if (!normalized) throw new GithubOAuthError("GitHub returned an invalid repository.", "GITHUB_API_FAILED");
+  return normalized;
+}
+
+export async function createGithubRepository(ownerId: string, input: { name: string; description?: string; private?: boolean }): Promise<GithubRepositoryMutation> {
+  const name = input.name.trim();
+  if (!repositoryName(name)) throw new GithubOAuthError("Use a repository name with letters, numbers, dots, dashes, or underscores.");
+  const description = (input.description || "").trim().slice(0, 500);
+  const result = await centralGithubRequest<unknown>(ownerId, "/v1/github/repositories", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, description, private: input.private !== false }) });
+  return normalizeRepositoryMutation(result);
+}
+
+export async function renameGithubRepository(ownerId: string, fullName: string, name: string): Promise<GithubRepositoryMutation> {
+  const { owner, repo } = repositoryReference(fullName);
+  const nextName = name.trim();
+  if (!repositoryName(nextName)) throw new GithubOAuthError("Use a repository name with letters, numbers, dots, dashes, or underscores.");
+  const result = await centralGithubRequest<unknown>(ownerId, `/v1/github/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: nextName }) });
+  return normalizeRepositoryMutation(result);
+}
+
+export async function deleteGithubRepository(ownerId: string, fullName: string, confirmed: boolean): Promise<{ deleted: true; fullName: string }> {
+  const { owner, repo } = repositoryReference(fullName);
+  if (!confirmed) throw new GithubOAuthError("Confirm the repository deletion before continuing.");
+  return centralGithubRequest<{ deleted: true; fullName: string }>(ownerId, `/v1/github/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ confirmed: true }) });
+}
