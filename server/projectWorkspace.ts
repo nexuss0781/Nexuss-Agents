@@ -163,7 +163,7 @@ function runGit(args: string[], cwd: string, timeoutMs: number, accessToken?: st
       GIT_TERMINAL_PROMPT: "0",
       GIT_CONFIG_COUNT: "1",
       GIT_CONFIG_KEY_0: "http.https://github.com/.extraheader",
-      GIT_CONFIG_VALUE_0: `Authorization: bearer ${accessToken}`,
+      GIT_CONFIG_VALUE_0: `Authorization: Basic ${Buffer.from(`x-access-token:${accessToken}`, "utf8").toString("base64")}`,
     } : process.env;
     const child = spawn(process.env.NEXUSS_GIT_BINARY || "git", args, { cwd, shell: false, stdio: ["ignore", "pipe", "pipe"], env: environment });
     let output = "";
@@ -196,7 +196,12 @@ export async function clonePublicGithubProject(ownerId: string, projectId: strin
   try {
     const branchArgs = selectedBranch ? ["--branch", selectedBranch] : [];
     const result = await runGit(["clone", "--depth=1", "--no-tags", "--single-branch", ...branchArgs, github.normalizedUrl, staging], parent, MAX_GITHUB_CLONE_SECONDS * 1_000, accessToken);
-    if (result.code !== 0) throw new ProjectWorkspaceError("GitHub could not be cloned. Check that the repository is public and the URL is correct.", "CLONE_FAILED");
+    if (result.code !== 0) {
+      const output = result.output.replaceAll(accessToken || "", "[redacted]").toLowerCase();
+      const branchMessage = selectedBranch && (output.includes("remote branch") || output.includes("couldn't find remote ref") || output.includes("not a valid ref")) ? `The GitHub branch "${selectedBranch}" could not be found.` : undefined;
+      const message = branchMessage || (accessToken && (output.includes("authentication") || output.includes("authorization") || output.includes("permission") || output.includes("could not read from remote repository") || output.includes("repository not found")) ? "GitHub authorization could not access this repository. Reconnect GitHub and try again." : accessToken ? "GitHub could not access this repository with the current authorization." : "GitHub could not be cloned. Check that the repository is public and the URL is correct.");
+      throw new ProjectWorkspaceError(message, "CLONE_FAILED");
+    }
     const summary = await summarizeWorkspace(staging);
     const commit = await runGit(["rev-parse", "HEAD"], staging, 10_000);
     const sourceCommit = commit.code === 0 ? commit.output.trim().split(/\s+/)[0]?.slice(0, 64) : undefined;
