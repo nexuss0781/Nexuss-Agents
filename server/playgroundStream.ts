@@ -10,9 +10,11 @@ const streamInput = z.object({
   prompt: z.string().trim().min(1).max(100_000),
   title: z.string().trim().min(1).max(240).optional(),
   stopNotice: z.boolean().optional(),
+  generalMode: z.enum(["plan", "build"]).optional(),
+  projectId: z.string().min(1).max(128).optional(),
 });
 
-type StreamEvent = { type: "start" | "token" | "done" | "error"; [key: string]: unknown };
+type StreamEvent = { type: "start" | "token" | "done" | "error" | "tool"; [key: string]: unknown };
 
 function sendEvent(res: Response, event: StreamEvent) {
   if (res.writableEnded) return;
@@ -60,7 +62,8 @@ export function registerPlaygroundStreamRoute(app: Express) {
         user.id,
         parsed.data,
         controller.signal,
-        token => sendEvent(res, { type: "token", text: token })
+        token => sendEvent(res, { type: "token", text: token }),
+        event => sendEvent(res, { type: "tool", tool: event })
       );
       settled = true;
       if (controller.signal.aborted || res.writableEnded) return;

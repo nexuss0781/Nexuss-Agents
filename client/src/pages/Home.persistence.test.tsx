@@ -238,7 +238,7 @@ describe("persistent workspace client", () => {
     expect(host.querySelector(".project-menu")?.parentElement?.classList.contains("composer-project-anchor")).toBe(true);
   });
 
-  it("shows Complex as the active execution style and keeps General and Instant upcoming", async () => {
+  it("shows selectable Complex, General Plan Enabled, General Build, and Instant styles", async () => {
     const host = await mountWorkspace((path) => {
       if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-alpha"], apiKeyConfigured: true };
       return { projects: [], threads: [] };
@@ -253,8 +253,61 @@ describe("persistent workspace client", () => {
     expect(host.querySelector(".execution-menu")?.textContent).toContain("Complex");
     expect(host.querySelector(".execution-menu")?.textContent).toContain("General");
     expect(host.querySelector(".execution-menu")?.textContent).toContain("Instant");
-    expect(host.querySelector<HTMLButtonElement>('.execution-option.upcoming:nth-of-type(2)')?.disabled).toBe(true);
-    expect(host.querySelector<HTMLButtonElement>('.execution-option.upcoming:nth-of-type(3)')?.disabled).toBe(true);
+    const options = Array.from(host.querySelectorAll<HTMLButtonElement>('.execution-option'));
+    expect(options).toHaveLength(4);
+    expect(options.every((option) => !option.disabled)).toBe(true);
+    expect(host.querySelector('.execution-menu')?.textContent).toContain('Plan Enabled');
+    expect(host.querySelector('.execution-menu')?.textContent).toContain('Build');
+  });
+
+  it("sends General Plan Enabled requests through the non-mission stream", async () => {
+    const empty: WorkspaceSnapshot = { projects: [], threads: [] };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      const body = `data: {"type":"token","text":"Plan ready"}\n\ndata: {"type":"done","content":"Plan ready","finished":true}\n\n`;
+      return new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } });
+    });
+    try {
+      const host = await mountWorkspace((path) => {
+        if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-alpha"], apiKeyConfigured: true };
+        if (path === "workspace.createThread") return { id: "general-plan-thread", chatSlug: "chat-dddddddddddddddddddddddddddddddd", title: "New thread", updatedAt: "2026-08-24T00:00:00.000Z", messages: [] };
+        return empty;
+      });
+      await waitForText(host, "model-alpha");
+      await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Choose execution style"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+      await act(async () => { host.querySelectorAll<HTMLButtonElement>(".execution-option")[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+      const composer = host.querySelector<HTMLTextAreaElement>("textarea");
+      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+      await act(async () => { setValue?.call(composer, "Analyze the repository structure"); composer?.dispatchEvent(new Event("input", { bubbles: true })); });
+      await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Prepare plan"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+      const request = fetchMock.mock.calls.find(([url]) => url === "/api/playground/stream");
+      expect(request).toBeDefined();
+      expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({ generalMode: "plan", prompt: "Analyze the repository structure" });
+    } finally { fetchMock.mockRestore(); }
+  });
+
+  it("sends General Build requests through the non-mission stream", async () => {
+    const empty: WorkspaceSnapshot = { projects: [], threads: [] };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      const body = `data: {"type":"token","text":"Built"}\n\ndata: {"type":"done","content":"Built","finished":true}\n\n`;
+      return new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } });
+    });
+    try {
+      const host = await mountWorkspace((path) => {
+        if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-alpha"], apiKeyConfigured: true };
+        if (path === "workspace.createThread") return { id: "general-build-thread", chatSlug: "chat-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", title: "New thread", updatedAt: "2026-08-24T00:00:00.000Z", messages: [] };
+        return empty;
+      });
+      await waitForText(host, "model-alpha");
+      await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Choose execution style"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+      await act(async () => { host.querySelectorAll<HTMLButtonElement>(".execution-option")[2]?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+      const composer = host.querySelector<HTMLTextAreaElement>("textarea");
+      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+      await act(async () => { setValue?.call(composer, "Implement the repository update"); composer?.dispatchEvent(new Event("input", { bubbles: true })); });
+      await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Build"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+      const request = fetchMock.mock.calls.find(([url]) => url === "/api/playground/stream");
+      expect(request).toBeDefined();
+      expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({ generalMode: "build", prompt: "Implement the repository update" });
+    } finally { fetchMock.mockRestore(); }
   });
 
   it("accepts multiple attachments without an extension allowlist", async () => {

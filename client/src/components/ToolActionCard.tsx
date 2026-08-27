@@ -53,6 +53,10 @@ const ACTION_META: Record<string, Omit<ActionMeta, "state">> = {
   "runner.recovery_started": { label: "Work resumed", detail: "The runtime is restoring the mission and continuing.", Icon: RotateCcw },
 };
 
+const TERMINAL_META: Record<string, Omit<ActionMeta, "state">> = {
+  terminal: { label: "Running project command", detail: "Working…", Icon: Terminal },
+};
+
 const FILESYSTEM_META: Record<string, Omit<ActionMeta, "state">> = {
   read: { label: "Reading file", detail: "Reading…", Icon: FileCode2 },
   read_many: { label: "Reading files", detail: "Reading…", Icon: Files },
@@ -88,9 +92,11 @@ function actionState(type: string, payload: Record<string, unknown>): ActionMeta
 
 function lifecycleMeta(type: string, payload: Record<string, unknown>) {
   const action = typeof payload.action === "string" ? payload.action : "";
-  const base = type.startsWith("filesystem.") && FILESYSTEM_META[action] ? FILESYSTEM_META[action] : ACTION_META[type] || { label: "Agent action", detail: "The agent is progressing through the task.", Icon: Terminal };
+  const base = type.startsWith("filesystem.") && FILESYSTEM_META[action] ? FILESYSTEM_META[action] : type.startsWith("terminal.") && TERMINAL_META[action] ? TERMINAL_META[action] : ACTION_META[type] || { label: "Agent action", detail: "The agent is progressing through the task.", Icon: Terminal };
   if (type === "filesystem.completed") return { ...base, label: action === "write" ? "File written" : action === "create" ? "File created" : action === "read" ? "File read" : action === "append" ? "File updated" : `${base.label.replace(/…$/, "")} complete`, detail: "Completed" };
   if (type === "filesystem.failed") return { ...base, label: action === "write" ? "Write failed" : action === "read" ? "Read failed" : `${base.label.replace(/…$/, "")} paused`, detail: "The agent is handling it and continuing." };
+  if (type === "terminal.completed") return { ...base, label: "Command complete", detail: "Completed" };
+  if (type === "terminal.failed") return { ...base, label: "Command failed", detail: "The agent is handling it and continuing." };
   return base;
 }
 

@@ -1,9 +1,14 @@
 import { randomUUID } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connect } from "parad";
-import { GENERAL_AGENT_SYSTEM_PROMPT } from "./mission/generalAgentPrompt";
+import { composeGeneralSystemPrompt, type GeneralMode } from "./mission/generalAgentPrompt";
 import type { AuditSink, FileSystemAuditEvent } from "../tools/file-system/audit";
+import type { FileSystemRequest } from "../tools/file-system/types";
+
+const execFileAsync = promisify(execFile);
 
 export type ProjectSourceType = "none" | "upload" | "github";
 export type ProjectWorkspaceStatus = "empty" | "importing" | "ready" | "failed";
@@ -379,11 +384,22 @@ export async function saveModelProviderSettings(ownerId: string, input: { baseUr
   });
 }
 
-export type PlaygroundPrompt = { threadId: string; model: string; prompt: string; title?: string; stopNotice?: boolean };
-export type PlaygroundStreamResult = { content: string; stopped: boolean; finished: boolean };
-export function buildPlaygroundMessages(history: Array<Pick<WorkspaceMessage, "role" | "content">>, input: Pick<PlaygroundPrompt, "prompt" | "stopNotice">): WorkspaceModelMessage[] {
+export type PlaygroundPrompt = { threadId: string; model: string; prompt: string; title?: string; stopNotice?: boolean; generalMode?: GeneralMode; projectId?: string };
+export type PlaygroundToolCall = { id: string; type: "function"; function: { name: string; arguments: string } };
+export type PlaygroundToolEvent = { type: "filesystem.started" | "filesystem.completed" | "filesystem.failed" | "terminal.started" | "terminal.completed" | "terminal.failed"; id: string; action: string; status: "running" | "completed" | "failed"; operationId?: string; code?: string; message?: string };
+export type PlaygroundStreamResult = { content: string; stopped: boolean; finished: boolean; toolCalls?: PlaygroundToolCall[] };
+const APPROVAL_PROMPT = /^(?:approved?|approve|yes|yes,?\s*(?:go ahead|do it|proceed|implement|build)|go ahead|proceed|implement it|start building|start implementation|continue with the plan)[.!\s]*$/i;
+const PLAN_SIGNAL = /\b(?:plan|implementation|files?|steps?|verification|change surface|affected areas)\b/i;
+
+export function resolveGeneralMode(input: { requestedMode: GeneralMode; prompt: string; history: Array<Pick<WorkspaceMessage, "role" | "content">> }): GeneralMode {
+  const previous = input.history.at(-1);
+  const approved = input.requestedMode === "plan" && APPROVAL_PROMPT.test(input.prompt.trim()) && previous?.role === "assistant" && PLAN_SIGNAL.test(previous.content || "");
+  return approved ? "build" : input.requestedMode;
+}
+
+export function buildPlaygroundMessages(history: Array<Pick<WorkspaceMessage, "role" | "content">>, input: Pick<PlaygroundPrompt, "prompt" | "stopNotice" | "generalMode">): WorkspaceModelMessage[] {
   return [
-    { role: "system", content: GENERAL_AGENT_SYSTEM_PROMPT },
+    { role: "system", content: composeGeneralSystemPrompt(input.generalMode || "plan") },
     ...(input.stopNotice ? [{ role: "system" as const, content: "The user stopped the previous task. Stop immediately, wait, and do not continue that task until the user provides a new request." }] : []),
     ...history,
     { role: "user", content: input.prompt },
@@ -424,14 +440,28 @@ export async function readOpenAICompatibleStream(response: Response, signal: Abo
   let content = "";
   let stopped = false;
   let finished = false;
+  const toolCalls = new Map<number, PlaygroundToolCall>();
   const consume = (line: string) => {
     const data = line.startsWith("data:") ? line.slice(5).trim() : "";
     if (!data) return;
     if (data === "[DONE]") { finished = true; return; }
     try {
-      const payload = JSON.parse(data) as { error?: { message?: unknown }; text?: unknown; choices?: Array<{ text?: unknown; delta?: { content?: unknown; reasoning_content?: unknown; thinking?: unknown }; message?: { content?: unknown }; finish_reason?: unknown }> };
+      const payload = JSON.parse(data) as { error?: { message?: unknown }; text?: unknown; choices?: Array<{ text?: unknown; delta?: { content?: unknown; reasoning_content?: unknown; thinking?: unknown; tool_calls?: Array<{ index?: number; id?: string; type?: string; function?: { name?: string; arguments?: string } }> }; message?: { content?: unknown }; finish_reason?: unknown }> };
       if (payload.error?.message) throw new ModelProviderError(String(payload.error.message));
-      if (payload.choices?.[0]?.finish_reason) finished = true;
+      const choice = payload.choices?.[0];
+      if (choice?.finish_reason) finished = true;
+      for (const delta of choice?.delta?.tool_calls || []) {
+        const index = Number.isInteger(delta.index) ? Number(delta.index) : toolCalls.size;
+        const existing = toolCalls.get(index);
+        toolCalls.set(index, {
+          id: delta.id || existing?.id || `call_${index}`,
+          type: "function",
+          function: {
+            name: delta.function?.name || existing?.function.name || "",
+            arguments: `${existing?.function.arguments || ""}${delta.function?.arguments || ""}`,
+          },
+        });
+      }
       const token = extractStreamText(payload);
       if (token) { content += token; onToken(token); }
     } catch (error) {
@@ -457,43 +487,169 @@ export async function readOpenAICompatibleStream(response: Response, signal: Abo
     signal.removeEventListener("abort", cancelReader);
     await reader.cancel().catch(() => undefined);
   }
-  return { content, stopped, finished };
+  const completedToolCalls = [...toolCalls.values()].filter((call) => call.function.name && call.function.arguments);
+  return completedToolCalls.length ? { content, stopped, finished, toolCalls: completedToolCalls } : { content, stopped, finished };
 }
 
-export async function streamWorkspacePrompt(ownerId: string, input: PlaygroundPrompt, signal: AbortSignal, onToken: (token: string) => void): Promise<PlaygroundStreamResult> {
+const GENERAL_TERMINAL_TOOL = {
+  type: "function",
+  function: {
+    name: "terminal",
+    description: "Run a project command for inspection, testing, building, formatting, or verification in the active workspace.",
+    parameters: {
+      type: "object",
+      properties: {
+        command: { type: "string" },
+        timeoutMs: { type: "integer", minimum: 1, maximum: 120000 },
+      },
+      required: ["command"],
+      additionalProperties: false,
+    },
+  },
+} as const;
+
+const GENERAL_FILESYSTEM_TOOL = {
+  type: "function",
+  function: {
+    name: "filesystem",
+    description: "Inspect, search, review, create, edit, organize, snapshot, and verify files in the active project workspace.",
+    parameters: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["list", "tree", "stat", "exists", "find", "du", "read", "read_many", "tail", "binary_metadata", "grep", "grep_batch", "glob", "create", "write", "append", "patch", "replace", "format", "copy", "move", "rename", "delete", "clean_generated", "symbols", "references", "recent_changes", "diff_file", "diff_workspace", "diff_paths", "preview_patch", "apply_patch", "rollback", "snapshot", "restore_snapshot", "manifest", "export_patch", "import_patch", "verify_workspace"] },
+        path: { type: "string" },
+        paths: { type: "array", items: { type: "string" } },
+        pattern: { type: "string" },
+        query: { type: "string" },
+        queries: { type: "array", items: { type: "string" } },
+        content: { type: "string" },
+        expectedSha256: { type: "string" },
+        edits: { type: "array", items: { type: "object", properties: { find: { type: "string" }, replace: { type: "string" } }, required: ["find", "replace"], additionalProperties: false } },
+        destinationPath: { type: "string" },
+        sourcePath: { type: "string" },
+        confirmed: { type: "boolean" },
+        recursive: { type: "boolean" },
+        patterns: { type: "array", items: { type: "string" } },
+        language: { type: "string", enum: ["typescript", "javascript", "python", "go", "rust", "java", "generic"] },
+        patchText: { type: "string" },
+        rollbackOperationId: { type: "string" },
+        snapshotId: { type: "string" },
+        manifestId: { type: "string" },
+        unified: { type: "boolean" },
+        maxEntries: { type: "integer" },
+        maxDepth: { type: "integer" },
+        maxBytes: { type: "integer" },
+        maxMatches: { type: "integer" },
+        contextLines: { type: "integer" },
+        startLine: { type: "integer" },
+        endLine: { type: "integer" },
+        lineCount: { type: "integer" },
+        regex: { type: "boolean" },
+        caseSensitive: { type: "boolean" },
+        include: { type: "array", items: { type: "string" } },
+        exclude: { type: "array", items: { type: "string" } },
+        formatter: { type: "string", enum: ["prettier", "biome", "gofmt", "rustfmt"] },
+      },
+      required: ["action"],
+      additionalProperties: false,
+    },
+  },
+} as const;
+
+function boundedToolContent(value: unknown) {
+  const serialized = typeof value === "string" ? value : JSON.stringify(value);
+  return (serialized || "").slice(0, 32_000);
+}
+
+async function executeGeneralTerminalTool(ownerId: string, projectId: string, call: PlaygroundToolCall) {
+  let parsed: Record<string, unknown>;
+  try { parsed = JSON.parse(call.function.arguments) as Record<string, unknown>; } catch { return { ok: false, code: "INVALID_TOOL_ARGUMENTS", message: "The terminal tool arguments were not valid JSON." }; }
+  const command = typeof parsed.command === "string" ? parsed.command.trim() : "";
+  if (!command) return { ok: false, code: "INVALID_TOOL_ARGUMENTS", message: "The terminal command is required." };
+  const timeoutMs = typeof parsed.timeoutMs === "number" && Number.isFinite(parsed.timeoutMs) ? Math.max(1_000, Math.min(120_000, Math.floor(parsed.timeoutMs))) : 120_000;
+  const { resolveOwnedProjectWorkspace } = await import("./fileSystemRuntime");
+  const workspace = await resolveOwnedProjectWorkspace(ownerId, projectId);
+  try {
+    const result = await execFileAsync("sh", ["-lc", command], { cwd: workspace.root, timeout: timeoutMs, maxBuffer: 400_000 });
+    return { ok: true, stdout: result.stdout.slice(0, 120_000), stderr: result.stderr.slice(0, 40_000), exitCode: 0 };
+  } catch (error) {
+    const failure = error as { message?: string; stdout?: string; stderr?: string; code?: string | number; killed?: boolean };
+    return { ok: false, code: "COMMAND_FAILED", message: (failure.message || "The terminal command failed.").slice(0, 2_000), stdout: (failure.stdout || "").slice(0, 120_000), stderr: (failure.stderr || "").slice(0, 40_000), exitCode: typeof failure.code === "number" ? failure.code : undefined, killed: failure.killed === true };
+  }
+}
+
+async function executeGeneralFilesystemTool(ownerId: string, projectId: string, call: PlaygroundToolCall, mode: GeneralMode) {
+  let parsed: Record<string, unknown>;
+  try { parsed = JSON.parse(call.function.arguments) as Record<string, unknown>; } catch { return { ok: false, code: "INVALID_TOOL_ARGUMENTS", message: "The filesystem tool arguments were not valid JSON." }; }
+  const action = typeof parsed.action === "string" ? parsed.action : "";
+  if (!action) return { ok: false, code: "INVALID_TOOL_ARGUMENTS", message: "The filesystem tool action is required." };
+  const { runProjectFileSystem } = await import("./fileSystemRuntime");
+  return runProjectFileSystem(ownerId, projectId, { ...parsed, action } as FileSystemRequest, {
+    agentId: `general:${call.id}`,
+    canMutate: mode === "build",
+    canDestructivelyMutate: mode === "build" && parsed.confirmed === true,
+  });
+}
+
+export async function streamWorkspacePrompt(ownerId: string, input: PlaygroundPrompt, signal: AbortSignal, onToken: (token: string) => void, onToolEvent: (event: PlaygroundToolEvent) => void = () => {}): Promise<PlaygroundStreamResult> {
   const provider = await loadProviderForPlayground(ownerId, input.model);
   const history = await loadThreadMessagesForPlayground(ownerId, input.threadId);
   const title = history.length === 0 ? (input.title || input.prompt.slice(0, 42)) : undefined;
   await appendThreadMessages(ownerId, input.threadId, [{ role: "user", content: input.prompt }], title);
-  const messages = buildPlaygroundMessages(history, input);
+  const requestedGeneralMode = input.generalMode || "plan";
+  const activeGeneralMode = resolveGeneralMode({ requestedMode: requestedGeneralMode, prompt: input.prompt, history });
+  const messages = buildPlaygroundMessages(history, { ...input, generalMode: activeGeneralMode });
   const rollbackPrompt = () => removeLatestThreadMessage(ownerId, input.threadId, { role: "user", content: input.prompt });
-  let response: Response;
+  const canUseGeneralTools = Boolean(input.projectId && input.generalMode);
+  const availableGeneralTools = activeGeneralMode === "build" ? [GENERAL_FILESYSTEM_TOOL, GENERAL_TERMINAL_TOOL] : [GENERAL_FILESYSTEM_TOOL];
+  let finalResult: PlaygroundStreamResult = { content: "", stopped: false, finished: false };
   try {
-    response = await fetch(`${normalizeProviderBaseUrl(provider.base_url)}/chat/completions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${provider.api_key}`, Accept: "text/event-stream", "Content-Type": "application/json" },
-      body: JSON.stringify({ model: input.model, messages, stream: true }),
-      signal,
-    });
-  } catch (error) {
-    if (signal.aborted) return { content: "", stopped: true, finished: false };
-    await rollbackPrompt().catch(() => undefined);
-    throw error;
-  }
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    await rollbackPrompt().catch(() => undefined);
-    throw new ModelProviderError(`The model API rejected the request: ${response.status} — ${providerErrorDetail(detail)}`, { code: "PROVIDER_HTTP_ERROR", status: response.status });
-  }
-  let result: PlaygroundStreamResult;
-  try {
-    result = await readOpenAICompatibleStream(response, signal, onToken);
+    for (let round = 0; round <= 8; round += 1) {
+      let response: Response;
+      try {
+        response = await fetch(`${normalizeProviderBaseUrl(provider.base_url)}/chat/completions`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${provider.api_key}`, Accept: "text/event-stream", "Content-Type": "application/json" },
+          body: JSON.stringify({ model: input.model, messages, stream: true, ...(canUseGeneralTools && round < 8 ? { tools: availableGeneralTools, tool_choice: "auto" } : {}) }),
+          signal,
+        });
+      } catch (error) {
+        if (signal.aborted) return { content: "", stopped: true, finished: false };
+        throw error;
+      }
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        throw new ModelProviderError(`The model API rejected the request: ${response.status} — ${providerErrorDetail(detail)}`, { code: "PROVIDER_HTTP_ERROR", status: response.status });
+      }
+      const result = await readOpenAICompatibleStream(response, signal, onToken);
+      finalResult = result;
+      if (!result.toolCalls?.length || !canUseGeneralTools) break;
+      if (!input.projectId) break;
+      messages.push({ role: "assistant", content: result.content || "", tool_calls: result.toolCalls });
+      for (const call of result.toolCalls) {
+        const action = (() => { try { return String((JSON.parse(call.function.arguments) as Record<string, unknown>).action || "filesystem"); } catch { return "filesystem"; } })();
+        const toolType = call.function.name === "terminal" ? "terminal" : "filesystem";
+        onToolEvent({ type: `${toolType}.started` as PlaygroundToolEvent["type"], id: call.id, action: toolType === "terminal" ? "terminal" : action, status: "running" });
+        let toolResult: unknown;
+        try {
+          toolResult = call.function.name === "terminal"
+            ? activeGeneralMode === "build" ? await executeGeneralTerminalTool(ownerId, input.projectId, call) : { ok: false, code: "MODE_REJECTED", message: "Terminal execution is available only in Build mode." }
+            : await executeGeneralFilesystemTool(ownerId, input.projectId, call, activeGeneralMode);
+        } catch (error) { toolResult = { ok: false, code: "TOOL_EXECUTION_FAILED", message: error instanceof Error ? error.message : "The requested tool failed." }; }
+        const failed = Boolean(toolResult && typeof toolResult === "object" && "ok" in toolResult && (toolResult as { ok?: unknown }).ok === false);
+        const operationId = toolResult && typeof toolResult === "object" && "operationId" in toolResult ? String((toolResult as { operationId?: unknown }).operationId || "") : undefined;
+        const code = toolResult && typeof toolResult === "object" && "code" in toolResult ? String((toolResult as { code?: unknown }).code || "") : undefined;
+        const message = toolResult && typeof toolResult === "object" && "message" in toolResult ? String((toolResult as { message?: unknown }).message || "") : undefined;
+        onToolEvent({ type: `${toolType}.${failed ? "failed" : "completed"}` as PlaygroundToolEvent["type"], id: call.id, action: toolType === "terminal" ? "terminal" : action, status: failed ? "failed" : "completed", ...(operationId ? { operationId } : {}), ...(code ? { code } : {}), ...(message ? { message } : {}) });
+        messages.push({ role: "tool", tool_call_id: call.id, content: boundedToolContent(toolResult) });
+      }
+    }
   } catch (error) {
     if (!signal.aborted) await rollbackPrompt().catch(() => undefined);
     throw error;
   }
-  if (result.content) await appendThreadMessages(ownerId, input.threadId, [{ role: "assistant", content: result.content }]);
-  return result;
+  if (finalResult.content) await appendThreadMessages(ownerId, input.threadId, [{ role: "assistant", content: finalResult.content }]);
+  return finalResult;
 }
 
 export async function discoverModelProviderModels(ownerId: string, requester: typeof fetch = fetch): Promise<{ models: string[] }> {
@@ -649,7 +805,7 @@ export async function migrateWorkspace(ownerId: string, workspace: LegacyWorkspa
   });
 }
 
-export type WorkspaceModelMessage = { role: "system" | "user" | "assistant" | "tool"; content: string };
+export type WorkspaceModelMessage = { role: "system" | "user" | "assistant" | "tool"; content: string; tool_calls?: PlaygroundToolCall[]; tool_call_id?: string };
 export type WorkspaceModelPrompt = { model: string; messages: WorkspaceModelMessage[] };
 
 export async function streamWorkspaceModel(ownerId: string, input: WorkspaceModelPrompt, signal: AbortSignal, onToken: (token: string) => void = () => {}): Promise<PlaygroundStreamResult> {

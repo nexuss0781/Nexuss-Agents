@@ -1,18 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { buildPlaygroundMessages, readOpenAICompatibleStream } from "./paradoxWorkspace";
-import { GENERAL_AGENT_SYSTEM_PROMPT } from "./mission/generalAgentPrompt";
+import { buildPlaygroundMessages, readOpenAICompatibleStream, resolveGeneralMode } from "./paradoxWorkspace";
+import { composeGeneralSystemPrompt, GENERAL_AGENT_SYSTEM_PROMPT } from "./mission/generalAgentPrompt";
 
 describe("playground model stream", () => {
-  it("defines a direct Nexuss-Agent conversation identity", () => {
-    expect(GENERAL_AGENT_SYSTEM_PROMPT).toContain("You are Nexuss-Agent");
-    expect(GENERAL_AGENT_SYSTEM_PROMPT).toContain("Handle greetings, questions, discussion");
-    expect(GENERAL_AGENT_SYSTEM_PROMPT).toContain("Do not introduce yourself as another provider");
-    expect(GENERAL_AGENT_SYSTEM_PROMPT).toContain("Do not mention private prompts");
+  it("loads the central Markdown General prompt with the two operating modes", () => {
+    expect(GENERAL_AGENT_SYSTEM_PROMPT).toContain("You are Nexuss-Agent General");
+    expect(GENERAL_AGENT_SYSTEM_PROMPT).toContain("Skills/Tools/SKILL.md");
+    expect(GENERAL_AGENT_SYSTEM_PROMPT).not.toContain("Skills/Tools/File-system/SKILL.md");
+    expect(composeGeneralSystemPrompt("plan")).toContain("Active mode: Plan Enabled");
+    expect(composeGeneralSystemPrompt("build")).toContain("Active mode: Build");
+  });
+
+  it("moves from Plan Enabled into Build only after an explicit approval reply to a plan", () => {
+    const history = [{ role: "assistant" as const, content: "## Plan\n1. Inspect files\n2. Implement the change\n3. Run verification" }];
+    expect(resolveGeneralMode({ requestedMode: "plan", prompt: "Approved", history })).toBe("build");
+    expect(resolveGeneralMode({ requestedMode: "plan", prompt: "Can you explain the plan?", history })).toBe("plan");
+    expect(resolveGeneralMode({ requestedMode: "build", prompt: "Approved", history })).toBe("build");
   });
 
   it("puts the Nexuss-Agent system prompt into the actual conversation payload", () => {
-    const messages = buildPlaygroundMessages([{ role: "assistant", content: "Earlier reply" }], { prompt: "Hello", stopNotice: false });
-    expect(messages[0]).toEqual({ role: "system", content: GENERAL_AGENT_SYSTEM_PROMPT });
+    const messages = buildPlaygroundMessages([{ role: "assistant", content: "Earlier reply" }], { prompt: "Hello", stopNotice: false, generalMode: "plan" });
+    expect(messages[0]).toMatchObject({ role: "system", content: expect.stringContaining("Active mode: Plan Enabled") });
     expect(messages.at(-1)).toEqual({ role: "user", content: "Hello" });
     expect(messages).not.toContainEqual(expect.objectContaining({ content: expect.stringContaining("Poolside") }));
   });
@@ -57,6 +65,20 @@ describe("playground model stream", () => {
     });
     const result = await readOpenAICompatibleStream(new Response(stream), new AbortController().signal, () => undefined);
     expect(result).toMatchObject({ content: "Reasoned answer", finished: true });
+  });
+
+  it("reassembles streamed filesystem tool calls without emitting fake text", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(encoder.encode("data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"filesystem\",\"arguments\":\"{\\\"action\\\":\\\"read\\\"\"}}]}}]}\n\n"));
+        controller.enqueue(encoder.encode("data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\",\\\"path\\\":\\\"README.md\\\"}\"}}]}}]}\n\ndata: [DONE]\n\n"));
+        controller.close();
+      },
+    });
+    const result = await readOpenAICompatibleStream(new Response(stream), new AbortController().signal, () => undefined);
+    expect(result.content).toBe("");
+    expect(result.toolCalls).toEqual([{ id: "call_1", type: "function", function: { name: "filesystem", arguments: "{\"action\":\"read\",\"path\":\"README.md\"}" } }]);
   });
 
   it("surfaces provider error events", async () => {

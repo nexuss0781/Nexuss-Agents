@@ -25,7 +25,7 @@ const EXPLANATION_PATTERN = /\b(?:explain|how does|how do|what is|why does|why d
 export function classifyConversationHandoff(input: ConversationHandoffInput): ConversationHandoffDecision {
   const prompt = input.prompt.trim();
   if (!prompt) return { route: "conversation", intent: "chat", confidence: "high", reason: "Empty turns remain in the conversation surface" };
-  if (input.hasAttachments) return { route: "mission", intent: "work_request", confidence: "high", reason: "Attachments require intake so their source references and acceptance context are preserved" };
+  if (input.hasAttachments && input.mode === "complex") return { route: "mission", intent: "work_request", confidence: "high", reason: "Attachments require intake so their source references and acceptance context are preserved" };
   const actionable = ACTION_PATTERN.test(prompt) || DIRECT_REQUEST_PATTERN.test(prompt);
   if (input.mode !== "complex" || !actionable) {
     const intent: ConversationIntent = MATHEMATICS_PATTERN.test(prompt) ? "mathematics_request" : RESEARCH_PATTERN.test(prompt) ? "research_request" : EXPLANATION_PATTERN.test(prompt) ? "explanation" : /\?$/.test(prompt) ? "question" : "chat";

@@ -14,7 +14,8 @@ describe("Phase 13 conversation-to-mission handoff", () => {
     expect(classifyConversationHandoff({ prompt: "Prove that the algorithm terminates", mode: "complex" })).toMatchObject({ route: "mission", intent: "mathematics_request" });
   });
 
-  it("routes attachments to intake even without an action verb", () => {
-    expect(classifyConversationHandoff({ prompt: "Here is the context", mode: "general", hasAttachments: true })).toMatchObject({ route: "mission", intent: "work_request" });
+  it("routes attachments to Complex intake but keeps General outside mission mode", () => {
+    expect(classifyConversationHandoff({ prompt: "Here is the context", mode: "complex", hasAttachments: true })).toMatchObject({ route: "mission", intent: "work_request" });
+    expect(classifyConversationHandoff({ prompt: "Here is the context", mode: "general", hasAttachments: true })).toMatchObject({ route: "conversation" });
   });
 });
