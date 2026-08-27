@@ -1,14 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { buildPlaygroundMessages, readOpenAICompatibleStream, resolveGeneralMode } from "./paradoxWorkspace";
-import { composeGeneralSystemPrompt, GENERAL_AGENT_SYSTEM_PROMPT } from "./mission/generalAgentPrompt";
+import { composeComplexSystemPrompt, composeGeneralSystemPrompt, composeInstantSystemPrompt, GENERAL_AGENT_SYSTEM_PROMPT } from "./mission/generalAgentPrompt";
 
 describe("playground model stream", () => {
-  it("loads the central Markdown General prompt with the two operating modes", () => {
+  it("loads the central Markdown General prompt with the complete mode system", () => {
     expect(GENERAL_AGENT_SYSTEM_PROMPT).toContain("You are Nexuss-Agent General");
     expect(GENERAL_AGENT_SYSTEM_PROMPT).toContain("Skills/Tools/SKILL.md");
     expect(GENERAL_AGENT_SYSTEM_PROMPT).not.toContain("Skills/Tools/File-system/SKILL.md");
     expect(composeGeneralSystemPrompt("plan")).toContain("Active mode: Plan Enabled");
     expect(composeGeneralSystemPrompt("build")).toContain("Active mode: Build");
+    expect(composeInstantSystemPrompt()).toContain("You are Nexuss-Agent Instant");
+    expect(composeInstantSystemPrompt()).toContain("minimality ladder");
+    expect(composeInstantSystemPrompt()).toContain("does not create or manage a durable mission");
+    expect(composeInstantSystemPrompt("lite")).toContain("Effort: Lite");
+    expect(composeInstantSystemPrompt("ultra")).toContain("Effort: Ultra");
+    expect(composeInstantSystemPrompt("off")).toContain("Effort: Off");
+    expect(composeComplexSystemPrompt("autonomous")).toContain("Complex mode: Autonomous");
+    expect(composeComplexSystemPrompt("plan")).toContain("Complex mode: Plan");
   });
 
   it("moves from Plan Enabled into Build only after an explicit approval reply to a plan", () => {
@@ -18,9 +26,15 @@ describe("playground model stream", () => {
     expect(resolveGeneralMode({ requestedMode: "build", prompt: "Approved", history })).toBe("build");
   });
 
+  it("composes Complex Plan messages without General mode instructions", () => {
+    const messages = buildPlaygroundMessages([], { prompt: "Research and plan this", stopNotice: false, promptMode: "complex", complexMode: "plan" });
+    expect(messages[0]).toMatchObject({ role: "system", content: expect.stringContaining("Complex mode: Plan") });
+    expect(messages[0]).not.toMatchObject({ content: expect.stringContaining("## Current General mode") });
+  });
+
   it("puts the Nexuss-Agent system prompt into the actual conversation payload", () => {
-    const messages = buildPlaygroundMessages([{ role: "assistant", content: "Earlier reply" }], { prompt: "Hello", stopNotice: false, generalMode: "plan" });
-    expect(messages[0]).toMatchObject({ role: "system", content: expect.stringContaining("Active mode: Plan Enabled") });
+    const messages = buildPlaygroundMessages([{ role: "assistant", content: "Earlier reply" }], { prompt: "Hello", stopNotice: false, promptMode: "instant" });
+    expect(messages[0]).toMatchObject({ role: "system", content: expect.stringContaining("You are Nexuss-Agent Instant") });
     expect(messages.at(-1)).toEqual({ role: "user", content: "Hello" });
     expect(messages).not.toContainEqual(expect.objectContaining({ content: expect.stringContaining("Poolside") }));
   });

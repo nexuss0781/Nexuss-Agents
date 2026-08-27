@@ -77,6 +77,9 @@ type Workspace = { projects: Project[]; threads: Thread[] };
 type StreamingTurn = { threadId: string; prompt: string; content: string; startedAt: string };
 type QueuedPrompt = { id: string; content: string; mode: "next" | "later" };
 type ExecutionMode = "complex" | "general" | "instant";
+type InstantEffort = "lite" | "full" | "ultra" | "off";
+type GeneralMode = "plan" | "build";
+type ComplexMode = "autonomous" | "plan";
 type AttachmentStatus = "uploading" | "processing" | "ready" | "failed" | "cancelled";
 type UploadedAttachment = { id: string; name: string; mimeType: string; size: number; contentHash: string; storageUrl: string; status: AttachmentStatus; progress: number; error?: string; file?: File; previewUrl?: string };
 type MissionStatus = "created" | "queued" | "planning" | "planned" | "executing" | "verifying" | "repairing" | "paused" | "stopped" | "failed" | "completed";
@@ -418,7 +421,10 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [executionMenuOpen, setExecutionMenuOpen] = useState(false);
   const [executionMode, setExecutionMode] = useState<ExecutionMode>("complex");
-  const [generalMode, setGeneralMode] = useState<"plan" | "build">("plan");
+  const [instantEffort, setInstantEffort] = useState<InstantEffort>("full");
+  const [generalMode, setGeneralMode] = useState<GeneralMode>("plan");
+  const [complexMode, setComplexMode] = useState<ComplexMode>("autonomous");
+  const [complexPlanPending, setComplexPlanPending] = useState<{ objective: string; threadId: string } | null>(null);
   const [activeModel, setActiveModel] = useState<string | null>(null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
@@ -689,7 +695,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     return ["Today", "Yesterday", "Previous 7 days", "Earlier"].flatMap((group) => groups.has(group) ? [{ label: group, threads: groups.get(group)! }] : []);
   }, [workspace.threads, query, selectedProjectId]);
   const profileInitials = profileName.slice(0, 2).toUpperCase();
-  const composerStartsMission = executionMode === "complex" && (attachments.length > 0 || isAutonomousWorkRequest(draft));
+  const composerStartsMission = executionMode === "complex" && complexMode === "autonomous" && (attachments.length > 0 || isAutonomousWorkRequest(draft));
   const profileAvatar = profileAvatarUrl?.startsWith("https://") && !avatarFailed ? profileAvatarUrl : undefined;
 
   function createThread() {
@@ -1001,11 +1007,15 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     streamAbortRef.current.abort();
   }
 
-  async function runPrompt(content: string, targetThread: Thread) {
+  async function runPrompt(content: string, targetThread: Thread, overrides: { executionMode?: ExecutionMode; instantEffort?: InstantEffort; generalMode?: GeneralMode; complexMode?: ComplexMode } = {}) {
     if (!activeModel) {
       toast.error("Select a model in Settings before sending a prompt.");
       return;
     }
+    const turnExecutionMode = overrides.executionMode || executionMode;
+    const turnInstantEffort = overrides.instantEffort || instantEffort;
+    const turnGeneralMode = overrides.generalMode || generalMode;
+    const turnComplexMode = overrides.complexMode || complexMode;
     const controller = new AbortController();
     const stopNotice = stopNoticeRef.current;
     stopNoticeRef.current = false;
@@ -1021,7 +1031,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-        body: JSON.stringify({ threadId: targetThread.id, model: activeModel, prompt: content, ...(targetThread.messages.length === 0 ? { title: content.slice(0, 42) } : {}), ...(executionMode === "general" ? { generalMode, ...(targetThread.projectId ? { projectId: targetThread.projectId } : {}) } : {}), ...(stopNotice ? { stopNotice: true } : {}) }),
+        body: JSON.stringify({ threadId: targetThread.id, model: activeModel, prompt: content, ...(targetThread.messages.length === 0 ? { title: content.slice(0, 42) } : {}), ...(turnExecutionMode === "general" ? { promptMode: "general", generalMode: turnGeneralMode, ...(targetThread.projectId ? { projectId: targetThread.projectId } : {}) } : turnExecutionMode === "instant" ? { promptMode: "instant", instantEffort: turnInstantEffort } : turnExecutionMode === "complex" ? { promptMode: "complex", complexMode: turnComplexMode } : {}), ...(stopNotice ? { stopNotice: true } : {}) }),
         signal: controller.signal,
       });
       await consumePlaygroundStream(response, controller.signal, (event) => {
@@ -1067,8 +1077,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
     }
   }
 
-  async function sendMission() {
-    const content = draft.trim();
+  async function sendMission(options: { content?: string; targetThread?: Thread; appendUserMessage?: boolean; userMessage?: string } = {}) {
+    const content = (options.content ?? draft).trim();
     if (!workspaceReady || (!content && attachments.length === 0) || launchMissionFromConversationMutation.isPending) return;
     const pendingAttachments = attachments.filter((attachment) => attachment.status === "uploading" || attachment.status === "processing");
     if (pendingAttachments.length) return toast.error("Finish attaching your files first.");
@@ -1078,8 +1088,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       const projectId = activeProject?.id || pendingProjectId || null;
       const sources = [...(content ? [{ kind: "raw_prompt" as const, text: content }] : []), ...attachments.map((attachment) => ({ kind: "specification" as const, attachmentId: attachment.id, name: attachment.name, mimeType: attachment.mimeType }))];
       const result = await launchMissionFromConversationMutation.mutateAsync({ projectId, model: activeModel || undefined, sources });
-      const targetThread = activeThread || await createThreadMutation.mutateAsync({ projectId: pendingProjectId });
-      const userMessages = content ? [{ role: "user" as const, content }] : [];
+      const targetThread = options.targetThread || activeThread || await createThreadMutation.mutateAsync({ projectId: pendingProjectId });
+      const userMessages = options.appendUserMessage === false ? [] : (options.userMessage ?? content) ? [{ role: "user" as const, content: options.userMessage ?? content }] : [];
       if (!result.mission) {
         await appendMessagesMutation.mutateAsync({ threadId: targetThread.id, messages: [...userMessages, { role: "assistant", content: result.assistantMessage }], ...(targetThread.messages.length === 0 && content ? { title: content.slice(0, 42) } : {}) });
         setDraft("");
@@ -1115,7 +1125,39 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       queuePrompt("next");
       return;
     }
-    let handoffRoute: "conversation" | "mission" = executionMode === "complex" && (attachments.length > 0 || isAutonomousWorkRequest(content)) ? "mission" : "conversation";
+
+    const approvalReply = /^(?:approved?|approve|yes|yes,?\s*(?:go ahead|do it|proceed|implement|build)|go ahead|proceed|implement it|start building|continue)[.!\s]*$/i.test(content);
+    if (executionMode === "complex" && complexMode === "plan" && complexPlanPending && approvalReply) {
+      const pending = complexPlanPending;
+      const targetThread = activeThread?.id === pending.threadId ? activeThread : workspace.threads.find((thread) => thread.id === pending.threadId);
+      if (!targetThread) {
+        setComplexPlanPending(null);
+        return toast.error("The planning thread is no longer available. Please submit the request again.");
+      }
+      setDraft("");
+      setComplexPlanPending(null);
+      await sendMission({ content: pending.objective, targetThread, appendUserMessage: true, userMessage: content });
+      return;
+    }
+
+    if (executionMode === "complex" && complexMode === "plan") {
+      if (attachments.length > 0) return toast.error("Complex Plan currently uses the written request. Choose Complex Autonomous when attaching source files.");
+      if (!activeModel) return toast.error("Select a model in Settings before sending a prompt.");
+      try {
+        const targetThread = activeThread || await createThreadMutation.mutateAsync({ projectId: pendingProjectId });
+        setActiveThreadId(targetThread.id);
+        setLocation(`/app/chat/${targetThread.chatSlug}`);
+        setPendingProjectId(null);
+        setComplexPlanPending({ objective: content, threadId: targetThread.id });
+        setDraft("");
+        await runPrompt(content, targetThread, { executionMode: "complex", complexMode: "plan" });
+      } catch {
+        // The stream error handler restores the prompt for retry.
+      }
+      return;
+    }
+
+    let handoffRoute: "conversation" | "mission" = executionMode === "complex" && complexMode === "autonomous" && (attachments.length > 0 || isAutonomousWorkRequest(content)) ? "mission" : "conversation";
     try {
       const handoff = await conversationHandoffMutation.mutateAsync({ prompt: content, mode: executionMode, hasAttachments: attachments.length > 0 });
       if (handoff.route === "mission" || handoff.route === "conversation") handoffRoute = handoff.route;
@@ -1264,12 +1306,16 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
               </div>
               <span className="composer-top-divider" />
               <div className="composer-menu-anchor composer-execution-anchor">
-                <button className="composer-picker execution-picker" onClick={(event) => { event.stopPropagation(); setModelMenuOpen(false); setProjectMenuOpen(false); setExecutionMenuOpen(!executionMenuOpen); }} aria-label="Choose execution style" aria-expanded={executionMenuOpen}><Sparkles className="execution-picker-icon" size={14} aria-hidden="true" /><span>{executionMode === "complex" ? "Complex" : executionMode === "general" ? `General · ${generalMode === "plan" ? "Plan" : "Build"}` : "Instant"}</span><ChevronDown size={13} /></button>
+                <button className="composer-picker execution-picker" onClick={(event) => { event.stopPropagation(); setModelMenuOpen(false); setProjectMenuOpen(false); setExecutionMenuOpen(!executionMenuOpen); }} aria-label="Choose execution style" aria-expanded={executionMenuOpen}><Sparkles className="execution-picker-icon" size={14} aria-hidden="true" /><span>{executionMode === "complex" ? `Complex · ${complexMode === "autonomous" ? "Autonomous" : "Plan"}` : executionMode === "general" ? `General · ${generalMode === "plan" ? "Plan Enabled" : "Build"}` : `Instant · ${instantEffort[0].toUpperCase()}${instantEffort.slice(1)}`}</span><ChevronDown size={13} /></button>
                 {executionMenuOpen && <div className="composer-menu execution-menu" role="menu" aria-label="Execution styles">
-                  <button className={`execution-option ${executionMode === "complex" ? "selected" : ""}`} role="menuitem" onClick={(event) => { event.stopPropagation(); setExecutionMode("complex"); setExecutionMenuOpen(false); }}><span><Sparkles className="execution-option-icon" size={14} aria-hidden="true" />Complex</span>{executionMode === "complex" && <Check size={13} />}</button>
-                  <button className={`execution-option ${executionMode === "general" && generalMode === "plan" ? "selected" : ""}`} role="menuitem" onClick={(event) => { event.stopPropagation(); setExecutionMode("general"); setGeneralMode("plan"); setExecutionMenuOpen(false); }}><span><ListChecks className="execution-option-icon" size={14} aria-hidden="true" />General</span><small>Plan Enabled</small>{executionMode === "general" && generalMode === "plan" && <Check size={13} />}</button>
-                  <button className={`execution-option ${executionMode === "general" && generalMode === "build" ? "selected" : ""}`} role="menuitem" onClick={(event) => { event.stopPropagation(); setExecutionMode("general"); setGeneralMode("build"); setExecutionMenuOpen(false); }}><span><Hammer className="execution-option-icon" size={14} aria-hidden="true" />General</span><small>Build</small>{executionMode === "general" && generalMode === "build" && <Check size={13} />}</button>
-                  <button className={`execution-option ${executionMode === "instant" ? "selected" : ""}`} role="menuitem" onClick={(event) => { event.stopPropagation(); setExecutionMode("instant"); setExecutionMenuOpen(false); }}><span><Sparkles className="execution-option-icon" size={14} aria-hidden="true" />Instant</span><small>Quick conversation</small>{executionMode === "instant" && <Check size={13} />}</button>
+                  <div className="execution-menu-label">Instant</div>
+                  {(["lite", "full", "ultra", "off"] as InstantEffort[]).map((effort) => <button key={effort} className={`execution-option ${executionMode === "instant" && instantEffort === effort ? "selected" : ""}`} role="menuitem" onClick={(event) => { event.stopPropagation(); setExecutionMode("instant"); setInstantEffort(effort); setExecutionMenuOpen(false); }}><span><Sparkles className="execution-option-icon" size={14} aria-hidden="true" />{effort[0].toUpperCase() + effort.slice(1)}</span><small>{effort === "off" ? "Normal direct response" : `${effort[0].toUpperCase() + effort.slice(1)} effort`}</small>{executionMode === "instant" && instantEffort === effort && <Check size={13} />}</button>)}
+                  <div className="execution-menu-label">General</div>
+                  <button className={`execution-option ${executionMode === "general" && generalMode === "plan" ? "selected" : ""}`} role="menuitem" onClick={(event) => { event.stopPropagation(); setExecutionMode("general"); setGeneralMode("plan"); setExecutionMenuOpen(false); }}><span><ListChecks className="execution-option-icon" size={14} aria-hidden="true" />Plan Enabled</span><small>Inspect, plan, await approval</small>{executionMode === "general" && generalMode === "plan" && <Check size={13} />}</button>
+                  <button className={`execution-option ${executionMode === "general" && generalMode === "build" ? "selected" : ""}`} role="menuitem" onClick={(event) => { event.stopPropagation(); setExecutionMode("general"); setGeneralMode("build"); setExecutionMenuOpen(false); }}><span><Hammer className="execution-option-icon" size={14} aria-hidden="true" />Build</span><small>Implement and verify</small>{executionMode === "general" && generalMode === "build" && <Check size={13} />}</button>
+                  <div className="execution-menu-label">Complex</div>
+                  <button className={`execution-option ${executionMode === "complex" && complexMode === "autonomous" ? "selected" : ""}`} role="menuitem" onClick={(event) => { event.stopPropagation(); setExecutionMode("complex"); setComplexMode("autonomous"); setExecutionMenuOpen(false); }}><span><Sparkles className="execution-option-icon" size={14} aria-hidden="true" />Autonomous</span><small>Mission workflow</small>{executionMode === "complex" && complexMode === "autonomous" && <Check size={13} />}</button>
+                  <button className={`execution-option ${executionMode === "complex" && complexMode === "plan" ? "selected" : ""}`} role="menuitem" onClick={(event) => { event.stopPropagation(); setExecutionMode("complex"); setComplexMode("plan"); setExecutionMenuOpen(false); }}><span><ListChecks className="execution-option-icon" size={14} aria-hidden="true" />Plan</span><small>Deep understand, await approval</small>{executionMode === "complex" && complexMode === "plan" && <Check size={13} />}</button>
                 </div>}
               </div>
             </div>
@@ -1283,7 +1329,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
           <div className="composer-bottom">
             <div className="composer-send-cluster">
               {promptQueue.length > 0 && <button className="queue-count" onClick={(event) => { event.stopPropagation(); setQueueMenuOpen(!queueMenuOpen); }} aria-label={`${promptQueue.length} prompts queued`}><span>{promptQueue.length}</span> queued</button>}
-              {launchMissionFromConversationMutation.isPending ? <button className="send-button" disabled aria-label="Starting work"><span className="send-spinner" /> </button> : streamingTurn && !draft.trim() ? <button className="send-button stop-button" onClick={(event) => { event.stopPropagation(); stopStreaming(); }} aria-label="Stop response" title="Stop current task"><Square size={13} fill="currentColor" /></button> : <div className="composer-menu-anchor send-menu-anchor"><button className="send-button" onClick={(event) => { event.stopPropagation(); void sendMessage(); }} disabled={!workspaceReady || (!draft.trim() && attachments.length === 0) || createThreadMutation.isPending || attachments.some((attachment) => attachment.status === "failed" || attachment.status === "cancelled")} aria-label={composerStartsMission ? "Start work" : executionMode === "general" ? (generalMode === "build" ? "Build" : "Prepare plan") : streamingTurn ? "Send follow-up" : "Send message"}><ArrowUp size={17} /></button>{streamingTurn && draft.trim() && !composerStartsMission && <><button className="send-queue-toggle" onClick={(event) => { event.stopPropagation(); setQueueMenuOpen(!queueMenuOpen); }} aria-label="Add prompt to queue" aria-expanded={queueMenuOpen}><ChevronDown size={11} /></button>{queueMenuOpen && <div className="composer-menu queue-menu" role="menu"><button onClick={(event) => { event.stopPropagation(); queuePrompt("later"); }}>Add to queue</button><div className="queue-menu-summary">Wait for the current task to finish</div></div>}</>}</div>}
+              {launchMissionFromConversationMutation.isPending ? <button className="send-button" disabled aria-label="Starting work"><span className="send-spinner" /> </button> : streamingTurn && !draft.trim() ? <button className="send-button stop-button" onClick={(event) => { event.stopPropagation(); stopStreaming(); }} aria-label="Stop response" title="Stop current task"><Square size={13} fill="currentColor" /></button> : <div className="composer-menu-anchor send-menu-anchor"><button className="send-button" onClick={(event) => { event.stopPropagation(); void sendMessage(); }} disabled={!workspaceReady || (!draft.trim() && attachments.length === 0) || createThreadMutation.isPending || attachments.some((attachment) => attachment.status === "failed" || attachment.status === "cancelled")} aria-label={composerStartsMission ? "Start work" : executionMode === "general" ? (generalMode === "build" ? "Build" : "Prepare plan") : executionMode === "complex" ? (complexMode === "plan" ? "Prepare plan" : "Start work") : streamingTurn ? "Send follow-up" : "Send message"}><ArrowUp size={17} /></button>{streamingTurn && draft.trim() && !composerStartsMission && <><button className="send-queue-toggle" onClick={(event) => { event.stopPropagation(); setQueueMenuOpen(!queueMenuOpen); }} aria-label="Add prompt to queue" aria-expanded={queueMenuOpen}><ChevronDown size={11} /></button>{queueMenuOpen && <div className="composer-menu queue-menu" role="menu"><button onClick={(event) => { event.stopPropagation(); queuePrompt("later"); }}>Add to queue</button><div className="queue-menu-summary">Wait for the current task to finish</div></div>}</>}</div>}
             </div>
           </div>
         </div></div><div className="mobile-bottom-bar"><button onClick={() => setMobileNav(true)}><Menu size={16} /><span>Threads</span></button><button onClick={() => { composerRef.current?.focus(); setProjectMenuOpen(true); }} disabled={!workspaceReady || workspace.projects.length === 0}><Folder size={16} /><span>{activeProject?.name || workspace.projects.find((project) => project.id === pendingProjectId)?.name || "Project"}</span></button><button onClick={() => composerRef.current?.focus()} disabled={!workspaceReady}><ArrowUp size={16} /><span>Write</span></button></div>

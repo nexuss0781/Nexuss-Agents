@@ -983,6 +983,8 @@ body { color: var(--paper); }
 .composer-project-anchor .project-menu button:hover { background: rgba(214,225,229,.1) !important; color: #f0f4f5 !important; }
 .execution-option.selected { background: rgba(214,225,229,.08); color: #e8eff1 !important; }
 .execution-option small { color: #738086; }
+.execution-menu-label { padding: 8px 8px 4px; color: #6f7e83; font: 9px "IBM Plex Mono", monospace; letter-spacing: .12em; text-transform: uppercase; }
+.execution-menu-label:not(:first-child) { margin-top: 4px; border-top: 1px solid rgba(203,214,219,.08); }
 @media (max-width: 800px) {
   .execution-menu,
   .composer-project-anchor .project-menu { width: min(240px, calc(100vw - 24px)); }

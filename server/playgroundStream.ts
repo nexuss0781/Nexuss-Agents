@@ -10,7 +10,10 @@ const streamInput = z.object({
   prompt: z.string().trim().min(1).max(100_000),
   title: z.string().trim().min(1).max(240).optional(),
   stopNotice: z.boolean().optional(),
+  promptMode: z.enum(["general", "instant", "complex"]).optional(),
+  instantEffort: z.enum(["lite", "full", "ultra", "off"]).optional(),
   generalMode: z.enum(["plan", "build"]).optional(),
+  complexMode: z.enum(["autonomous", "plan"]).optional(),
   projectId: z.string().min(1).max(128).optional(),
 });
 

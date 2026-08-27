@@ -238,7 +238,7 @@ describe("persistent workspace client", () => {
     expect(host.querySelector(".project-menu")?.parentElement?.classList.contains("composer-project-anchor")).toBe(true);
   });
 
-  it("shows selectable Complex, General Plan Enabled, General Build, and Instant styles", async () => {
+  it("shows selectable Instant effort, General, and Complex submodes", async () => {
     const host = await mountWorkspace((path) => {
       if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-alpha"], apiKeyConfigured: true };
       return { projects: [], threads: [] };
@@ -254,10 +254,15 @@ describe("persistent workspace client", () => {
     expect(host.querySelector(".execution-menu")?.textContent).toContain("General");
     expect(host.querySelector(".execution-menu")?.textContent).toContain("Instant");
     const options = Array.from(host.querySelectorAll<HTMLButtonElement>('.execution-option'));
-    expect(options).toHaveLength(4);
+    expect(options).toHaveLength(8);
     expect(options.every((option) => !option.disabled)).toBe(true);
     expect(host.querySelector('.execution-menu')?.textContent).toContain('Plan Enabled');
     expect(host.querySelector('.execution-menu')?.textContent).toContain('Build');
+    expect(host.querySelector('.execution-menu')?.textContent).toContain('Lite');
+    expect(host.querySelector('.execution-menu')?.textContent).toContain('Full');
+    expect(host.querySelector('.execution-menu')?.textContent).toContain('Ultra');
+    expect(host.querySelector('.execution-menu')?.textContent).toContain('Off');
+    expect(host.querySelector('.execution-menu')?.textContent).toContain('Autonomous');
   });
 
   it("sends General Plan Enabled requests through the non-mission stream", async () => {
@@ -274,7 +279,7 @@ describe("persistent workspace client", () => {
       });
       await waitForText(host, "model-alpha");
       await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Choose execution style"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-      await act(async () => { host.querySelectorAll<HTMLButtonElement>(".execution-option")[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+      await act(async () => { Array.from(host.querySelectorAll<HTMLButtonElement>(".execution-option")).find((option) => option.textContent?.includes("Plan Enabled"))?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
       const composer = host.querySelector<HTMLTextAreaElement>("textarea");
       const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
       await act(async () => { setValue?.call(composer, "Analyze the repository structure"); composer?.dispatchEvent(new Event("input", { bubbles: true })); });
@@ -299,7 +304,7 @@ describe("persistent workspace client", () => {
       });
       await waitForText(host, "model-alpha");
       await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Choose execution style"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-      await act(async () => { host.querySelectorAll<HTMLButtonElement>(".execution-option")[2]?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+      await act(async () => { Array.from(host.querySelectorAll<HTMLButtonElement>(".execution-option")).find((option) => option.textContent?.includes("Build"))?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
       const composer = host.querySelector<HTMLTextAreaElement>("textarea");
       const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
       await act(async () => { setValue?.call(composer, "Implement the repository update"); composer?.dispatchEvent(new Event("input", { bubbles: true })); });
@@ -307,6 +312,57 @@ describe("persistent workspace client", () => {
       const request = fetchMock.mock.calls.find(([url]) => url === "/api/playground/stream");
       expect(request).toBeDefined();
       expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({ generalMode: "build", prompt: "Implement the repository update" });
+    } finally { fetchMock.mockRestore(); }
+  });
+
+  it("sends Instant requests through the non-mission stream", async () => {
+    const empty: WorkspaceSnapshot = { projects: [], threads: [] };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      const body = `data: {"type":"done","content":"Direct answer","finished":true}\n\n`;
+      return new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } });
+    });
+    try {
+      const host = await mountWorkspace((path) => {
+        if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-alpha"], apiKeyConfigured: true };
+        if (path === "workspace.createThread") return { id: "instant-thread", chatSlug: "chat-ffffffffffffffffffffffffffffffff", title: "New thread", updatedAt: "2026-08-24T00:00:00.000Z", messages: [] };
+        return empty;
+      });
+      await waitForText(host, "model-alpha");
+      await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Choose execution style"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+      await act(async () => { Array.from(host.querySelectorAll<HTMLButtonElement>(".execution-option")).find((option) => option.textContent?.includes("Full"))?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+      const composer = host.querySelector<HTMLTextAreaElement>("textarea");
+      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+      await act(async () => { setValue?.call(composer, "What is the simplest correct approach?"); composer?.dispatchEvent(new Event("input", { bubbles: true })); });
+      await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Send message"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+      const request = fetchMock.mock.calls.find(([url]) => url === "/api/playground/stream");
+      expect(request).toBeDefined();
+      expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({ promptMode: "instant", instantEffort: "full", prompt: "What is the simplest correct approach?" });
+    } finally { fetchMock.mockRestore(); }
+  });
+
+  it("sends Complex Plan requests through the deep planning stream without mission intake", async () => {
+    const empty: WorkspaceSnapshot = { projects: [], threads: [] };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      const body = `data: {"type":"done","content":"Plan ready for approval","finished":true}\n\n`;
+      return new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } });
+    });
+    try {
+      const host = await mountWorkspace((path) => {
+        if (path === "workspace.modelSettings") return { baseUrl: "https://models.example.com/v1", selectedModels: ["model-alpha"], apiKeyConfigured: true };
+        if (path === "workspace.createThread") return { id: "complex-plan-thread", chatSlug: "chat-12121212121212121212121212121212", title: "New thread", updatedAt: "2026-08-24T00:00:00.000Z", messages: [] };
+        return empty;
+      });
+      await waitForText(host, "model-alpha");
+      await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Choose execution style"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+      await act(async () => { Array.from(host.querySelectorAll<HTMLButtonElement>(".execution-option")).find((option) => option.textContent?.includes("Deep understand"))?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+      const composer = host.querySelector<HTMLTextAreaElement>("textarea");
+      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+      await act(async () => { setValue?.call(composer, "Research the architecture and propose the implementation"); composer?.dispatchEvent(new Event("input", { bubbles: true })); });
+      await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label="Prepare plan"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+      const request = fetchMock.mock.calls.find(([url]) => url === "/api/playground/stream");
+      expect(request).toBeDefined();
+      expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({ promptMode: "complex", complexMode: "plan", prompt: "Research the architecture and propose the implementation" });
+      expect(JSON.parse(String(request?.[1]?.body))).not.toHaveProperty("generalMode");
     } finally { fetchMock.mockRestore(); }
   });
 

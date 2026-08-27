@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connect } from "parad";
-import { composeGeneralSystemPrompt, type GeneralMode } from "./mission/generalAgentPrompt";
+import { composeComplexSystemPrompt, composeGeneralSystemPrompt, composeInstantSystemPrompt, type ComplexMode, type GeneralMode, type InstantEffort } from "./mission/generalAgentPrompt";
 import type { AuditSink, FileSystemAuditEvent } from "../tools/file-system/audit";
 import type { FileSystemRequest } from "../tools/file-system/types";
 
@@ -384,7 +384,7 @@ export async function saveModelProviderSettings(ownerId: string, input: { baseUr
   });
 }
 
-export type PlaygroundPrompt = { threadId: string; model: string; prompt: string; title?: string; stopNotice?: boolean; generalMode?: GeneralMode; projectId?: string };
+export type PlaygroundPrompt = { threadId: string; model: string; prompt: string; title?: string; stopNotice?: boolean; promptMode?: "general" | "instant" | "complex"; instantEffort?: InstantEffort; generalMode?: GeneralMode; complexMode?: ComplexMode; projectId?: string };
 export type PlaygroundToolCall = { id: string; type: "function"; function: { name: string; arguments: string } };
 export type PlaygroundToolEvent = { type: "filesystem.started" | "filesystem.completed" | "filesystem.failed" | "terminal.started" | "terminal.completed" | "terminal.failed"; id: string; action: string; status: "running" | "completed" | "failed"; operationId?: string; code?: string; message?: string };
 export type PlaygroundStreamResult = { content: string; stopped: boolean; finished: boolean; toolCalls?: PlaygroundToolCall[] };
@@ -397,9 +397,14 @@ export function resolveGeneralMode(input: { requestedMode: GeneralMode; prompt: 
   return approved ? "build" : input.requestedMode;
 }
 
-export function buildPlaygroundMessages(history: Array<Pick<WorkspaceMessage, "role" | "content">>, input: Pick<PlaygroundPrompt, "prompt" | "stopNotice" | "generalMode">): WorkspaceModelMessage[] {
+export function buildPlaygroundMessages(history: Array<Pick<WorkspaceMessage, "role" | "content">>, input: Pick<PlaygroundPrompt, "prompt" | "stopNotice" | "promptMode" | "instantEffort" | "generalMode" | "complexMode">): WorkspaceModelMessage[] {
+  const systemPrompt = input.promptMode === "instant"
+    ? composeInstantSystemPrompt(input.instantEffort || "full")
+    : input.promptMode === "complex"
+      ? composeComplexSystemPrompt(input.complexMode || "autonomous")
+      : composeGeneralSystemPrompt(input.generalMode || "plan");
   return [
-    { role: "system", content: composeGeneralSystemPrompt(input.generalMode || "plan") },
+    { role: "system", content: systemPrompt },
     ...(input.stopNotice ? [{ role: "system" as const, content: "The user stopped the previous task. Stop immediately, wait, and do not continue that task until the user provides a new request." }] : []),
     ...history,
     { role: "user", content: input.prompt },
@@ -596,12 +601,13 @@ export async function streamWorkspacePrompt(ownerId: string, input: PlaygroundPr
   const history = await loadThreadMessagesForPlayground(ownerId, input.threadId);
   const title = history.length === 0 ? (input.title || input.prompt.slice(0, 42)) : undefined;
   await appendThreadMessages(ownerId, input.threadId, [{ role: "user", content: input.prompt }], title);
+  const promptMode = input.promptMode || "general";
   const requestedGeneralMode = input.generalMode || "plan";
   const activeGeneralMode = resolveGeneralMode({ requestedMode: requestedGeneralMode, prompt: input.prompt, history });
-  const messages = buildPlaygroundMessages(history, { ...input, generalMode: activeGeneralMode });
+  const messages = buildPlaygroundMessages(history, { ...input, promptMode, generalMode: activeGeneralMode });
   const rollbackPrompt = () => removeLatestThreadMessage(ownerId, input.threadId, { role: "user", content: input.prompt });
-  const canUseGeneralTools = Boolean(input.projectId && input.generalMode);
-  const availableGeneralTools = activeGeneralMode === "build" ? [GENERAL_FILESYSTEM_TOOL, GENERAL_TERMINAL_TOOL] : [GENERAL_FILESYSTEM_TOOL];
+  const canUseGeneralTools = Boolean(input.projectId && ((promptMode === "general" && input.generalMode) || (promptMode === "complex" && input.complexMode === "plan")));
+  const availableGeneralTools = activeGeneralMode === "build" && promptMode === "general" ? [GENERAL_FILESYSTEM_TOOL, GENERAL_TERMINAL_TOOL] : [GENERAL_FILESYSTEM_TOOL];
   let finalResult: PlaygroundStreamResult = { content: "", stopped: false, finished: false };
   try {
     for (let round = 0; round <= 8; round += 1) {
