@@ -575,7 +575,7 @@ function boundedToolContent(value: unknown) {
   return (serialized || "").slice(0, 32_000);
 }
 
-async function executeGeneralTerminalTool(ownerId: string, projectId: string, call: PlaygroundToolCall, signal: AbortSignal) {
+async function executeGeneralTerminalTool(ownerId: string, projectId: string, call: PlaygroundToolCall, signal: AbortSignal, onStarted?: (session: { sessionId: string }) => void) {
   let parsed: Record<string, unknown>;
   try { parsed = JSON.parse(call.function.arguments) as Record<string, unknown>; } catch { return { ok: false, code: "INVALID_TOOL_ARGUMENTS", message: "The terminal tool arguments were not valid JSON." }; }
   const command = typeof parsed.command === "string" ? parsed.command.trim() : "";
@@ -583,7 +583,7 @@ async function executeGeneralTerminalTool(ownerId: string, projectId: string, ca
   const workingDirectory = typeof parsed.workingDirectory === "string" && parsed.workingDirectory.trim() ? parsed.workingDirectory.trim() : ".";
   const timeoutMs = typeof parsed.timeoutMs === "number" && Number.isFinite(parsed.timeoutMs) ? Math.max(1_000, Math.min(7 * 24 * 60 * 60 * 1000, Math.floor(parsed.timeoutMs))) : 120_000;
   const idleTimeoutMs = typeof parsed.idleTimeoutMs === "number" && Number.isFinite(parsed.idleTimeoutMs) ? Math.max(1_000, Math.min(24 * 60 * 60 * 1000, Math.floor(parsed.idleTimeoutMs))) : undefined;
-  const session = await runLocalTerminalForAgent(ownerId, { contractVersion: "1.0.0", lane: "local", projectId, workingDirectory, command, shell: "bash", interactive: false, timeout: { timeoutMs, ...(idleTimeoutMs ? { idleTimeoutMs } : {}) }, label: typeof parsed.label === "string" ? parsed.label.slice(0, 240) : undefined }, signal);
+  const session = await runLocalTerminalForAgent(ownerId, { contractVersion: "1.0.0", lane: "local", projectId, workingDirectory, command, shell: "bash", interactive: false, timeout: { timeoutMs, ...(idleTimeoutMs ? { idleTimeoutMs } : {}) }, label: typeof parsed.label === "string" ? parsed.label.slice(0, 240) : undefined }, signal, onStarted);
   const stdout = session.events.filter((event) => event.kind === "stdout").map((event) => event.text || "").join("").slice(-120_000);
   const stderr = session.events.filter((event) => event.kind === "stderr").map((event) => event.text || "").join("").slice(-40_000);
   const ok = session.state === "completed";
@@ -644,11 +644,11 @@ export async function streamWorkspacePrompt(ownerId: string, input: PlaygroundPr
         const action = typeof parsedArguments.action === "string" ? parsedArguments.action : "filesystem";
         const toolType = call.function.name === "terminal" ? "terminal" : "filesystem";
         const terminalAction = typeof parsedArguments.command === "string" && parsedArguments.command.trim() ? parsedArguments.command.trim().slice(0, 96) : "terminal";
-        onToolEvent({ type: `${toolType}.started` as PlaygroundToolEvent["type"], id: call.id, action: toolType === "terminal" ? terminalAction : action, status: "running" });
+        if (toolType !== "terminal") onToolEvent({ type: `${toolType}.started` as PlaygroundToolEvent["type"], id: call.id, action, status: "running" });
         let toolResult: unknown;
         try {
           toolResult = call.function.name === "terminal"
-            ? activeGeneralMode === "build" ? await executeGeneralTerminalTool(ownerId, input.projectId, call, signal) : { ok: false, code: "MODE_REJECTED", message: "Terminal execution is available only in Build mode." }
+            ? activeGeneralMode === "build" ? await executeGeneralTerminalTool(ownerId, input.projectId, call, signal, (started) => onToolEvent({ type: "terminal.started", id: call.id, action: terminalAction, status: "running", operationId: started.sessionId })) : { ok: false, code: "MODE_REJECTED", message: "Terminal execution is available only in Build mode." }
             : await executeGeneralFilesystemTool(ownerId, input.projectId, call, activeGeneralMode);
         } catch (error) { toolResult = { ok: false, code: "TOOL_EXECUTION_FAILED", message: error instanceof Error ? error.message : "The requested tool failed." }; }
         const failed = Boolean(toolResult && typeof toolResult === "object" && "ok" in toolResult && (toolResult as { ok?: unknown }).ok === false);

@@ -52,7 +52,13 @@ For filesystem work, the entry point is:
 Skills/Tools/File-system/SKILL.md
 ```
 
-Use the filesystem runtime with the active `projectId`. Continue from returned evidence such as file content, checksums, operation IDs, diffs, manifests, snapshots, and verification results.
+For agent-owned process execution and live Terminal monitoring, load:
+
+```text
+Skills/Tools/Terminal.md
+```
+
+Use the filesystem runtime with the active `projectId`. Continue from returned evidence such as file content, checksums, operation IDs, diffs, manifests, snapshots, and verification results. Use Terminal session IDs and operation IDs to connect agent execution with the read-only workbench monitor.
 
 ## Discovery
 

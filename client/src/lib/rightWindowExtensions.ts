@@ -21,10 +21,19 @@ export type RightWindowWorkspaceProject = {
 
 export type RightWindowRenderContext = {
   currentProject?: RightWindowWorkspaceProject | null;
+  requestedSessionId?: string;
+  requestedLane?: "local" | "external";
+  readOnly?: boolean;
+};
+
+export type RightWindowOpenOptions = {
+  sessionId?: string;
+  lane?: "local" | "external";
+  readOnly?: boolean;
 };
 
 export type RightWindowApi = {
-  open: (extensionId?: string) => void;
+  open: (extensionId?: string, options?: RightWindowOpenOptions) => void;
   close: () => void;
   toggle: (extensionId?: string) => void;
   setWidth: (width: number) => void;

@@ -13,9 +13,10 @@ import {
   ShieldCheck,
   Sparkles,
   Terminal,
+  ChevronRight,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 
 export type ToolActionEvent = {
   id: string;
@@ -134,7 +135,12 @@ const DETAIL_KEYS = new Set([
   "outputLength",
 ]);
 
-export function ToolActionCard({ event }: { event: ToolActionEvent }) {
+type ToolActionCardProps = {
+  event: ToolActionEvent;
+  onOpenTerminal?: (sessionId: string) => void;
+};
+
+export function ToolActionCard({ event, onOpenTerminal }: ToolActionCardProps) {
   const [expanded, setExpanded] = useState(false);
   const payload = event.payload || {};
   const base = lifecycleMeta(event.type, payload);
@@ -142,13 +148,15 @@ export function ToolActionCard({ event }: { event: ToolActionEvent }) {
   const Icon = state === "active" ? LoaderCircle : state === "attention" ? AlertCircle : CheckCircle2;
   const details = useMemo(() => Object.entries(payload).filter(([key, value]) => DETAIL_KEYS.has(key) && value !== null && value !== undefined && value !== ""), [payload]);
   const time = new Date(event.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const terminalSessionId = event.type.startsWith("terminal.") && typeof payload.operationId === "string" && payload.operationId.trim() ? payload.operationId : null;
+  const opensTerminal = Boolean(terminalSessionId && onOpenTerminal);
 
   return (
-    <article className={`tool-action-card is-${state} ${expanded ? "is-expanded" : ""}`}>
-      <button className="tool-action-trigger" type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>
+    <article className={`tool-action-card is-${state} ${expanded ? "is-expanded" : ""} ${opensTerminal ? "is-openable" : ""}`}>
+      <button className="tool-action-trigger" type="button" onClick={() => { if (terminalSessionId && onOpenTerminal) onOpenTerminal(terminalSessionId); else setExpanded((value) => !value); }} aria-expanded={opensTerminal ? undefined : expanded} aria-label={opensTerminal ? "Open terminal session" : undefined}>
         <span className="tool-action-icon" aria-hidden="true"><Icon size={15} className={state === "active" ? "tool-action-spin" : ""} /></span>
         <span className="tool-action-copy"><strong>{base.label}</strong><small>{base.detail}</small></span>
-        <span className="tool-action-meta"><span>{time}</span><ChevronDown size={14} className="tool-action-chevron" /></span>
+        <span className="tool-action-meta"><span>{time}</span>{opensTerminal ? <ChevronRight size={14} className="tool-action-chevron" /> : <ChevronDown size={14} className="tool-action-chevron" />}</span>
       </button>
       {expanded && <div className="tool-action-details">
         <div className="tool-action-detail-row"><span>Agent</span><strong>{readableActor(event.actor)}</strong></div>
@@ -159,7 +167,7 @@ export function ToolActionCard({ event }: { event: ToolActionEvent }) {
   );
 }
 
-export function ToolActionStack({ events }: { events: ToolActionEvent[] }) {
+export function ToolActionStack({ events, onOpenTerminal }: { events: ToolActionEvent[]; onOpenTerminal?: (sessionId: string) => void }) {
   if (!events.length) return null;
-  return <section className="tool-action-stack" aria-label="Agent activity">{events.map((event) => <ToolActionCard key={event.id} event={event} />)}</section>;
+  return <section className="tool-action-stack" aria-label="Agent activity">{events.map((event) => <ToolActionCard key={event.id} event={event} onOpenTerminal={onOpenTerminal} />)}</section>;
 }

@@ -2519,3 +2519,11 @@ body { color: var(--paper); }
 .terminal-artifacts a { display: inline-flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; color: #b8e2ff; font-size: 11px; overflow-wrap: anywhere; }
 .terminal-external-history-list { max-height: 100%; }
 @media (max-width: 520px) { .terminal-lane-tabs { padding-inline: 8px; } .terminal-lane-tab, .terminal-lane-history { padding-inline: 7px; font-size: 10px; } .terminal-external-form { padding: 10px; } }
+
+/* Agent-owned Terminal monitor */
+.tool-action-card.is-openable .tool-action-trigger { cursor: pointer; }
+.tool-action-card.is-openable .tool-action-trigger:hover { background: rgba(255, 255, 255, .035); }
+.tool-action-card.is-openable .tool-action-meta { color: #d8d8d2; }
+.terminal-readonly-hint { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 10px 12px; border-top: 1px solid rgba(255,255,255,.08); color: #77787b; font: 10px/1.45 "IBM Plex Mono", monospace; }
+.terminal-readonly-hint svg { flex: none; color: #d7d7d1; }
+@media (max-width: 720px) { .terminal-readonly-hint { font-size: 9px; } }

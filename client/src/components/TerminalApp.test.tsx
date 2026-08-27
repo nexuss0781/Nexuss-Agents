@@ -50,13 +50,13 @@ class MockEventSource {
 Object.assign(globalThis, { EventSource: MockEventSource });
 
 const roots: Array<{ root: Root; host: HTMLDivElement }> = [];
-async function mount() {
+async function mount(readOnly = true, requestedSessionId?: string) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   const queryClient = new QueryClient();
   roots.push({ root, host });
-  await act(async () => { root.render(<QueryClientProvider client={queryClient}><TerminalApp api={{} as never} context={{ currentProject: project }} /></QueryClientProvider>); });
+  await act(async () => { root.render(<QueryClientProvider client={queryClient}><TerminalApp api={{} as never} context={{ currentProject: project, readOnly, ...(requestedSessionId ? { requestedSessionId } : {}) }} /></QueryClientProvider>); });
   return host;
 }
 function inputValue(input: HTMLInputElement, value: string) {
@@ -89,8 +89,8 @@ describe("TerminalApp", () => {
     expect(host.textContent).toContain("history output");
   });
 
-  it("renders streamed output and supports interactive input and cancellation", async () => {
-    const host = await mount();
+  it("renders streamed output and supports interactive input and cancellation when controls are enabled", async () => {
+    const host = await mount(false);
     const command = host.querySelector<HTMLInputElement>("input[aria-label='Terminal command']");
     await act(async () => { inputValue(command!, "read -r value; printf '%s' \"$value\""); command!.form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
     await act(async () => { lastSource?.onmessage?.({ data: JSON.stringify({ type: "event", event: { sequence: 1, occurredAt: "2026-08-27T10:00:00.000Z", kind: "stdout", state: "running", text: "live output" } }) } as MessageEvent); });
@@ -102,5 +102,19 @@ describe("TerminalApp", () => {
     const cancel = host.querySelector<HTMLButtonElement>("button[aria-label='Cancel session']");
     await act(async () => { cancel?.click(); });
     expect(calls.cancel[0]).toEqual({ sessionId: "session-1" });
+  });
+
+  it("defaults to read-only monitoring for agent-owned sessions", async () => {
+    const host = await mount();
+    expect(host.querySelector("input[aria-label='Terminal command']")).toBeNull();
+    expect(host.querySelector("input[aria-label='Terminal input']")).toBeNull();
+    expect(host.textContent).toContain("Agent controls execution");
+  });
+
+  it("opens a requested agent session and subscribes to its live stream", async () => {
+    const host = await mount(true, "session-1");
+    await act(async () => { lastSource?.onmessage?.({ data: JSON.stringify({ type: "event", event: { sequence: 1, occurredAt: "2026-08-27T10:00:00.000Z", kind: "stdout", state: "running", text: "agent output" } }) } as MessageEvent); });
+    expect(lastSource).not.toBeNull();
+    expect(host.textContent).toContain("agent output");
   });
 });

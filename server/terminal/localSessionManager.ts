@@ -330,9 +330,10 @@ export async function getLocalTerminalSession(ownerId: string, sessionId: string
   });
 }
 
-export async function runLocalTerminalForAgent(ownerId: string, rawRequest: unknown, signal: AbortSignal): Promise<LocalTerminalSession> {
+export async function runLocalTerminalForAgent(ownerId: string, rawRequest: unknown, signal: AbortSignal, onStarted?: (session: Pick<LocalTerminalSessionSummary, "sessionId">) => void): Promise<LocalTerminalSession> {
   const started = await startLocalTerminal(ownerId, rawRequest);
   const sessionId = started.sessionId;
+  onStarted?.(started);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let settled = false;
   const terminal = (state: TerminalState) => state === "completed" || state === "failed" || state === "cancelled" || state === "timed_out" || state === "interrupted";
