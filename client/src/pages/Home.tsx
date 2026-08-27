@@ -263,7 +263,7 @@ export async function consumePlaygroundStream(response: Response, signal: AbortS
     let detail = "";
     try { detail = String((JSON.parse(raw) as { error?: unknown }).error || ""); } catch { detail = raw.slice(0, 240); }
     console.error("[Playground] stream request rejected", { status: response.status, statusText: response.statusText, detail });
-    throw new Error("The model request could not be completed.");
+    throw new PlaygroundRequestError({ type: "error", code: `HTTP_${response.status}`, status: response.status, message: "The model request could not be completed.", diagnostic: detail || response.statusText });
   }
   if (!response.body) {
     console.error("[Playground] provider returned an empty response body");
@@ -1078,7 +1078,8 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         const diagnostic = error instanceof PlaygroundRequestError ? { name: error.name, requestId: error.requestId, code: error.code, status: error.status, detail: error.diagnostic } : error;
         console.error("[Playground] prompt stream failed", { model: activeModel, threadId: targetThread.id, error: diagnostic });
         setDraft((current) => current.trim() ? current : content);
-        toast.error(error instanceof PlaygroundRequestError ? "The model request failed. Check the console for details." : error instanceof Error ? error.message : "The model request failed.");
+        const userMessage = error instanceof PlaygroundRequestError ? [error.message, error.diagnostic].filter(Boolean).join(" ") : error instanceof Error ? error.message : "The model request failed.";
+        toast.error(userMessage);
       }
     } finally {
       if (streamAbortRef.current === controller) streamAbortRef.current = null;
