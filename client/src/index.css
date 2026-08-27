@@ -2496,3 +2496,26 @@ body { color: var(--paper); }
 .terminal-history-empty { padding:40px 18px; color:#697573; font:10px "IBM Plex Mono",monospace; text-align:center; }
 @media (max-width:480px) { .terminal-header,.terminal-history-header { padding-right:11px; padding-left:11px; } .terminal-project-bar,.terminal-footer { padding-right:10px; padding-left:10px; } .terminal-command-options { flex-wrap:wrap; gap:8px; } .terminal-command-options label:first-child { flex-basis:100%; } .terminal-line { grid-template-columns:20px minmax(0,1fr); gap:5px; } .terminal-line-sequence { font-size:9px; } .terminal-error { margin-left:25px; } }
 @media (prefers-reduced-motion:reduce) { .terminal-spin { animation:none; } }
+
+/* External GitHub Actions lane */
+.terminal-lane-tabs { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.02); }
+.terminal-lane-tab, .terminal-lane-history { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: rgba(255,255,255,.48); padding: 7px 9px; border-radius: 7px; font-size: 11px; cursor: pointer; }
+.terminal-lane-tab.active { color: #f4f4f0; background: rgba(255,255,255,.09); }
+.terminal-lane-history { margin-left: auto; color: rgba(255,255,255,.62); }
+.terminal-external-form { display: grid; gap: 12px; padding: 14px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.terminal-external-form label { display: grid; gap: 6px; min-width: 0; }
+.terminal-external-form label > span { color: rgba(255,255,255,.38); font: 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
+.terminal-external-form select, .terminal-external-form input, .terminal-external-form textarea { width: 100%; min-width: 0; border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.3); color: #f4f4f0; border-radius: 7px; padding: 9px 10px; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; outline: none; }
+.terminal-external-form select:focus, .terminal-external-form input:focus, .terminal-external-form textarea:focus { border-color: rgba(184,226,255,.6); }
+.terminal-external-form textarea { resize: vertical; min-height: 68px; }
+.terminal-external-run-button { justify-self: start; display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; }
+.terminal-external-status { display: grid; gap: 14px; min-height: 0; padding: 15px; }
+.terminal-external-status > div:first-child { display: grid; gap: 4px; }
+.terminal-external-status strong { color: #f4f4f0; font-size: 13px; font-weight: 550; }
+.terminal-external-status small { color: rgba(255,255,255,.43); font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+.terminal-external-events { display: grid; gap: 3px; max-height: 270px; overflow: auto; padding: 10px; border: 1px solid rgba(255,255,255,.07); background: rgba(0,0,0,.22); }
+.terminal-external-events .terminal-line { display: grid; grid-template-columns: 26px minmax(0,1fr); gap: 8px; font-size: 11px; }
+.terminal-artifacts { display: grid; gap: 7px; }
+.terminal-artifacts a { display: inline-flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; color: #b8e2ff; font-size: 11px; overflow-wrap: anywhere; }
+.terminal-external-history-list { max-height: 100%; }
+@media (max-width: 520px) { .terminal-lane-tabs { padding-inline: 8px; } .terminal-lane-tab, .terminal-lane-history { padding-inline: 7px; font-size: 10px; } .terminal-external-form { padding: 10px; } }

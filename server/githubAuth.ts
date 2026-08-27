@@ -125,6 +125,47 @@ export async function listGithubWorkflowRuns(ownerId: string, fullName: string):
   const [owner, repo] = fullName.split("/"); const result = await centralGithubRequest<GithubWorkflowRunsResponse>(ownerId, `/v1/github/runs?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`); return { ...result, runs: Array.isArray(result.runs) ? result.runs.slice(0, 30) : [] };
 }
 
+export type GithubWorkflow = { id: number; name: string; path: string; state: string; htmlUrl: string | null; updatedAt: string | null };
+export type GithubWorkflowDispatch = { owner: string; repo: string; workflowId: string; ref: string; workflowRunId?: number; runUrl?: string; htmlUrl?: string };
+export type GithubWorkflowArtifact = { id: number; name: string; sizeBytes: number; archiveDownloadUrl: string | null; expired: boolean; createdAt: string | null; expiresAt: string | null; digest: string | null };
+
+function githubRepositoryReference(fullName: string) {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName)) throw new GithubOAuthError("Choose a valid GitHub repository.");
+  return fullName.split("/");
+}
+
+export async function listGithubWorkflows(ownerId: string, fullName: string): Promise<{ owner: string; repo: string; workflows: GithubWorkflow[] }> {
+  const [owner, repo] = githubRepositoryReference(fullName);
+  const result = await centralGithubRequest<{ owner: string; repo: string; workflows: GithubWorkflow[] }>(ownerId, `/v1/github/workflows?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`);
+  return { ...result, workflows: Array.isArray(result.workflows) ? result.workflows.slice(0, 100) : [] };
+}
+
+export async function dispatchGithubWorkflow(ownerId: string, input: { fullName: string; workflowId: string; ref: string; inputs: Record<string, string> }): Promise<GithubWorkflowDispatch> {
+  const [owner, repo] = githubRepositoryReference(input.fullName);
+  if (!/^(\d+|[A-Za-z0-9._\/-]+\.ya?ml)$/.test(input.workflowId) || !/^[^\u0000-\u001f]{1,256}$/.test(input.ref) || Object.keys(input.inputs).length > 25) throw new GithubOAuthError("Choose a valid workflow, ref, and inputs.");
+  return centralGithubRequest<GithubWorkflowDispatch>(ownerId, "/v1/github/dispatch", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner, repo, workflowId: input.workflowId, ref: input.ref, inputs: input.inputs }) });
+}
+
+export async function getGithubWorkflowRun(ownerId: string, fullName: string, runId: number) {
+  const [owner, repo] = githubRepositoryReference(fullName);
+  if (!Number.isInteger(runId) || runId < 1) throw new GithubOAuthError("Choose a valid workflow run.");
+  const result = await centralGithubRequest<{ owner: string; repo: string; run: Record<string, unknown> }>(ownerId, `/v1/github/run?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}&run_id=${runId}`);
+  return result.run;
+}
+
+export async function cancelGithubWorkflowRun(ownerId: string, fullName: string, runId: number) {
+  const [owner, repo] = githubRepositoryReference(fullName);
+  if (!Number.isInteger(runId) || runId < 1) throw new GithubOAuthError("Choose a valid workflow run.");
+  return centralGithubRequest<{ cancelled: true; owner: string; repo: string; runId: number }>(ownerId, "/v1/github/cancel", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner, repo, runId }) });
+}
+
+export async function listGithubWorkflowArtifacts(ownerId: string, fullName: string, runId: number): Promise<{ owner: string; repo: string; runId: number; artifacts: GithubWorkflowArtifact[] }> {
+  const [owner, repo] = githubRepositoryReference(fullName);
+  if (!Number.isInteger(runId) || runId < 1) throw new GithubOAuthError("Choose a valid workflow run.");
+  const result = await centralGithubRequest<{ owner: string; repo: string; runId: number; artifacts: GithubWorkflowArtifact[] }>(ownerId, `/v1/github/artifacts?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}&run_id=${runId}`);
+  return { ...result, artifacts: Array.isArray(result.artifacts) ? result.artifacts.slice(0, 100) : [] };
+}
+
 export async function listGithubWorkflowJobs(ownerId: string, fullName: string, runId: number): Promise<GithubWorkflowJobsResponse> {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(fullName) || !Number.isInteger(runId) || runId < 1) throw new GithubOAuthError("Choose a valid workflow run.");
   const [owner, repo] = fullName.split("/"); const result = await centralGithubRequest<GithubWorkflowJobsResponse>(ownerId, `/v1/github/jobs?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}&run_id=${runId}`); return { ...result, jobs: Array.isArray(result.jobs) ? result.jobs.slice(0, 100) : [] };

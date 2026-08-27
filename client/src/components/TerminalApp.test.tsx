@@ -20,14 +20,23 @@ let lastSource: { onmessage?: (event: MessageEvent) => void; onerror?: () => voi
 
 vi.mock("@/lib/trpc", () => ({
   trpc: {
-    useUtils: () => ({ workspace: { terminal: { local: { list: { invalidate: vi.fn() }, get: { invalidate: vi.fn() } } } } }),
-    workspace: { terminal: { local: {
-      list: { useQuery: () => ({ data: sessions, isLoading: false }) },
-      get: { useQuery: () => ({ data: selectedSession, isLoading: false }) },
-      start: { useMutation: (options: { onSuccess: (value: MockSession) => void }) => ({ isPending: false, mutate: (value: unknown) => { calls.start.push(value); options.onSuccess({ ...baseSession, state: "running", command: String((value as { command: string }).command), events: [] }); } }) },
-      input: { useMutation: (options: { onSuccess: () => void }) => ({ isPending: false, mutate: (value: unknown) => { calls.input.push(value); options.onSuccess(); } }) },
-      cancel: { useMutation: (options: { onSuccess: (value: MockSession) => void }) => ({ isPending: false, mutate: (value: unknown) => { calls.cancel.push(value); options.onSuccess({ ...baseSession, state: "cancelled" }); } }) },
-    } } },
+    useUtils: () => ({ workspace: { terminal: { local: { list: { invalidate: vi.fn() }, get: { invalidate: vi.fn() } }, external: { list: { invalidate: vi.fn() }, get: { invalidate: vi.fn() } } } } }),
+    workspace: { terminal: {
+      local: {
+        list: { useQuery: () => ({ data: sessions, isLoading: false }) },
+        get: { useQuery: () => ({ data: selectedSession, isLoading: false }) },
+        start: { useMutation: (options: { onSuccess: (value: MockSession) => void }) => ({ isPending: false, mutate: (value: unknown) => { calls.start.push(value); options.onSuccess({ ...baseSession, state: "running", command: String((value as { command: string }).command), events: [] }); } }) },
+        input: { useMutation: (options: { onSuccess: () => void }) => ({ isPending: false, mutate: (value: unknown) => { calls.input.push(value); options.onSuccess(); } }) },
+        cancel: { useMutation: (options: { onSuccess: (value: MockSession) => void }) => ({ isPending: false, mutate: (value: unknown) => { calls.cancel.push(value); options.onSuccess({ ...baseSession, state: "cancelled" }); } }) },
+      },
+      external: {
+        list: { useQuery: () => ({ data: [], isLoading: false }) },
+        get: { useQuery: () => ({ data: null, isLoading: false }) },
+        start: { useMutation: (options: { onSuccess: (value: MockSession) => void }) => ({ isPending: false, mutate: (value: unknown) => options.onSuccess({ ...baseSession, sessionId: "external-1", state: "queued", summary: "Workflow dispatched." }) }) },
+        cancel: { useMutation: (options: { onSuccess: () => void }) => ({ isPending: false, mutate: () => options.onSuccess() }) },
+        refresh: { useMutation: (options: { onSuccess: () => void }) => ({ isPending: false, mutate: () => options.onSuccess() }) },
+      },
+    }, github: { repositories: { useQuery: () => ({ data: { repositories: [] }, isLoading: false }) }, workflows: { useQuery: () => ({ data: { workflows: [] }, isLoading: false }) } } },
   },
 }));
 
