@@ -39,6 +39,8 @@ import { commitAndPushLocalChanges, generateLocalCommitMessage, getLocalChanges 
 import { runProjectFileSystem } from "./fileSystemRuntime";
 import type { FileSystemAction } from "../tools/file-system/types";
 import { classifyConversationHandoff } from "./mission/conversationHandoff";
+import { cancelLocalTerminal, getLocalTerminalSession, listLocalTerminalSessions, sendLocalTerminalInput, startLocalTerminal } from "./terminal/localSessionManager";
+import { localTerminalRequestSchema } from "./terminal/contracts";
 
 const projectInput = z.object({ name: z.string().trim().min(1).max(120), description: z.string().trim().max(500), tone: z.string().max(32).default("#f4f4f0"), sourceType: z.enum(["none", "upload", "github"]).default("none") });
 const messageInput = z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(100_000) });
@@ -108,6 +110,15 @@ export const appRouter = router({
           try { paths = JSON.parse(String(value.paths_json || "[]")); } catch { paths = []; }
           return { id: String(value.id), projectId: String(value.project_id), missionId: value.mission_id ? String(value.mission_id) : undefined, agentId: value.agent_id ? String(value.agent_id) : undefined, action: String(value.action), paths, result: String(value.result), errorCode: value.error_code ? String(value.error_code) : undefined, durationMs: Number(value.duration_ms), createdAt: String(value.created_at) };
         }));
+      }),
+    }),
+    terminal: router({
+      local: router({
+        start: publicProcedure.input(localTerminalRequestSchema).mutation(async ({ ctx, input }) => { try { return await startLocalTerminal(await workspaceOwner(ctx), input); } catch (error) { return workspaceFailure(error); } }),
+        list: publicProcedure.input(z.object({ projectId: z.string().min(1).max(128).optional(), limit: z.number().int().min(1).max(200).default(50) }).optional()).query(async ({ ctx, input }) => { try { return await listLocalTerminalSessions(await workspaceOwner(ctx), input?.projectId, input?.limit); } catch (error) { return workspaceFailure(error); } }),
+        get: publicProcedure.input(z.object({ sessionId: z.string().min(1).max(256) })).query(async ({ ctx, input }) => { try { return await getLocalTerminalSession(await workspaceOwner(ctx), input.sessionId); } catch (error) { return workspaceFailure(error); } }),
+        input: publicProcedure.input(z.object({ sessionId: z.string().min(1).max(256), input: z.string().min(1).max(20_000) })).mutation(async ({ ctx, input }) => { try { return await sendLocalTerminalInput(await workspaceOwner(ctx), input.sessionId, input.input); } catch (error) { return workspaceFailure(error); } }),
+        cancel: publicProcedure.input(z.object({ sessionId: z.string().min(1).max(256) })).mutation(async ({ ctx, input }) => { try { return await cancelLocalTerminal(await workspaceOwner(ctx), input.sessionId); } catch (error) { return workspaceFailure(error); } }),
       }),
     }),
     store: router({

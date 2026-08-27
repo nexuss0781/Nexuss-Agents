@@ -42,6 +42,7 @@ import {
   Sparkles,
   ListChecks,
   PackageOpen,
+  Terminal as TerminalIcon,
 } from "lucide-react";
 import { getRightWindowExtension, getRightWindowExtensions, registerRightWindowExtension, subscribeRightWindowExtensions, type RightWindowApi, type RightWindowExtension } from "@/lib/rightWindowExtensions";
 import { LogOut } from "lucide-react";
@@ -50,6 +51,7 @@ import { trpc } from "../lib/trpc";
 import { useLocation } from "wouter";
 import AxolotlStoreApp from "../components/AxolotlStoreApp";
 import NexussGitApp from "../components/NexussGitApp";
+import { TerminalApp } from "../components/TerminalApp";
 import { ToolActionStack, type ToolActionEvent } from "../components/ToolActionCard";
 import { NEXUSS_GIT_RELEASE } from "@/lib/nexussGitRelease";
 
@@ -377,6 +379,25 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
         minWidth: 340,
         defaultWidth: 420,
         render: (api) => <AxolotlStoreApp api={api} />,
+      });
+      setRightWindowExtensions(getRightWindowExtensions());
+      return () => { unregister(); };
+    } catch {
+      return undefined;
+    }
+  }, []);
+  useEffect(() => {
+    const extensionId = "local-terminal";
+    if (getRightWindowExtension(extensionId)) return undefined;
+    try {
+      const unregister = registerRightWindowExtension({
+        id: extensionId,
+        name: "Terminal",
+        icon: <TerminalIcon size={20} strokeWidth={1.8} />,
+        description: "Run commands, inspect output, and manage local workspace sessions.",
+        minWidth: 380,
+        defaultWidth: 520,
+        render: (api, context) => <TerminalApp api={api} context={context} />,
       });
       setRightWindowExtensions(getRightWindowExtensions());
       return () => { unregister(); };
