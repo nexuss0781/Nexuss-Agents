@@ -1,14 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connect } from "parad";
 import { composeComplexSystemPrompt, composeGeneralSystemPrompt, composeInstantSystemPrompt, type ComplexMode, type GeneralMode, type InstantEffort } from "./mission/generalAgentPrompt";
 import type { AuditSink, FileSystemAuditEvent } from "../tools/file-system/audit";
 import type { FileSystemRequest } from "../tools/file-system/types";
-
-const execFileAsync = promisify(execFile);
+import { runLocalTerminalForAgent } from "./terminal/localSessionManager";
 
 export type ProjectSourceType = "none" | "upload" | "github";
 export type ProjectWorkspaceStatus = "empty" | "importing" | "ready" | "failed";
@@ -511,7 +508,10 @@ const GENERAL_TERMINAL_TOOL = {
       type: "object",
       properties: {
         command: { type: "string" },
-        timeoutMs: { type: "integer", minimum: 1, maximum: 120000 },
+        workingDirectory: { type: "string", description: "Project-relative working directory; defaults to the project root." },
+        timeoutMs: { type: "integer", minimum: 1000, maximum: 604800000 },
+        idleTimeoutMs: { type: "integer", minimum: 1000, maximum: 86400000 },
+        label: { type: "string", maximum: 240 },
       },
       required: ["command"],
       additionalProperties: false,
@@ -572,21 +572,19 @@ function boundedToolContent(value: unknown) {
   return (serialized || "").slice(0, 32_000);
 }
 
-async function executeGeneralTerminalTool(ownerId: string, projectId: string, call: PlaygroundToolCall) {
+async function executeGeneralTerminalTool(ownerId: string, projectId: string, call: PlaygroundToolCall, signal: AbortSignal) {
   let parsed: Record<string, unknown>;
   try { parsed = JSON.parse(call.function.arguments) as Record<string, unknown>; } catch { return { ok: false, code: "INVALID_TOOL_ARGUMENTS", message: "The terminal tool arguments were not valid JSON." }; }
   const command = typeof parsed.command === "string" ? parsed.command.trim() : "";
   if (!command) return { ok: false, code: "INVALID_TOOL_ARGUMENTS", message: "The terminal command is required." };
-  const timeoutMs = typeof parsed.timeoutMs === "number" && Number.isFinite(parsed.timeoutMs) ? Math.max(1_000, Math.min(120_000, Math.floor(parsed.timeoutMs))) : 120_000;
-  const { resolveOwnedProjectWorkspace } = await import("./fileSystemRuntime");
-  const workspace = await resolveOwnedProjectWorkspace(ownerId, projectId);
-  try {
-    const result = await execFileAsync("sh", ["-lc", command], { cwd: workspace.root, timeout: timeoutMs, maxBuffer: 400_000 });
-    return { ok: true, stdout: result.stdout.slice(0, 120_000), stderr: result.stderr.slice(0, 40_000), exitCode: 0 };
-  } catch (error) {
-    const failure = error as { message?: string; stdout?: string; stderr?: string; code?: string | number; killed?: boolean };
-    return { ok: false, code: "COMMAND_FAILED", message: (failure.message || "The terminal command failed.").slice(0, 2_000), stdout: (failure.stdout || "").slice(0, 120_000), stderr: (failure.stderr || "").slice(0, 40_000), exitCode: typeof failure.code === "number" ? failure.code : undefined, killed: failure.killed === true };
-  }
+  const workingDirectory = typeof parsed.workingDirectory === "string" && parsed.workingDirectory.trim() ? parsed.workingDirectory.trim() : ".";
+  const timeoutMs = typeof parsed.timeoutMs === "number" && Number.isFinite(parsed.timeoutMs) ? Math.max(1_000, Math.min(7 * 24 * 60 * 60 * 1000, Math.floor(parsed.timeoutMs))) : 120_000;
+  const idleTimeoutMs = typeof parsed.idleTimeoutMs === "number" && Number.isFinite(parsed.idleTimeoutMs) ? Math.max(1_000, Math.min(24 * 60 * 60 * 1000, Math.floor(parsed.idleTimeoutMs))) : undefined;
+  const session = await runLocalTerminalForAgent(ownerId, { contractVersion: "1.0.0", lane: "local", projectId, workingDirectory, command, shell: "bash", interactive: false, timeout: { timeoutMs, ...(idleTimeoutMs ? { idleTimeoutMs } : {}) }, label: typeof parsed.label === "string" ? parsed.label.slice(0, 240) : undefined }, signal);
+  const stdout = session.events.filter((event) => event.kind === "stdout").map((event) => event.text || "").join("").slice(-120_000);
+  const stderr = session.events.filter((event) => event.kind === "stderr").map((event) => event.text || "").join("").slice(-40_000);
+  const ok = session.state === "completed";
+  return { ok, sessionId: session.sessionId, operationId: session.sessionId, state: session.state, workingDirectory: session.workingDirectory, stdout, stderr, ...(session.exitCode === undefined ? {} : { exitCode: session.exitCode }), ...(ok ? {} : { code: session.state === "timed_out" ? "COMMAND_TIMEOUT" : session.state === "cancelled" ? "COMMAND_CANCELLED" : "COMMAND_FAILED", message: session.summary }) };
 }
 
 async function executeGeneralFilesystemTool(ownerId: string, projectId: string, call: PlaygroundToolCall, mode: GeneralMode) {
@@ -639,20 +637,22 @@ export async function streamWorkspacePrompt(ownerId: string, input: PlaygroundPr
       if (!input.projectId) break;
       messages.push({ role: "assistant", content: result.content || "", tool_calls: result.toolCalls });
       for (const call of result.toolCalls) {
-        const action = (() => { try { return String((JSON.parse(call.function.arguments) as Record<string, unknown>).action || "filesystem"); } catch { return "filesystem"; } })();
+        const parsedArguments = (() => { try { return JSON.parse(call.function.arguments) as Record<string, unknown>; } catch { return {}; } })();
+        const action = typeof parsedArguments.action === "string" ? parsedArguments.action : "filesystem";
         const toolType = call.function.name === "terminal" ? "terminal" : "filesystem";
-        onToolEvent({ type: `${toolType}.started` as PlaygroundToolEvent["type"], id: call.id, action: toolType === "terminal" ? "terminal" : action, status: "running" });
+        const terminalAction = typeof parsedArguments.command === "string" && parsedArguments.command.trim() ? parsedArguments.command.trim().slice(0, 96) : "terminal";
+        onToolEvent({ type: `${toolType}.started` as PlaygroundToolEvent["type"], id: call.id, action: toolType === "terminal" ? terminalAction : action, status: "running" });
         let toolResult: unknown;
         try {
           toolResult = call.function.name === "terminal"
-            ? activeGeneralMode === "build" ? await executeGeneralTerminalTool(ownerId, input.projectId, call) : { ok: false, code: "MODE_REJECTED", message: "Terminal execution is available only in Build mode." }
+            ? activeGeneralMode === "build" ? await executeGeneralTerminalTool(ownerId, input.projectId, call, signal) : { ok: false, code: "MODE_REJECTED", message: "Terminal execution is available only in Build mode." }
             : await executeGeneralFilesystemTool(ownerId, input.projectId, call, activeGeneralMode);
         } catch (error) { toolResult = { ok: false, code: "TOOL_EXECUTION_FAILED", message: error instanceof Error ? error.message : "The requested tool failed." }; }
         const failed = Boolean(toolResult && typeof toolResult === "object" && "ok" in toolResult && (toolResult as { ok?: unknown }).ok === false);
         const operationId = toolResult && typeof toolResult === "object" && "operationId" in toolResult ? String((toolResult as { operationId?: unknown }).operationId || "") : undefined;
         const code = toolResult && typeof toolResult === "object" && "code" in toolResult ? String((toolResult as { code?: unknown }).code || "") : undefined;
         const message = toolResult && typeof toolResult === "object" && "message" in toolResult ? String((toolResult as { message?: unknown }).message || "") : undefined;
-        onToolEvent({ type: `${toolType}.${failed ? "failed" : "completed"}` as PlaygroundToolEvent["type"], id: call.id, action: toolType === "terminal" ? "terminal" : action, status: failed ? "failed" : "completed", ...(operationId ? { operationId } : {}), ...(code ? { code } : {}), ...(message ? { message } : {}) });
+        onToolEvent({ type: `${toolType}.${failed ? "failed" : "completed"}` as PlaygroundToolEvent["type"], id: call.id, action: toolType === "terminal" ? terminalAction : action, status: failed ? "failed" : "completed", ...(operationId ? { operationId } : {}), ...(code ? { code } : {}), ...(message ? { message } : {}) });
         messages.push({ role: "tool", tool_call_id: call.id, content: boundedToolContent(toolResult) });
       }
     }

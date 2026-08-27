@@ -330,6 +330,44 @@ export async function getLocalTerminalSession(ownerId: string, sessionId: string
   });
 }
 
+export async function runLocalTerminalForAgent(ownerId: string, rawRequest: unknown, signal: AbortSignal): Promise<LocalTerminalSession> {
+  const started = await startLocalTerminal(ownerId, rawRequest);
+  const sessionId = started.sessionId;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let settled = false;
+  const terminal = (state: TerminalState) => state === "completed" || state === "failed" || state === "cancelled" || state === "timed_out" || state === "interrupted";
+  const cancelOnAbort = () => { void cancelLocalTerminal(ownerId, sessionId).catch(() => undefined); };
+  if (signal.aborted) cancelOnAbort();
+  signal.addEventListener("abort", cancelOnAbort, { once: true });
+  try {
+    return await new Promise<LocalTerminalSession>((resolvePromise, rejectPromise) => {
+      const finish = (value: LocalTerminalSession) => {
+        if (settled) return;
+        settled = true;
+        if (timer) clearTimeout(timer);
+        resolvePromise(value);
+      };
+      const poll = async () => {
+        try {
+          const current = await getLocalTerminalSession(ownerId, sessionId);
+          if (terminal(current.state) || signal.aborted) {
+            if (signal.aborted && !terminal(current.state)) { cancelOnAbort(); timer = setTimeout(poll, 75); return; }
+            finish(current);
+            return;
+          }
+          timer = setTimeout(poll, 100);
+        } catch (error) {
+          if (!settled) { settled = true; rejectPromise(error); }
+        }
+      };
+      void poll();
+    });
+  } finally {
+    signal.removeEventListener("abort", cancelOnAbort);
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function listLocalTerminalSessions(ownerId: string, projectId?: string, limit = 50): Promise<LocalTerminalSessionSummary[]> {
   const boundedLimit = Math.max(1, Math.min(200, Math.floor(limit)));
   return withWorkspaceDb(false, (db) => db.execute(

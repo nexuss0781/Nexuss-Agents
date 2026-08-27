@@ -53,7 +53,7 @@ vi.mock("../paradoxWorkspace", () => ({
 }));
 vi.mock("../projectWorkspace", () => ({ projectWorkspacePath: vi.fn(() => "/tmp/nexuss-terminal-project") }));
 
-import { getLocalTerminalSession, listLocalTerminalSessions, sendLocalTerminalInput, startLocalTerminal, subscribeLocalTerminalSession, cancelLocalTerminal } from "./localSessionManager";
+import { getLocalTerminalSession, listLocalTerminalSessions, sendLocalTerminalInput, startLocalTerminal, subscribeLocalTerminalSession, cancelLocalTerminal, runLocalTerminalForAgent } from "./localSessionManager";
 
 const request = (command: string, overrides: Record<string, unknown> = {}) => ({
   contractVersion: "1.0.0",
@@ -102,6 +102,18 @@ describe("local terminal session manager", () => {
       const completed = await waitForTerminal(started.sessionId, "completed");
       expect(completed.events.some((event) => event.kind === "stdin" && event.input === "alpha\n")).toBe(true);
       expect(completed.events.some((event) => event.kind === "stdout" && event.text?.includes("received:alpha"))).toBe(true);
+    } finally {
+      await rm("/tmp/nexuss-terminal-project", { recursive: true, force: true });
+    }
+  });
+
+  it("waits for an agent command to finish and returns the durable session result", async () => {
+    await mkdir("/tmp/nexuss-terminal-project", { recursive: true });
+    try {
+      const completed = await runLocalTerminalForAgent("owner-1", request("printf 'agent-result\\n'"), new AbortController().signal);
+      expect(completed.state).toBe("completed");
+      expect(completed.result?.events.some((event) => event.text?.includes("agent-result"))).toBe(true);
+      expect(completed.result?.identity).toMatchObject({ workingDirectory: "/tmp/nexuss-terminal-project" });
     } finally {
       await rm("/tmp/nexuss-terminal-project", { recursive: true, force: true });
     }
