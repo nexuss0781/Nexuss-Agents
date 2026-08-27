@@ -542,7 +542,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   const renameThreadMutation = trpc.workspace.renameThread.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Thread could not be renamed") });
   const deleteThreadMutation = trpc.workspace.deleteThread.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Thread could not be deleted") });
   const assignThreadProjectMutation = trpc.workspace.assignThreadProject.useMutation({ onSuccess: refreshWorkspace, onError: () => toast.error("Project assignment could not be saved") });
-  const saveModelSettingsMutation = trpc.workspace.saveModelSettings.useMutation({ onError: (error) => toast.error(error.message || "Provider settings could not be saved") });
+  const saveModelSettingsMutation = trpc.workspace.saveModelSettings.useMutation({ onSuccess: (settings) => { setSelectedModels(settings.selectedModels); setAvailableModels((current) => Array.from(new Set([...current, ...(settings.availableModels || [])]))); void utils.workspace.modelSettings.invalidate(); }, onError: (error) => toast.error(error.message || "Provider settings could not be saved") });
   const discoverModelsMutation = trpc.workspace.discoverModels.useMutation({ onError: (error) => toast.error(error.message || "Models could not be refreshed") });
   const launchMissionFromConversationMutation = trpc.workspace.mission.launchFromConversation.useMutation();
   const conversationHandoffMutation = trpc.workspace.handoff.useMutation();
@@ -1190,6 +1190,7 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
       return;
     }
     if (!activeModel) return toast.error("Select a model in Settings before sending a prompt.");
+    if (saveModelSettingsMutation.isPending) return toast.info("Saving the selected model… try again in a moment.");
     try {
       const targetThread = activeThread || await createThreadMutation.mutateAsync({ projectId: pendingProjectId });
       setActiveThreadId(targetThread.id);
@@ -1233,7 +1234,11 @@ export default function Home({ profileName = "Nexuss Operator", profileEmail, pr
   }
 
   function toggleModel(model: string) {
-    setSelectedModels((current) => current.includes(model) ? current.filter((item) => item !== model) : [...current, model]);
+    const nextSelectedModels = selectedModels.includes(model) ? selectedModels.filter((item) => item !== model) : [...selectedModels, model];
+    setSelectedModels(nextSelectedModels);
+    if (modelSettingsQuery.data?.apiKeyConfigured && modelBaseUrl.trim()) {
+      saveModelSettingsMutation.mutate({ baseUrl: modelBaseUrl, selectedModels: nextSelectedModels });
+    }
   }
 
   function chooseProject(projectId: string | null) {

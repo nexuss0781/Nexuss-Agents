@@ -206,7 +206,8 @@ describe("persistent workspace client", () => {
     await waitForText(host, "model-beta");
     expect(host.querySelector(".model-list")).not.toBeNull();
     const beta = Array.from(host.querySelectorAll<HTMLButtonElement>(".model-choice")).find((button) => button.textContent?.includes("model-beta"));
-    await act(async () => { beta?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    await act(async () => { beta?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
+    expect(calls).toHaveBeenCalledWith("workspace.saveModelSettings", expect.objectContaining({ selectedModels: ["model-alpha", "model-beta"] }));
     const saveProvider = Array.from(host.querySelectorAll("button")).find((button) => button.textContent?.includes("Save provider"));
     await act(async () => { saveProvider?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolveTick) => setTimeout(resolveTick, 0)); });
     expect(calls).toHaveBeenCalledWith("workspace.saveModelSettings", expect.objectContaining({ selectedModels: ["model-alpha", "model-beta"] }));
