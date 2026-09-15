@@ -8,6 +8,9 @@ services:
       mountPath: /var/lib/nexuss-workspace
       sizeGB: 10
     envVars:
+      # Set this to the same Supabase connection string used by Vercel.
+      - key: DATABASE_URL
+        sync: false
       - key: NEXUSS_WORKSPACE_ROOT
         value: /var/lib/nexuss-workspace
       - key: NEXUSS_AUTH_URL
