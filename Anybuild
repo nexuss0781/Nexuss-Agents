@@ -15,6 +15,8 @@ config = node_config(
     node_build_command = "pnpm run build",
     node_version = "24",
     pnpm_version = "10.4.1",
+    edgejs_enable = False,
+    edgejs_precompile = False,
 )
 
 build = node_build(config)
