@@ -7,7 +7,7 @@ load("//anybuild:services.bzl", "postgres")
 config = node_config(
     schema = 1,
     commands = {
-        "start": "NODE_ENV=production node dist/index.js",
+        "start": "node dist/index.js",
     },
     services = [postgres()],
     node_package_manager = "pnpm",
